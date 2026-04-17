@@ -1,6 +1,38 @@
 import { useCallback, useEffect, useState } from "react";
 import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval } from "../api";
 
+// Small monospace pill for a single usage counter. Keeps the admin row
+// scannable — zero values render greyed out so non-zero activity visually
+// pops. Used inside the activity strip under each user row.
+function UsageChip({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent: "sky" | "violet" | "amber" | "emerald" | "muted";
+}) {
+  const zero = value === 0;
+  const palette = zero
+    ? "bg-[var(--bg-surface)] text-[var(--text-ghost)] border-[var(--border-subtle)]"
+    : accent === "sky"
+      ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+      : accent === "violet"
+        ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
+        : accent === "amber"
+          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+          : accent === "emerald"
+            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+            : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)]";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${palette}`}>
+      <span className="font-semibold tabular-nums">{value}</span>
+      <span className="lowercase tracking-normal">{label}</span>
+    </span>
+  );
+}
+
 interface Props {
   currentUser: AuthUser;
   onNavigateToLanding: () => void;
@@ -221,11 +253,24 @@ export default function AdminPage({
                 // showing a disabled button you can't use is worse UX than
                 // hiding it outright.
                 const isSelf = u.email.toLowerCase() === currentUser.email.toLowerCase();
+
+                // "Last seen" — the most recent usage_tracking period.
+                // Null means the user has never run a pipeline, which for
+                // a freshly-approved tester is expected.
+                const lastActiveText = (() => {
+                  if (!u.last_active_date) return "never";
+                  const d = new Date(u.last_active_date + "T00:00:00Z");
+                  const days = Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+                  if (days === 0) return "today";
+                  if (days === 1) return "yesterday";
+                  return `${days}d ago`;
+                })();
                 return (
                   <div
                     key={u.id}
-                    className="grid grid-cols-1 md:grid-cols-[2fr_2fr_0.8fr_1fr_1fr_auto] gap-3 px-5 py-4 items-center hover:bg-[var(--bg-surface)]/40 transition-colors"
+                    className="px-5 py-4 hover:bg-[var(--bg-surface)]/40 transition-colors"
                   >
+                    <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr_0.8fr_1fr_1fr_auto] gap-3 items-center">
                     <div className="text-sm text-[var(--text-primary)] truncate font-mono">{u.email}</div>
                     <div className="text-sm text-[var(--text-secondary)] truncate">{u.name}</div>
                     <div>
@@ -293,6 +338,40 @@ export default function AdminPage({
                           )}
                         </>
                       )}
+                    </div>
+                    </div>
+
+                    {/* Usage strip — per-user activity summary. Shown for
+                        every row regardless of status because "this signup
+                        ran 5 pipelines before approval" is something an
+                        admin wants to see when triaging. */}
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+                      <span className="uppercase tracking-wider text-[var(--text-ghost)] mr-1">Today</span>
+                      <UsageChip label="jobs scraped" value={u.jobs_scraped_today} accent="sky" />
+                      <UsageChip label="auto-tailored" value={u.resumes_tailored_today} accent="violet" />
+                      <UsageChip label="manual tailors" value={u.manual_tailors_today} accent="amber" />
+                      <UsageChip label="pipeline runs" value={u.pipeline_runs_today} accent="emerald" />
+
+                      <span className="mx-2 h-3 w-px bg-[var(--border-subtle)]" />
+
+                      <span className="uppercase tracking-wider text-[var(--text-ghost)] mr-1">Lifetime</span>
+                      <UsageChip label="jobs" value={u.total_jobs} accent="muted" />
+                      <UsageChip label="auto" value={u.resumes_tailored_total} accent="muted" />
+                      <UsageChip label="manual" value={u.manual_tailors_total} accent="muted" />
+                      <UsageChip label="runs" value={u.pipeline_runs_total} accent="muted" />
+
+                      <span className="mx-2 h-3 w-px bg-[var(--border-subtle)]" />
+
+                      <span className={`uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        u.gmail_connected
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-subtle)]"
+                      }`}>
+                        Gmail {u.gmail_connected ? "✓" : "–"}
+                      </span>
+                      <span className="uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-subtle)]">
+                        Last active: {lastActiveText}
+                      </span>
                     </div>
                   </div>
                 );

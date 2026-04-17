@@ -153,19 +153,52 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
   const status = typeof req.query.status === "string" ? req.query.status : null;
   try {
+    // Aggregate usage per user in one query. The LEFT JOIN + GROUP BY
+    // folds every usage_tracking row into a single counter per profile,
+    // plus the subselects pull total jobs / manual tailors / gmail
+    // connectivity. Kept under one round-trip so the admin list scales
+    // past a few hundred users without N+1 queries.
     const rows = status
       ? await sql`
-          SELECT id, email, name, plan, approval_status, approved_at, created_at
-            FROM profiles
-           WHERE approval_status = ${status}
-           ORDER BY created_at DESC
-           LIMIT 500
+          SELECT
+            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at,
+            COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.jobs_scraped      ELSE 0 END), 0)::int AS jobs_scraped_today,
+            COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.resumes_tailored  ELSE 0 END), 0)::int AS resumes_tailored_today,
+            COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.pipeline_runs     ELSE 0 END), 0)::int AS pipeline_runs_today,
+            COALESCE(SUM(ut.jobs_scraped), 0)::int      AS jobs_scraped_total,
+            COALESCE(SUM(ut.resumes_tailored), 0)::int  AS resumes_tailored_total,
+            COALESCE(SUM(ut.pipeline_runs), 0)::int     AS pipeline_runs_total,
+            (SELECT COUNT(*)::int FROM jobs              WHERE user_id = p.id)                                                     AS total_jobs,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id)                                                     AS manual_tailors_total,
+            EXISTS(SELECT 1 FROM gmail_tokens            WHERE user_id = p.id)                                                     AS gmail_connected,
+            (SELECT MAX(period) FROM usage_tracking      WHERE user_id = p.id)                                                     AS last_active_date
+          FROM profiles p
+          LEFT JOIN usage_tracking ut ON ut.user_id = p.id
+          WHERE p.approval_status = ${status}
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+          LIMIT 500
         `
       : await sql`
-          SELECT id, email, name, plan, approval_status, approved_at, created_at
-            FROM profiles
-           ORDER BY created_at DESC
-           LIMIT 500
+          SELECT
+            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at,
+            COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.jobs_scraped      ELSE 0 END), 0)::int AS jobs_scraped_today,
+            COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.resumes_tailored  ELSE 0 END), 0)::int AS resumes_tailored_today,
+            COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.pipeline_runs     ELSE 0 END), 0)::int AS pipeline_runs_today,
+            COALESCE(SUM(ut.jobs_scraped), 0)::int      AS jobs_scraped_total,
+            COALESCE(SUM(ut.resumes_tailored), 0)::int  AS resumes_tailored_total,
+            COALESCE(SUM(ut.pipeline_runs), 0)::int     AS pipeline_runs_total,
+            (SELECT COUNT(*)::int FROM jobs              WHERE user_id = p.id)                                                     AS total_jobs,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id)                                                     AS manual_tailors_total,
+            EXISTS(SELECT 1 FROM gmail_tokens            WHERE user_id = p.id)                                                     AS gmail_connected,
+            (SELECT MAX(period) FROM usage_tracking      WHERE user_id = p.id)                                                     AS last_active_date
+          FROM profiles p
+          LEFT JOIN usage_tracking ut ON ut.user_id = p.id
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+          LIMIT 500
         `;
     res.json({ users: rows });
   } catch (err: any) {

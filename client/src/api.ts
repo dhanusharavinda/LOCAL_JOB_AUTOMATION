@@ -824,6 +824,19 @@ export interface AdminUserRow {
   approval_status: "pending" | "approved" | "rejected";
   approved_at: string | null;
   created_at: string;
+  // Usage aggregates — populated server-side from usage_tracking +
+  // free_tailor_log + jobs + gmail_tokens in a single query.
+  jobs_scraped_today: number;
+  resumes_tailored_today: number;
+  pipeline_runs_today: number;
+  jobs_scraped_total: number;
+  resumes_tailored_total: number;
+  pipeline_runs_total: number;
+  total_jobs: number;
+  manual_tailors_today: number;
+  manual_tailors_total: number;
+  gmail_connected: boolean;
+  last_active_date: string | null; // ISO date (YYYY-MM-DD) or null if never
 }
 
 export async function adminListUsers(status?: "pending" | "approved" | "rejected"): Promise<AdminUserRow[]> {
