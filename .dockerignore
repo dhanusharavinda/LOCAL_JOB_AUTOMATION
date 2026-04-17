@@ -1,0 +1,89 @@
+# Keep the build context small + deterministic — anything listed here is
+# never COPY'd into the image, even if the Dockerfile says `COPY . .`.
+# Rule of thumb: if it's in .gitignore, it almost certainly belongs here.
+
+# Dependencies (re-installed via npm ci inside the image)
+node_modules
+**/node_modules
+
+# Build output (regenerated inside the image)
+dist
+**/dist
+build
+**/build
+out
+**/out
+*.tsbuildinfo
+.vite
+**/.vite
+.turbo
+.cache
+.parcel-cache
+
+# Client bundle — client ships to Vercel, not Railway. Excluding its
+# source here would break the monorepo npm ci, so we keep client/src
+# but drop its build artefacts above.
+
+# Environment + secrets
+.env
+.env.*
+!.env.example
+google-service-account.json
+server/gmail-token.json
+gmail-token.json
+**/service-account*.json
+**/*-credentials.json
+*.pem
+*.key
+*.p12
+
+# DB files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+server/jobs.db*
+server/data
+server/resumes
+
+# Git metadata
+.git
+.gitignore
+.gitattributes
+.github
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*~
+.claude
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs
+
+# External / vendored repos — never ship these
+career-ops-main
+humanizer-main
+ULTIMATE_JOB_SCRAPER
+Resume_rewrite_feature
+UI_RESOURCE
+
+# Local scratch
+JOURNAL.md
+LINKEDIN_URL_GUIDE.md
+MIGRATION_STATUS.md
+dublinjobintelligence.md
+test-*.pdf
+test-*.json
+
+# Alternate deploy configs — Dockerfile is the source of truth now
+nixpacks.toml
+railpack.json
