@@ -27,6 +27,13 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
       candidateCount = parseInt(rows[0]?.cnt ?? "0", 10);
     }
 
+    // Admin status is server-determined from ADMIN_EMAILS (CSV env).
+    // Computing it here means the client never has to know the admin list
+    // — it just reads `is_admin` from /me and shows/hides the admin UI.
+    const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
+    const admins = adminCsv ? adminCsv.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean) : [];
+    const isAdmin = admins.includes(user.email.toLowerCase());
+
     res.json({
       user: {
         id: user.id,
@@ -35,6 +42,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
         plan: user.plan,
         onboarded_at: user.onboarded_at,
         approval_status: user.approval_status,
+        is_admin: isAdmin,
       },
       usage,
       limits,
@@ -175,6 +183,14 @@ router.post("/admin/approve/:userId", requireAuth, async (req: Request, res: Res
   const next = typeof req.body?.status === "string" ? req.body.status : "approved";
   if (next !== "approved" && next !== "rejected" && next !== "pending") {
     res.status(400).json({ error: "status must be approved, rejected, or pending" });
+    return;
+  }
+  // Prevent an admin from accidentally rejecting or suspending themselves
+  // — that would lock them out of the very panel they're using. If they
+  // really need to change their own status, have another admin do it or
+  // edit the row from the Supabase SQL editor.
+  if (userId === req.user!.id && next !== "approved") {
+    res.status(400).json({ error: "You can't change your own approval status. Ask another admin." });
     return;
   }
   try {

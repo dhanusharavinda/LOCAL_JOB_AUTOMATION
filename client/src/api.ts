@@ -752,6 +752,11 @@ export interface AuthUser {
   // approves them from the admin panel. "approved" = full access,
   // "rejected" = access denied permanently.
   approval_status?: "pending" | "approved" | "rejected";
+  // Server-side admin flag, derived from ADMIN_EMAILS env. The client
+  // only uses this to show/hide the admin nav link; every admin endpoint
+  // is re-verified server-side so tampering with this flag locally
+  // doesn't grant any real access.
+  is_admin?: boolean;
 }
 
 export interface UsageInfo {

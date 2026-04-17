@@ -14,6 +14,7 @@ import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import PricingPage from "./components/PricingPage";
 import WaitlistScreen from "./components/WaitlistScreen";
+import AdminPage from "./components/AdminPage";
 import CandidatesPage from "./components/CandidatesPage";
 
 interface ConfirmDialog {
@@ -25,7 +26,7 @@ interface ConfirmDialog {
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [introFading, setIntroFading] = useState(false);
-  const [page, setPage] = useState<"landing" | "dashboard" | "auth" | "pricing" | "candidates">("landing");
+  const [page, setPage] = useState<"landing" | "dashboard" | "auth" | "pricing" | "candidates" | "admin">("landing");
   const [activeCandidateId, setActiveCandidateId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   // The plan-derived limits from GET /api/auth/me. Drives client-side
@@ -643,7 +644,17 @@ export default function App() {
   // sign-out (which takes them back to the landing page as an anonymous
   // visitor). Pre-signup visitors (currentUser === null) see the normal
   // landing page, so the marketing flow is unaffected.
-  if (currentUser && currentUser.approval_status && currentUser.approval_status !== "approved") {
+  //
+  // Admins bypass the gate even if their row is pending — otherwise a
+  // freshly-seeded admin account would have no way to self-approve, and
+  // locking the owner out of their own deploy is a strictly worse failure
+  // mode than showing them the dashboard a few seconds early.
+  if (
+    currentUser &&
+    currentUser.approval_status &&
+    currentUser.approval_status !== "approved" &&
+    !currentUser.is_admin
+  ) {
     return <WaitlistScreen currentUser={currentUser} onSignOut={handleLogout} />;
   }
 
@@ -692,6 +703,21 @@ export default function App() {
           setActiveCandidateId(candidateId ?? null);
           setPage("dashboard");
         }}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  // Admin route — only renders for users with is_admin from /me. Non-admin
+  // access falls through to the normal routing below; the server re-verifies
+  // every /api/auth/admin/* call so a spoofed is_admin flag grants no real
+  // access. Never call setPage() from the render body — React infinite-loops.
+  if (page === "admin" && currentUser?.is_admin) {
+    return (
+      <AdminPage
+        currentUser={currentUser}
+        onNavigateToLanding={() => setPage("landing")}
+        onNavigateToDashboard={() => setPage("dashboard")}
         onLogout={handleLogout}
       />
     );
@@ -801,6 +827,18 @@ export default function App() {
         <div className="hidden md:block flex-1" />
         {currentUser && (
           <div className="flex items-center gap-2 shrink-0" data-tour="dashboard-user">
+            {currentUser.is_admin && (
+              <button
+                onClick={() => setPage("admin")}
+                className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-lg bg-[#c45252]/10 text-[#c45252] border border-[#c45252]/20 hover:bg-[#c45252]/20 transition-colors"
+                title="Tester approvals + admin tools"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Admin
+              </button>
+            )}
             <span className="hidden md:inline text-xs text-[var(--text-tertiary)] font-mono">
               {currentUser.name}
             </span>
