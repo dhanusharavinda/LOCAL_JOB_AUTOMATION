@@ -332,6 +332,12 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
   for (const [k, v] of Object.entries(configEnv)) childEnv[k] = v;
   childEnv.PIPELINE_USER_ID = userId;
   childEnv.FORCE_COLOR = "0";
+  // Always point the pipeline at THIS server on localhost. On Railway the
+  // server's listen port is whatever $PORT resolves to (Railway randomizes
+  // it), not 3001 — so we cannot rely on the pipeline's default fallback
+  // or an inherited JOB_TRACKER_URL that was set for local dev. Overriding
+  // here makes the spawn work on any host without additional config.
+  childEnv.JOB_TRACKER_URL = `http://127.0.0.1:${process.env.PORT || 3001}`;
 
   const child = spawn(process.execPath, [tsxCli, pipelineEntry], {
     cwd: pipelineCwd,
