@@ -6,62 +6,13 @@ interface Props {
   onClose: () => void;
 }
 
-/**
- * Per-country city list + display label. Mirrors the pipeline's
- * COUNTRY_CITIES so the filter dropdown only shows cities that the
- * event scrapers actually query for this user.
- */
-const COUNTRY_LOCATION_OPTIONS: Record<string, { label: string; cities: Array<{ value: string; label: string }> }> = {
-  ireland: {
-    label: "Ireland",
-    cities: [
-      { value: "dublin",    label: "Dublin" },
-      { value: "cork",      label: "Cork" },
-      { value: "galway",    label: "Galway" },
-      { value: "limerick",  label: "Limerick" },
-      { value: "waterford", label: "Waterford" },
-      { value: "belfast",   label: "Belfast" },
-    ],
-  },
-  uk: {
-    label: "United Kingdom",
-    cities: [
-      { value: "london",     label: "London" },
-      { value: "manchester", label: "Manchester" },
-      { value: "edinburgh",  label: "Edinburgh" },
-      { value: "bristol",    label: "Bristol" },
-      { value: "leeds",      label: "Leeds" },
-      { value: "cambridge",  label: "Cambridge" },
-    ],
-  },
-  netherlands: {
-    label: "Netherlands",
-    cities: [
-      { value: "amsterdam", label: "Amsterdam" },
-      { value: "rotterdam", label: "Rotterdam" },
-      { value: "utrecht",   label: "Utrecht" },
-      { value: "eindhoven", label: "Eindhoven" },
-    ],
-  },
-  india: {
-    label: "India",
-    cities: [
-      { value: "bangalore", label: "Bangalore" },
-      { value: "mumbai",    label: "Mumbai" },
-      { value: "hyderabad", label: "Hyderabad" },
-      { value: "delhi",     label: "Delhi" },
-      { value: "pune",      label: "Pune" },
-    ],
-  },
-  newzealand: {
-    label: "New Zealand",
-    cities: [
-      { value: "auckland",      label: "Auckland" },
-      { value: "wellington",    label: "Wellington" },
-      { value: "christchurch",  label: "Christchurch" },
-      { value: "hamilton",      label: "Hamilton" },
-    ],
-  },
+/** Country options for the events location filter. */
+const COUNTRY_OPTIONS: Record<string, string> = {
+  ireland:     "Ireland",
+  uk:          "United Kingdom",
+  netherlands: "Netherlands",
+  india:       "India",
+  newzealand:  "New Zealand",
 };
 
 function formatEventDate(dateStr: string | null): string {
@@ -98,7 +49,6 @@ export default function CareerEventsModal({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [locationFilter, setLocationFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [sortBy, setSortBy] = useState<"deadline" | "relevancy" | "newest">("deadline");
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -118,31 +68,18 @@ export default function CareerEventsModal({ onClose }: Props) {
       .catch(() => {});
   }, []);
 
-  // Locations shown in the dropdown come from the active country's
-  // city list (mirrors the pipeline's event scraper city list). Online
-  // is appended for virtual events.
-  const LOCATION_OPTIONS = (() => {
-    const cfg = COUNTRY_LOCATION_OPTIONS[activeCountry];
-    const cities = cfg?.cities ?? [];
-    return [
-      { value: "", label: "All locations" },
-      ...cities,
-      { value: "online", label: "Online / Virtual" },
-    ];
-  })();
-  const countryLabel = COUNTRY_LOCATION_OPTIONS[activeCountry]?.label || "All regions";
+  const countryLabel = COUNTRY_OPTIONS[activeCountry] || "All regions";
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const filters: { location?: string; type?: string } = {};
-    if (locationFilter) filters.location = locationFilter;
+    const filters: { type?: string } = {};
     if (typeFilter) filters.type = typeFilter;
     fetchEvents(!showAll, filters)
       .then(setEvents)
       .catch(() => setError("Failed to load events"))
       .finally(() => setLoading(false));
-  }, [showAll, locationFilter, typeFilter]);
+  }, [showAll, typeFilter]);
 
   const RELEVANCY_WEIGHT: Record<string, number> = {
     career_fair: 5, workshop: 4, conference: 3, meetup: 2, networking: 1,
@@ -343,27 +280,23 @@ export default function CareerEventsModal({ onClose }: Props) {
         <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-800/40 shrink-0">
           <select
             value={activeCountry}
-            onChange={(e) => { setActiveCountry(e.target.value); setLocationFilter(""); }}
+            onChange={(e) => { setActiveCountry(e.target.value); }}
             className="bg-[#0f1115] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500/40 cursor-pointer"
           >
-            {Object.entries(COUNTRY_LOCATION_OPTIONS).map(([code, cfg]) => (
-              <option key={code} value={code}>{cfg.label}</option>
+            {Object.entries(COUNTRY_OPTIONS).map(([code, label]) => (
+              <option key={code} value={code}>{label}</option>
             ))}
-          </select>
-          <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
-            className="bg-[#0f1115] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500/40 cursor-pointer">
-            {LOCATION_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
           </select>
           <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
             className="bg-[#0f1115] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500/40 cursor-pointer">
             {TYPE_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
           </select>
-          {(locationFilter || typeFilter) && (
-            <button onClick={() => { setLocationFilter(""); setTypeFilter(""); }}
+          {typeFilter && (
+            <button onClick={() => { setTypeFilter(""); }}
               className="text-xs text-gray-600 hover:text-gray-400 transition-colors">Clear</button>
           )}
           <a
-            href={`/api/events/export.ics?upcoming=${!showAll}${locationFilter ? `&location=${locationFilter}` : ""}${typeFilter ? `&type=${typeFilter}` : ""}`}
+            href={`/api/events/export.ics?upcoming=${!showAll}${typeFilter ? `&type=${typeFilter}` : ""}`}
             download={`tech-events-${activeCountry}.ics`}
             className="text-xs font-medium text-blue-400 bg-blue-500/8 hover:bg-blue-500/15 border border-blue-500/20 px-2.5 py-1.5 rounded-lg transition-colors ml-auto flex items-center gap-1"
           >
@@ -509,7 +442,7 @@ export default function CareerEventsModal({ onClose }: Props) {
                   <div className="text-4xl mb-3">🗓</div>
                   <p className="text-sm text-gray-500">No events found.</p>
                   <p className="text-xs text-gray-600 mt-1">
-                    {locationFilter || typeFilter ? "Try adjusting your filters." : "Events are scraped automatically when you run the pipeline."}
+                    {typeFilter ? "Try adjusting your filters." : "Events are scraped automatically when you run the pipeline."}
                   </p>
                 </div>
               )}

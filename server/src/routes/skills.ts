@@ -75,6 +75,15 @@ const SKILLS = [
   "analytics", "statistics", "data visualization", "reporting",
 ];
 
+// Pre-compiled word-boundary regexes for each skill. Short tokens like
+// "r" and "go" must match as whole words — plain `.includes("r")` hits
+// the letter "r" inside "required", "experience", etc. and falsely puts
+// R-language at the top of every dashboard.
+const SKILL_PATTERNS: RegExp[] = SKILLS.map((s) => {
+  const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![a-zA-Z/])${escaped}(?![a-zA-Z/])`, "i");
+});
+
 // ─── GET /api/skills/current ─────────────────────────────────────────
 // Top skills extracted from the user's scraped job descriptions.
 router.get("/current", requireAuth, async (req: Request, res: Response) => {
@@ -120,10 +129,10 @@ router.get("/current", requireAuth, async (req: Request, res: Response) => {
 
     const skillFreq: Record<string, number> = {};
     for (const job of jobs) {
-      const text = (job.description || "").toLowerCase();
-      for (const skill of SKILLS) {
-        if (text.includes(skill)) {
-          skillFreq[skill] = (skillFreq[skill] || 0) + 1;
+      const text = job.description || "";
+      for (let i = 0; i < SKILLS.length; i++) {
+        if (SKILL_PATTERNS[i].test(text)) {
+          skillFreq[SKILLS[i]] = (skillFreq[SKILLS[i]] || 0) + 1;
         }
       }
     }
