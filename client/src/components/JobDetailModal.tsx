@@ -417,11 +417,19 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               <div className="flex items-center justify-between w-full">
                 <button
                   onClick={() => hasCL && setShowCoverLetter(!showCoverLetter)}
-                  className="flex items-center gap-2 text-left"
+                  className={`flex items-center gap-2 text-left rounded-md px-1 -ml-1 py-0.5 ${hasCL ? "hover:bg-white/5 cursor-pointer" : "cursor-default"}`}
                   disabled={!hasCL}
+                  title={hasCL ? (showCoverLetter ? "Click to collapse" : "Click to reveal the cover letter") : undefined}
                 >
                   <span className="font-mono text-xs font-semibold text-blue-400 uppercase tracking-wider">Cover Letter</span>
-                  {hasCL && <span className="text-gray-600 text-xs">{showCoverLetter ? "Hide" : "Show"}</span>}
+                  {hasCL && (
+                    <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-blue-400/80">
+                      <svg className={`w-3 h-3 transition-transform ${showCoverLetter ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      {showCoverLetter ? "Hide" : "Click to view"}
+                    </span>
+                  )}
                 </button>
                 <div className="flex items-center gap-2">
                   {clError && <span className="text-red-400 text-[10px]">{clError}</span>}
@@ -463,11 +471,19 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               <div className="flex items-center justify-between w-full">
                 <button
                   onClick={() => hasFit && setShowHiringMsg(!showHiringMsg)}
-                  className="flex items-center gap-2 text-left"
+                  className={`flex items-center gap-2 text-left rounded-md px-1 -ml-1 py-0.5 ${hasFit ? "hover:bg-white/5 cursor-pointer" : "cursor-default"}`}
                   disabled={!hasFit}
+                  title={hasFit ? (showHiringMsg ? "Click to collapse" : "Click to reveal the fit summary") : undefined}
                 >
                   <span className="font-mono text-xs font-semibold text-purple-400 uppercase tracking-wider">Why I'm a Fit</span>
-                  {hasFit && <span className="text-gray-600 text-xs">{showHiringMsg ? "Hide" : "Show"}</span>}
+                  {hasFit && (
+                    <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-purple-400/80">
+                      <svg className={`w-3 h-3 transition-transform ${showHiringMsg ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      {showHiringMsg ? "Hide" : "Click to view"}
+                    </span>
+                  )}
                 </button>
                 <div className="flex items-center gap-2">
                   {fitError && <span className="text-red-400 text-[10px]">{fitError}</span>}
