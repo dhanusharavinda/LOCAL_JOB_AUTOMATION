@@ -618,6 +618,15 @@ export async function checkFreeTailorStatus(): Promise<FreeTailorStatus> {
   return res.json();
 }
 
+// Thrown when /api/free-tailor returns 401 — FreeTailorSection catches
+// this and re-opens the AuthModal instead of surfacing a red error banner.
+export class AuthRequiredError extends Error {
+  constructor(message = "Authentication required") {
+    super(message);
+    this.name = "AuthRequiredError";
+  }
+}
+
 export async function freeTailorResume(
   resumeText: string,
   jobDescription: string,
@@ -631,6 +640,7 @@ export async function freeTailorResume(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Tailoring failed" }));
+    if (res.status === 401) throw new AuthRequiredError(err.error || "Authentication required");
     throw new Error(err.error || "Tailoring failed");
   }
   return res.json();

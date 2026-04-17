@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { freeTailorResume, checkFreeTailorStatus, FreeTailorResult, AuthUser } from "../api";
+import { freeTailorResume, checkFreeTailorStatus, FreeTailorResult, AuthUser, AuthRequiredError } from "../api";
 import AuthModal from "./AuthModal";
 
 interface Props {
@@ -123,6 +123,17 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
       setResult(res);
       setPhase("result");
     } catch (err: any) {
+      // If the server says the user isn't authenticated (stale token,
+      // signed out in another tab, cold-start 401, etc.) re-open the sign-
+      // up modal instead of surfacing a raw "Authentication required"
+      // string. The pending-tailor effect will replay the request once
+      // they finish auth.
+      if (err instanceof AuthRequiredError) {
+        setPhase("input");
+        setPendingTailor(true);
+        setShowAuthModal(true);
+        return;
+      }
       setError(err.message || "Something went wrong. Please try again.");
       setPhase("input");
     }
