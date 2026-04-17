@@ -169,8 +169,8 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
             COALESCE(SUM(ut.resumes_tailored), 0)::int  AS resumes_tailored_total,
             COALESCE(SUM(ut.pipeline_runs), 0)::int     AS pipeline_runs_total,
             (SELECT COUNT(*)::int FROM jobs              WHERE user_id = p.id)                                                     AS total_jobs,
-            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
-            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id)                                                     AS manual_tailors_total,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text)                                                     AS manual_tailors_total,
             EXISTS(SELECT 1 FROM gmail_tokens            WHERE user_id = p.id)                                                     AS gmail_connected,
             (SELECT MAX(period) FROM usage_tracking      WHERE user_id = p.id)                                                     AS last_active_date
           FROM profiles p
@@ -190,8 +190,8 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
             COALESCE(SUM(ut.resumes_tailored), 0)::int  AS resumes_tailored_total,
             COALESCE(SUM(ut.pipeline_runs), 0)::int     AS pipeline_runs_total,
             (SELECT COUNT(*)::int FROM jobs              WHERE user_id = p.id)                                                     AS total_jobs,
-            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
-            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id)                                                     AS manual_tailors_total,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
+            (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text)                                                     AS manual_tailors_total,
             EXISTS(SELECT 1 FROM gmail_tokens            WHERE user_id = p.id)                                                     AS gmail_connected,
             (SELECT MAX(period) FROM usage_tracking      WHERE user_id = p.id)                                                     AS last_active_date
           FROM profiles p
