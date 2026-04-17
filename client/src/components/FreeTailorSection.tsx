@@ -401,6 +401,11 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                   Maximum (mirror-mode)
                 </span>
               </div>
+              {intensity === 10 && (
+                <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
+                  <strong className="font-semibold">Mirror-mode warning.</strong> Intensity 10 will fabricate plausible metrics, tools, and projects to hit 90%+ JD keyword coverage. Your ATS score goes up, but recruiters who screen dozens of CVs a day spot JD-mirroring instantly and it reads as lazy or manipulative. Stay at 7-9 for aggressive tailoring without the fabrication tax.
+                </div>
+              )}
             </div>
 
             {/* Error + CTA */}

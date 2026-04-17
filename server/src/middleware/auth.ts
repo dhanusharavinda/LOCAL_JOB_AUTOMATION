@@ -39,6 +39,7 @@ export interface AuthUser {
   name: string;
   plan: "free" | "pro" | "enterprise";
   onboarded_at: string | null;     // ISO timestamp or null if tour not completed
+  approval_status: "pending" | "approved" | "rejected";
 }
 
 // Extend Express Request
@@ -116,7 +117,7 @@ async function tryInternalAuth(req: Request): Promise<AuthUser | null> {
 
   try {
     const rows = await sql<AuthUser[]>`
-      SELECT id, email, name, plan, onboarded_at
+      SELECT id, email, name, plan, onboarded_at, approval_status
         FROM profiles
        WHERE id = ${userId}
        LIMIT 1
@@ -139,7 +140,7 @@ async function tryInternalAuth(req: Request): Promise<AuthUser | null> {
 async function loadProfile(supabaseUid: string): Promise<AuthUser | null> {
   try {
     const rows = await sql<AuthUser[]>`
-      SELECT id, email, name, plan, onboarded_at
+      SELECT id, email, name, plan, onboarded_at, approval_status
         FROM profiles
        WHERE id = ${supabaseUid}
        LIMIT 1
@@ -185,6 +186,9 @@ async function ensureProfile(
     name,
     plan: "free",
     onboarded_at: null,
+    // Fresh JIT-provisioned profile — treated the same as a new trigger-
+    // created row. Falls under the approval gate by default.
+    approval_status: "pending",
   };
 }
 

@@ -408,9 +408,14 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           )}
         </div>
 
-        {/* Cover Letter — always renders; shows Generate button when empty */}
+        {/* Cover Letter — always renders; shows Generate button when empty.
+            Only the `cover_letter` column counts toward "has generated" — the
+            legacy `outreach_email` field used to double as a fallback, but
+            that broke the on-demand contract: stale data in the old column
+            made the Show toggle appear on jobs the user had never asked to
+            generate. */}
         {(() => {
-          const clText = job.cover_letter || job.outreach_email || "";
+          const clText = job.cover_letter || "";
           const hasCL = !!clText;
           return (
             <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">

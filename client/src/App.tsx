@@ -13,6 +13,7 @@ import StoryBankModal from "./components/StoryBankModal";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import PricingPage from "./components/PricingPage";
+import WaitlistScreen from "./components/WaitlistScreen";
 import CandidatesPage from "./components/CandidatesPage";
 
 interface ConfirmDialog {
@@ -635,6 +636,15 @@ export default function App() {
         onAuth={(user) => setCurrentUser(user)}
       />
     );
+  }
+
+  // Approval gate — signed-in users who haven't been approved yet get the
+  // waitlist screen, full stop. The only route they can escape through is
+  // sign-out (which takes them back to the landing page as an anonymous
+  // visitor). Pre-signup visitors (currentUser === null) see the normal
+  // landing page, so the marketing flow is unaffected.
+  if (currentUser && currentUser.approval_status && currentUser.approval_status !== "approved") {
+    return <WaitlistScreen currentUser={currentUser} onSignOut={handleLogout} />;
   }
 
   if (page === "landing") {

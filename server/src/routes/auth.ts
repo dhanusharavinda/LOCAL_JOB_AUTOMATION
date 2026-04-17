@@ -34,6 +34,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
         name: user.name,
         plan: user.plan,
         onboarded_at: user.onboarded_at,
+        approval_status: user.approval_status,
       },
       usage,
       limits,
@@ -112,6 +113,87 @@ router.patch("/me", requireAuth, async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("[PATCH /api/auth/me]", err?.message || err);
     res.status(500).json({ error: "Failed to update name" });
+  }
+});
+
+// ─── Admin: approval gate ────────────────────────────────────────────
+// Owner-only endpoints. Admin identity is determined by ADMIN_EMAILS env
+// (CSV of emails). Keeps the gate off the database schema so you can add
+// admins without a migration. For bigger teams, promote this to a
+// profiles.role column later.
+function isAdmin(email: string | undefined): boolean {
+  if (!email) return false;
+  const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
+  if (!adminCsv) return false;
+  const admins = adminCsv.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return admins.includes(email.toLowerCase());
+}
+
+function requireAdmin(req: Request, res: Response): boolean {
+  if (!isAdmin(req.user?.email)) {
+    res.status(403).json({ error: "Admin access required" });
+    return false;
+  }
+  return true;
+}
+
+// ─── GET /api/auth/admin/users ───────────────────────────────────────
+// List all profiles with approval status. Optional `?status=pending`
+// filter to only see the waitlist. Ordered newest-first so the owner
+// can triage signups in the order they arrived.
+router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const status = typeof req.query.status === "string" ? req.query.status : null;
+  try {
+    const rows = status
+      ? await sql`
+          SELECT id, email, name, plan, approval_status, approved_at, created_at
+            FROM profiles
+           WHERE approval_status = ${status}
+           ORDER BY created_at DESC
+           LIMIT 500
+        `
+      : await sql`
+          SELECT id, email, name, plan, approval_status, approved_at, created_at
+            FROM profiles
+           ORDER BY created_at DESC
+           LIMIT 500
+        `;
+    res.json({ users: rows });
+  } catch (err: any) {
+    console.error("[GET /api/auth/admin/users]", err?.message || err);
+    res.status(500).json({ error: "Failed to list users" });
+  }
+});
+
+// ─── POST /api/auth/admin/approve/:userId ────────────────────────────
+// Flip a profile to approved or rejected. `status` in the body selects
+// which; defaults to 'approved' so a bare POST works as the happy path.
+router.post("/admin/approve/:userId", requireAuth, async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const { userId } = req.params;
+  const next = typeof req.body?.status === "string" ? req.body.status : "approved";
+  if (next !== "approved" && next !== "rejected" && next !== "pending") {
+    res.status(400).json({ error: "status must be approved, rejected, or pending" });
+    return;
+  }
+  try {
+    const rows = await sql<{ id: string; email: string; approval_status: string }[]>`
+      UPDATE profiles
+         SET approval_status = ${next},
+             approved_at     = CASE WHEN ${next} = 'approved' THEN NOW() ELSE approved_at END,
+             approved_by     = CASE WHEN ${next} = 'approved' THEN ${req.user!.id}::uuid ELSE approved_by END
+       WHERE id = ${userId}
+      RETURNING id, email, approval_status
+    `;
+    if (rows.length === 0) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json({ ok: true, user: rows[0] });
+  } catch (err: any) {
+    console.error("[POST /api/auth/admin/approve/:userId]", err?.message || err);
+    res.status(500).json({ error: "Failed to update approval" });
   }
 });
 

@@ -748,6 +748,10 @@ export interface AuthUser {
   name: string;
   plan: "free" | "pro" | "enterprise";
   onboarded_at?: string | null;
+  // Testers land as "pending" and see a waitlist screen until the owner
+  // approves them from the admin panel. "approved" = full access,
+  // "rejected" = access denied permanently.
+  approval_status?: "pending" | "approved" | "rejected";
 }
 
 export interface UsageInfo {
@@ -804,6 +808,46 @@ export async function authMarkOnboarded(): Promise<{ ok: boolean; onboarded_at: 
  * `POST /api/billing/checkout-session` endpoint that redirects to
  * Stripe Checkout. Until then this is the "upgrade" button's backend.
  */
+// ─── Admin: approval gate ───────────────────────────────────────────
+// Owner-only endpoints. The server enforces admin identity via ADMIN_EMAILS
+// env, so a non-admin calling these gets a 403.
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  name: string;
+  plan: "free" | "pro" | "enterprise";
+  approval_status: "pending" | "approved" | "rejected";
+  approved_at: string | null;
+  created_at: string;
+}
+
+export async function adminListUsers(status?: "pending" | "approved" | "rejected"): Promise<AdminUserRow[]> {
+  const qs = status ? `?status=${status}` : "";
+  const res = await fetch(`/api/auth/admin/users${qs}`);
+  if (!res.ok) {
+    if (res.status === 403) throw new Error("Admin access required.");
+    throw new Error(`Failed to list users (HTTP ${res.status})`);
+  }
+  const data = await res.json();
+  return data.users as AdminUserRow[];
+}
+
+export async function adminSetApproval(
+  userId: string,
+  status: "pending" | "approved" | "rejected"
+): Promise<{ ok: boolean; user: { id: string; email: string; approval_status: string } }> {
+  const res = await fetch(`/api/auth/admin/approve/${userId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null as any);
+    throw new Error(errBody?.error || `Failed to update approval (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
 export async function authSetPlan(plan: "free" | "pro" | "enterprise"): Promise<{ ok: boolean; plan: string }> {
   const res = await fetch("/api/auth/plan", {
     method: "PUT",
