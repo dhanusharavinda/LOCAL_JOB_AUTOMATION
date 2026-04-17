@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.env
+google-service-account.json
+*.db

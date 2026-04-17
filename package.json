@@ -1,0 +1,21 @@
+{
+  "name": "job-tracker",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client",
+    "pipeline"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev --workspace=server\" \"npx wait-on tcp:3001 && npm run dev --workspace=client\"",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "pipeline": "npm run pipeline --workspace=pipeline",
+    "preview-url": "npm run preview-url --workspace=pipeline",
+    "build": "npm run build --workspace=server && npm run build --workspace=client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wait-on": "^8.0.5"
+  }
+}
