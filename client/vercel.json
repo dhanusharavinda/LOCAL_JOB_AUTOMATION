@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR_RAILWAY_URL.up.railway.app/api/:path*"
+      "destination": "https://localjobautomation-production.up.railway.app/api/:path*"
     },
     {
       "source": "/keep-alive",
-      "destination": "https://YOUR_RAILWAY_URL.up.railway.app/keep-alive"
+      "destination": "https://localjobautomation-production.up.railway.app/keep-alive"
     },
     {
       "source": "/(.*)",
