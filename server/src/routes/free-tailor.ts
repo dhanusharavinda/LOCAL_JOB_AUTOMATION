@@ -142,7 +142,10 @@ router.post("/", async (req: Request, res: Response) => {
   let used: number;
   try {
     used = await sql.begin(async (tx) => {
-      await tx`SELECT pg_advisory_xact_lock(${lockKey})`;
+      // postgres.js's template parameterizer doesn't accept BigInt directly
+      // (TypeScript error TS2769). Cast via string + Postgres's ::bigint so
+      // the 64-bit advisory-lock key survives without precision loss.
+      await tx`SELECT pg_advisory_xact_lock(${lockKey.toString()}::bigint)`;
       const rows = await tx<{ count: string }[]>`
         SELECT COUNT(*) AS count FROM free_tailor_log
          WHERE user_id = ${userId}
