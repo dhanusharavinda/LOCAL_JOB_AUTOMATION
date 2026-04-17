@@ -349,6 +349,15 @@ async function main() {
         return;
       }
 
+      // Cap relevant jobs at the user's budget (APIFY_JOB_COUNT, already
+      // clamped to the remaining daily quota by the server). Without this,
+      // the 2.5× over-scrape could push 80+ relevant jobs to the tracker
+      // when the plan only allows 50/day.
+      if (stats.relevant >= targetRelevantJobs) {
+        log.skip(`Daily budget reached (${targetRelevantJobs} relevant jobs) — not posting to tracker`);
+        return;
+      }
+
       const reachTag = verdict.is_reach ? " [REACH]" : "";
       log.success(`Relevant (score: ${verdict.score}/10${reachTag}): ${verdict.reason}`);
       stats.relevant++;
@@ -585,15 +594,18 @@ async function main() {
   log.info(`Pipeline completed in ${elapsedMin} minutes`);
   log.summary(stats);
 
-  // ── Report scraped count to the server so it charges the user's daily
-  //    jobs-scraped budget. This replaces the old "one run per day" gate —
-  //    the user can run as many times as they want until the budget runs
-  //    out, and we only charge for what was actually scraped.
+  // ── Report RELEVANT (delivered) count to the server so it charges the
+  //    user's daily jobs-scraped budget. Previously this reported
+  //    stats.scraped (the raw 2.5× over-scraped count), which meant a Pro
+  //    user targeting 50 jobs would be charged ~125, blowing past the
+  //    daily cap in a single run. Now we charge only the jobs that were
+  //    actually delivered to the user's tracker (stats.relevant), which is
+  //    already capped at targetRelevantJobs (the budget-clamped count).
   try {
     await fetch(`${config.JOB_TRACKER_URL}/api/pipeline/report-scraped`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...internalAuthHeaders() },
-      body: JSON.stringify({ count: stats.scraped }),
+      body: JSON.stringify({ count: stats.relevant }),
     });
   } catch (err: any) {
     log.warn(`Failed to report scraped count to server: ${err.message}`);

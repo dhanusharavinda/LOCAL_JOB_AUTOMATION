@@ -109,6 +109,24 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "SCRAPE_NAUKRI", "SCRAPE_INSTAHYRE", "SCRAPE_INDEED_IN",
     ],
   },
+  newzealand: {
+    code: "newzealand",
+    label: "New Zealand",
+    linkedinGeoId: "105490917",
+    locationRegions: [
+      "new zealand", "nz", "aotearoa",
+      "auckland", "wellington", "christchurch", "hamilton", "tauranga",
+      "dunedin", "palmerston north", "napier", "nelson", "rotorua",
+      "new plymouth", "whangarei", "invercargill", "queenstown",
+      "remote", "hybrid", "worldwide", "global",
+    ],
+    scrapers: ["SCRAPE_INDEED_NZ"],
+    defaultEnabled: [
+      "SCRAPE_REMOTEOK", "SCRAPE_JOBICY", "SCRAPE_REMOTIVE",
+      "SCRAPE_HN", "SCRAPE_WWR", "SCRAPE_DEVTO", "SCRAPE_CAREERJET",
+      "SCRAPE_INDEED_NZ",
+    ],
+  },
 };
 
 /** Global scrapers that run regardless of country selection */

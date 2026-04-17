@@ -238,15 +238,15 @@ router.get("/filters", requireAuth, async (req: Request, res: Response) => {
 
     const locRows = await sql<{ location: string; total_cnt: string }[]>`
       SELECT location, SUM(cnt)::text AS total_cnt FROM (
-        SELECT location, COUNT(*) AS cnt FROM scraped_jobs_archive
+        SELECT INITCAP(LOWER(location)) AS location, COUNT(*) AS cnt FROM scraped_jobs_archive
           WHERE user_id = ${userId} AND location IS NOT NULL AND location <> ''
           GROUP BY LOWER(location)
         UNION ALL
-        SELECT location, COUNT(*) AS cnt FROM jobs
+        SELECT INITCAP(LOWER(location)) AS location, COUNT(*) AS cnt FROM jobs
           WHERE user_id = ${userId} AND location IS NOT NULL AND location <> ''
           GROUP BY LOWER(location)
       ) AS combined
-      GROUP BY LOWER(location), location
+      GROUP BY location
       ORDER BY SUM(cnt) DESC
       LIMIT 50
     `;
@@ -259,15 +259,15 @@ router.get("/filters", requireAuth, async (req: Request, res: Response) => {
 
     const companyRows = await sql<{ company_name: string; total_cnt: string }[]>`
       SELECT company_name, SUM(cnt)::text AS total_cnt FROM (
-        SELECT company_name, COUNT(*) AS cnt FROM scraped_jobs_archive
+        SELECT INITCAP(LOWER(company_name)) AS company_name, COUNT(*) AS cnt FROM scraped_jobs_archive
           WHERE user_id = ${userId} AND company_name IS NOT NULL AND company_name <> ''
           GROUP BY LOWER(company_name)
         UNION ALL
-        SELECT company_name, COUNT(*) AS cnt FROM jobs
+        SELECT INITCAP(LOWER(company_name)) AS company_name, COUNT(*) AS cnt FROM jobs
           WHERE user_id = ${userId} AND company_name IS NOT NULL AND company_name <> ''
           GROUP BY LOWER(company_name)
       ) AS combined
-      GROUP BY LOWER(company_name), company_name
+      GROUP BY company_name
       ORDER BY SUM(cnt) DESC
       LIMIT 200
     `;

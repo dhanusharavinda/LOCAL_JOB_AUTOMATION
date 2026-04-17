@@ -53,6 +53,15 @@ const COUNTRY_LOCATION_OPTIONS: Record<string, { label: string; cities: Array<{ 
       { value: "pune",      label: "Pune" },
     ],
   },
+  newzealand: {
+    label: "New Zealand",
+    cities: [
+      { value: "auckland",      label: "Auckland" },
+      { value: "wellington",    label: "Wellington" },
+      { value: "christchurch",  label: "Christchurch" },
+      { value: "hamilton",      label: "Hamilton" },
+    ],
+  },
 };
 
 function formatEventDate(dateStr: string | null): string {
@@ -332,6 +341,15 @@ export default function CareerEventsModal({ onClose }: Props) {
 
         {/* Filters */}
         <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-800/40 shrink-0">
+          <select
+            value={activeCountry}
+            onChange={(e) => { setActiveCountry(e.target.value); setLocationFilter(""); }}
+            className="bg-[#0f1115] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500/40 cursor-pointer"
+          >
+            {Object.entries(COUNTRY_LOCATION_OPTIONS).map(([code, cfg]) => (
+              <option key={code} value={code}>{cfg.label}</option>
+            ))}
+          </select>
           <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
             className="bg-[#0f1115] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500/40 cursor-pointer">
             {LOCATION_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}

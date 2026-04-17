@@ -29,6 +29,7 @@ const COUNTRY_CITIES: Record<string, { meetupGeo: string; cities: string[]; coun
   uk:          { meetupGeo: "gb", cities: ["London", "Manchester", "Edinburgh", "Bristol"],     countryLabel: "United Kingdom" },
   netherlands: { meetupGeo: "nl", cities: ["Amsterdam", "Rotterdam", "Utrecht", "Eindhoven"],   countryLabel: "Netherlands" },
   india:       { meetupGeo: "in", cities: ["Bangalore", "Mumbai", "Hyderabad", "Delhi", "Pune"], countryLabel: "India" },
+  newzealand:  { meetupGeo: "nz", cities: ["Auckland", "Wellington", "Christchurch", "Hamilton"], countryLabel: "New Zealand" },
 };
 
 /**

@@ -80,6 +80,7 @@ const COUNTRY_OPTIONS = [
   { code: "uk",          label: "United Kingdom", flag: "GB", desc: "Roles across the UK" },
   { code: "netherlands", label: "Netherlands",    flag: "NL", desc: "Roles across the Netherlands" },
   { code: "india",       label: "India",          flag: "IN", desc: "Roles across India" },
+  { code: "newzealand",  label: "New Zealand",    flag: "NZ", desc: "Roles across New Zealand" },
 ];
 
 // ── Role → keyword expansion map ──
@@ -1066,6 +1067,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                         uk:          "uk",
                         netherlands: "netherlands",
                         india:       "india",
+                        newzealand:  "newzealand",
                       };
                       updateConfig("LOCATION_REGIONS", regionMap[code] || code);
                       // Clear any persisted LinkedIn search URL — if we
