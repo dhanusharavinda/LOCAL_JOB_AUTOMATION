@@ -502,8 +502,14 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     };
 
     es.onerror = () => {
+      // EventSource fires onerror both for transient hiccups (where the
+      // browser will auto-reconnect) and for terminal failures (where
+      // it won't). If we're currently running a pipeline and the stream
+      // closes permanently, tell the user the live-log view died rather
+      // than leaving them staring at a frozen panel forever.
       es.close();
       eventSourceRef.current = null;
+      setError((prev) => prev ?? "Live log stream dropped. Refresh to reconnect.");
     };
   }, []);
 

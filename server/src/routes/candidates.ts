@@ -36,10 +36,16 @@ router.get("/", async (req: Request, res: Response) => {
     for (const c of rows) {
       const usage = await getUsage(userId, c.id);
       const limits = getLimitsForUser(plan, c.id, c.tier as 1 | 2 | 3);
+      // COUNT columns arrive from postgres.js as strings; parseInt'd blindly
+      // they'd become NaN if anything malformed slipped through, which then
+      // JSON-serializes as null and breaks the candidates page's numeric
+      // display. Fall back to 0 on any non-finite parse.
+      const jobCountRaw = parseInt(String(c.job_count ?? 0), 10);
+      const tailoredCountRaw = parseInt(String(c.tailored_count ?? 0), 10);
       result.push({
         ...c,
-        job_count: parseInt(String(c.job_count || 0), 10),
-        tailored_count: parseInt(String(c.tailored_count || 0), 10),
+        job_count: Number.isFinite(jobCountRaw) ? jobCountRaw : 0,
+        tailored_count: Number.isFinite(tailoredCountRaw) ? tailoredCountRaw : 0,
         usage,
         limits,
         canRunToday: usage.pipeline_runs < 1,

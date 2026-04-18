@@ -34,8 +34,18 @@ function maskJobRow<T extends { source?: string | null; sources?: unknown }>(row
       const arr = JSON.parse(row.sources);
       if (Array.isArray(arr)) {
         masked.sources = Array.from(new Set(arr.map((s: any) => maskSource(String(s))))).filter(Boolean);
+      } else {
+        // JSON parsed but was not an array — safest behaviour is to
+        // collapse to null rather than leak the raw DB value.
+        masked.sources = null;
       }
-    } catch { /* leave as-is */ }
+    } catch (err) {
+      // Malformed JSON in sources would leak the raw DB string to the
+      // client if we left it untouched (exposing scraper identity).
+      // Log + null it out so identity never escapes the API boundary.
+      console.warn("[maskJobRow] failed to parse sources JSON:", (err as Error).message);
+      masked.sources = null;
+    }
   }
   return masked as T;
 }
@@ -88,7 +98,12 @@ router.get("/exists", requireAuth, async (req: Request, res: Response) => {
 router.get("/", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const status = typeof req.query.status === "string" ? req.query.status : null;
-  const candidateId = req.query.candidate_id ? parseInt(String(req.query.candidate_id), 10) : null;
+  // parseInt returns NaN for junk input, and `NaN && ...` is falsy but
+  // `candidateId` would then be NaN which produces confusing SQL errors
+  // downstream. Guard with Number.isFinite so only real integer ids
+  // reach the query branches; anything else collapses to null (no filter).
+  const rawCandidate = req.query.candidate_id ? parseInt(String(req.query.candidate_id), 10) : null;
+  const candidateId = rawCandidate != null && Number.isFinite(rawCandidate) ? rawCandidate : null;
 
   try {
     let rows;
@@ -144,8 +159,11 @@ router.post("/exists-batch", requireAuth, async (req: Request, res: Response) =>
     return;
   }
   // Drop non-strings / empties defensively so a single malformed entry
-  // doesn't poison the whole query.
-  const cleanLinks = links.filter((l): l is string => typeof l === "string" && l.length > 0);
+  // doesn't poison the whole query. Cap at 500 to prevent a client from
+  // passing the entire internet as a single batch and stalling Postgres.
+  const cleanLinks = links
+    .filter((l): l is string => typeof l === "string" && l.length > 0)
+    .slice(0, 500);
   if (cleanLinks.length === 0) {
     res.json({ duplicates: [], flagged: [] });
     return;

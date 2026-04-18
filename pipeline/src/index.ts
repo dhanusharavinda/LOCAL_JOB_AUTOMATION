@@ -211,12 +211,21 @@ async function main() {
       source: j.source || "linkedin",
       contentHash: j.contentHash || "",
     }));
-    await fetch(`${config.JOB_TRACKER_URL}/api/skills/archive`, {
+    const archiveRes = await fetch(`${config.JOB_TRACKER_URL}/api/skills/archive`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...internalAuthHeaders() },
       body: JSON.stringify({ jobs: archivePayload }),
     });
-    log.success(`Archived ${dedupedJobs.length} jobs for skills analysis`);
+    // Previously we logged success unconditionally, so a 500 from the
+    // server still printed "Archived N jobs" — making stale skills
+    // trends extremely hard to debug. Now the success log only fires
+    // when the archive actually succeeded.
+    if (!archiveRes.ok) {
+      const body = await archiveRes.text().catch(() => "");
+      log.warn(`Job archive failed: HTTP ${archiveRes.status} ${body.slice(0, 200)}`);
+    } else {
+      log.success(`Archived ${dedupedJobs.length} jobs for skills analysis`);
+    }
   } catch (err: any) {
     log.warn(`Job archive failed: ${err.message}`);
   }

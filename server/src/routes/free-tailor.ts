@@ -51,7 +51,14 @@ async function ensureTable(): Promise<void> {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `;
-  } catch {}
+  } catch (err: any) {
+    // If the table genuinely can't be created, every subsequent quota
+    // check returns 0 and the user gets UNLIMITED free tailors. Log
+    // loudly so Railway surfaces the error rather than silently letting
+    // the quota evaporate. Migration 0003 creates the table canonically,
+    // so this fallback is belt-and-suspenders for fresh/partial deploys.
+    console.error("[free-tailor] ensureTable failed (quota enforcement compromised):", err?.message || err);
+  }
 }
 
 async function countUsedToday(userId: string): Promise<number> {

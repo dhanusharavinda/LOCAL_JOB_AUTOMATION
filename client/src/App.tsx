@@ -97,6 +97,11 @@ export default function App() {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Guard against state updates after unmount — supabase-js can
+      // queue a callback during token refresh that fires a tick after
+      // we've already cleaned up, which triggers React's "setState on
+      // unmounted component" warning. Cheap bail-out.
+      if (!mounted) return;
       if (event === "SIGNED_OUT" || !session) {
         setCurrentUser(null);
         setUserLimits(null);
@@ -105,10 +110,15 @@ export default function App() {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         try {
           const me = await authMe();
+          if (!mounted) return;
           setCurrentUser(me.user);
           setUserLimits(me.limits);
-        } catch {
-          // /me failed — nothing we can do, leave state as-is.
+        } catch (err) {
+          // /me failed — common cause is the server being cold-started
+          // on Railway. Log so a persistent issue is visible in the
+          // console; leave state as-is so the user isn't forcibly
+          // signed out on a transient network blip.
+          console.warn("[auth] /me refresh after", event, "failed:", (err as Error).message);
         }
       }
     });
@@ -339,7 +349,11 @@ export default function App() {
       setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
     } catch (err: any) {
       // Revert just this card, keep all other optimistic state intact.
-      if (originalStatus) {
+      // Use `!== undefined` rather than truthy — a valid status like
+      // "filtered" is truthy, but if the job was removed from the list
+      // in the middle of the drag `original` is undefined and we skip
+      // the revert entirely, leaving the UI in its optimistic state.
+      if (originalStatus !== undefined) {
         setJobs((prev) =>
           prev.map((j) => (j.id === jobId ? { ...j, status: originalStatus } : j))
         );
