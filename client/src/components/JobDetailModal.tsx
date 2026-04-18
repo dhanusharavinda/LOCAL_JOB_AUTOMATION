@@ -52,9 +52,18 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
 
   async function handleSaveNotes() {
     setSaving(true);
-    const updated = await updateJobNotes(job.id, notes);
-    onUpdate(updated);
-    setSaving(false);
+    try {
+      const updated = await updateJobNotes(job.id, notes);
+      onUpdate(updated);
+    } catch (err: any) {
+      // Previously on save failure `setSaving(false)` never ran — the
+      // button stayed on "Saving..." forever because the awaited call
+      // threw before we reached the reset. Guard with try/finally.
+      console.error("[JobDetailModal] save notes failed:", err?.message || err);
+      alert(`Couldn't save notes: ${err?.message || "unknown error"}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDateChange(field: "interview_date" | "offer_date", value: string) {
@@ -67,21 +76,44 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
       if (res.ok) {
         const updated = await res.json();
         onUpdate(updated);
+      } else {
+        // A non-2xx was previously a silent no-op — the date input
+        // stayed visually updated but the server never accepted it,
+        // and the user had no way to tell. Pop an alert so they know
+        // to retry or fix the problem.
+        const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        alert(`Couldn't update ${field.replace("_", " ")}: ${body.error || `HTTP ${res.status}`}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update date:", err);
+      alert(`Couldn't update ${field.replace("_", " ")}: network error`);
     }
   }
 
   async function handleStatusChange(status: JobStatus) {
-    const updated = await updateJobStatus(job.id, status);
-    onUpdate(updated);
+    try {
+      const updated = await updateJobStatus(job.id, status);
+      onUpdate(updated);
+    } catch (err: any) {
+      // Without this, a failed status change threw an unhandled
+      // promise rejection into the console and the dropdown stayed on
+      // the new (unsaved) value. Surface it so the user knows to retry.
+      console.error("[JobDetailModal] status change failed:", err?.message || err);
+      alert(`Couldn't change status: ${err?.message || "unknown error"}`);
+    }
   }
 
   async function handleDelete() {
-    if (confirm("Delete this job card?")) {
+    if (!confirm("Delete this job card?")) return;
+    try {
       await deleteJob(job.id);
       onDelete(job.id);
+    } catch (err: any) {
+      // Previously the deleteJob call could throw (e.g. auth expired)
+      // and onDelete never ran, but the confirm dialog already closed.
+      // User had no feedback that the delete didn't happen.
+      console.error("[JobDetailModal] delete failed:", err?.message || err);
+      alert(`Couldn't delete: ${err?.message || "unknown error"}`);
     }
   }
 
