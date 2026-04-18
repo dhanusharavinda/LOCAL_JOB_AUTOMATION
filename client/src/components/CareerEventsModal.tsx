@@ -15,6 +15,21 @@ const COUNTRY_OPTIONS: Record<string, string> = {
   newzealand:  "New Zealand",
 };
 
+/**
+ * Country → regex used to decide whether an event belongs to that country.
+ * Matches the country name plus its major cities so events tagged just
+ * "Dublin" or "London" still land under the right country bucket.
+ * Keep these in sync with the dashboard's country filter in App.tsx so
+ * the two surfaces agree on what "UK jobs" / "India jobs" actually means.
+ */
+const COUNTRY_PATTERNS: Record<string, RegExp> = {
+  ireland: /\b(ireland|dublin|cork|galway|limerick|waterford|belfast|kilkenny|wexford|sligo|drogheda|maynooth|éire|eire|shannon|louth|meath|kildare|donegal|mayo|clare|kerry|tipperary|wicklow)\b/i,
+  uk: /\buk\b|\bu\.k\.\b|united kingdom|england|london|manchester|edinburgh|glasgow|scotland|wales|birmingham|bristol|leeds|cambridge|oxford|liverpool|sheffield|nottingham|belfast/i,
+  netherlands: /\b(netherlands|amsterdam|rotterdam|the hague|utrecht|eindhoven|groningen|nl)\b/i,
+  india: /\b(india|bangalore|bengaluru|mumbai|delhi|ncr|noida|gurgaon|gurugram|hyderabad|pune|chennai|kolkata|ahmedabad|jaipur|kochi|chandigarh)\b/i,
+  newzealand: /\b(new zealand|auckland|wellington|christchurch|hamilton|tauranga|nz)\b/i,
+};
+
 function formatEventDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
   const d = new Date(dateStr);
@@ -85,8 +100,22 @@ export default function CareerEventsModal({ onClose }: Props) {
     career_fair: 5, workshop: 4, conference: 3, meetup: 2, networking: 1,
   };
 
+  // Filter events by the active country BEFORE sorting / grouping. We do
+  // this client-side because the server's /api/events endpoint accepts a
+  // single LIKE substring, which can't express "Ireland includes Dublin
+  // + Cork + Belfast but not other -land countries". A regex per country
+  // gives us precise boundaries without touching the server.
+  const countryFilteredEvents = useMemo(() => {
+    const pattern = COUNTRY_PATTERNS[activeCountry];
+    if (!pattern) return events;
+    return events.filter((ev) => {
+      if (!ev.location) return false;
+      return pattern.test(ev.location);
+    });
+  }, [events, activeCountry]);
+
   const sortedEvents = useMemo(() => {
-    const sorted = [...events];
+    const sorted = [...countryFilteredEvents];
     if (sortBy === "deadline") {
       sorted.sort((a, b) => {
         const aDate = a.event_date ? new Date(a.event_date).getTime() : Infinity;
@@ -110,19 +139,21 @@ export default function CareerEventsModal({ onClose }: Props) {
       });
     }
     return sorted;
-  }, [events, sortBy]);
+  }, [countryFilteredEvents, sortBy]);
 
-  // Build a map of date → events for the calendar
+  // Build a map of date → events for the calendar — use the country-
+  // filtered list so the calendar highlights and counts only reflect
+  // events in the user's selected country.
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CareerEvent[]>();
-    for (const ev of events) {
+    for (const ev of countryFilteredEvents) {
       if (!ev.event_date) continue;
       const key = ev.event_date.slice(0, 10); // YYYY-MM-DD
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ev);
     }
     return map;
-  }, [events]);
+  }, [countryFilteredEvents]);
 
   // Events for selected date
   const selectedDateEvents = selectedDate ? (eventsByDate.get(selectedDate) || []) : [];
@@ -306,7 +337,7 @@ export default function CareerEventsModal({ onClose }: Props) {
             Export .ics
           </a>
           <span className="text-xs text-gray-600">
-            {events.length} event{events.length !== 1 ? "s" : ""}
+            {countryFilteredEvents.length} event{countryFilteredEvents.length !== 1 ? "s" : ""} in {countryLabel}
             {newCount > 0 && <span className="text-green-400 ml-1">({newCount} new)</span>}
           </span>
         </div>
@@ -437,12 +468,18 @@ export default function CareerEventsModal({ onClose }: Props) {
           {/* ── LIST VIEW ── */}
           {!loading && !error && viewMode === "list" && (
             <div className="px-6 py-4">
-              {events.length === 0 && (
+              {countryFilteredEvents.length === 0 && (
                 <div className="py-16 text-center">
                   <div className="text-4xl mb-3">🗓</div>
-                  <p className="text-sm text-gray-500">No events found.</p>
+                  <p className="text-sm text-gray-500">
+                    {events.length > 0
+                      ? `No events in ${countryLabel}.`
+                      : "No events found."}
+                  </p>
                   <p className="text-xs text-gray-600 mt-1">
-                    {typeFilter ? "Try adjusting your filters." : "Events are scraped automatically when you run the pipeline."}
+                    {events.length > 0
+                      ? "Switch your target country in Settings, or check back after the next pipeline run."
+                      : typeFilter ? "Try adjusting your filters." : "Events are scraped automatically when you run the pipeline."}
                   </p>
                 </div>
               )}

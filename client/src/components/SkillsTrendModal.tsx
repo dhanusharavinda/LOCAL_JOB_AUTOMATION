@@ -2,6 +2,24 @@ import { useEffect, useState, useCallback } from "react";
 import { SkillData } from "../types";
 import { fetchCurrentSkills, fetchSkillFilters, SkillFilter } from "../api";
 
+/**
+ * Fixed country options for the location filter. Replaces the previous
+ * per-user location list (which surfaced every distinct string seen in
+ * scraped_jobs_archive — "Dublin, Ireland", "Dublin", "Dublin 2", etc.
+ * were all separate entries). Four countries match the pipeline's
+ * supported markets and the dashboard's country filter.
+ *
+ * value is the substring the server will LIKE-match against `location`.
+ * "United Kingdom" catches most UK job postings; "london" alone would
+ * match too narrowly, so we rely on scrapers tagging country names.
+ */
+const COUNTRY_FILTERS: { value: string; label: string }[] = [
+  { value: "ireland",         label: "Ireland" },
+  { value: "united kingdom",  label: "United Kingdom" },
+  { value: "india",           label: "India" },
+  { value: "netherlands",     label: "Netherlands" },
+];
+
 interface Props {
   onClose: () => void;
 }
@@ -18,16 +36,17 @@ export default function SkillsTrendModal({ onClose }: Props) {
   const [selectedLocation, setSelectedLocation] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
   const [roles, setRoles] = useState<SkillFilter[]>([]);
-  const [locations, setLocations] = useState<SkillFilter[]>([]);
   const [companies, setCompanies] = useState<SkillFilter[]>([]);
   const [, setFiltersLoaded] = useState(false);
 
-  // Load filter options once
+  // Load filter options once. Locations are NOT pulled from the server
+  // anymore — we use the fixed country list above so the dropdown stays
+  // readable even when the user's scraped_jobs_archive contains a long
+  // tail of city-level variants.
   useEffect(() => {
     fetchSkillFilters()
       .then((f) => {
         setRoles(f.roles);
-        setLocations(f.locations);
         setCompanies(f.companies || []);
       })
       .catch(() => {})
@@ -116,10 +135,10 @@ export default function SkillsTrendModal({ onClose }: Props) {
             onChange={(e) => setSelectedLocation(e.target.value)}
             className="bg-[#0f1115] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-blue-500/40 transition-all min-w-[140px]"
           >
-            <option value="">All Locations</option>
-            {locations.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label} ({l.count})
+            <option value="">All Countries</option>
+            {COUNTRY_FILTERS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </select>
