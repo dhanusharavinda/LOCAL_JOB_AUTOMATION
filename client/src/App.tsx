@@ -234,9 +234,9 @@ export default function App() {
         !(j.location || "").toLowerCase().includes(q)
       ) return false;
     }
-    // Country filter — limited to the 4 markets the pipeline actually
-    // targets. Each option matches the country plus its major cities so
-    // a job tagged "Dublin" still surfaces under "Ireland".
+    // Country filter — the five markets supported end-to-end (pipeline,
+    // events, skills). Each option matches the country plus its major
+    // cities so a job tagged "Dublin" still surfaces under "Ireland".
     if (locationFilter) {
       const loc = (j.location || "").toLowerCase();
       if (locationFilter === "ireland") {
@@ -247,6 +247,8 @@ export default function App() {
         if (!/\bindia\b|bangalore|bengaluru|mumbai|delhi|ncr|noida|gurgaon|gurugram|hyderabad|pune|chennai|kolkata|ahmedabad|jaipur|kochi|chandigarh/.test(loc)) return false;
       } else if (locationFilter === "netherlands") {
         if (!/netherlands|amsterdam|rotterdam|the hague|utrecht|eindhoven|groningen|\bnl\b/.test(loc)) return false;
+      } else if (locationFilter === "newzealand") {
+        if (!/new zealand|\bnz\b|auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston north/.test(loc)) return false;
       }
     }
     // Work-type filter — remote/hybrid/onsite. Heuristic: the jobs table
@@ -977,6 +979,7 @@ export default function App() {
           <option value="uk">United Kingdom</option>
           <option value="india">India</option>
           <option value="netherlands">Netherlands</option>
+          <option value="newzealand">New Zealand</option>
         </select>
 
         {/* Work-type filter — independent of country. */}

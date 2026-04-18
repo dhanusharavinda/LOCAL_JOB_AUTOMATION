@@ -295,6 +295,11 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  // Brief transitional state between "user clicked start" and "pipeline
+  // has emitted its first SSE log". Without this, the button stays on
+  // "Perform Job Hunt" for the 1-3s it takes to save settings + hit the
+  // start endpoint + open the SSE stream, so users double-click.
+  const [starting, setStarting] = useState(false);
   const [logs, setLogs] = useState<PipelineLog[]>([]);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [pipelineComplete, setPipelineComplete] = useState(false);
@@ -604,6 +609,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     setLogs([]);
     setPipelineComplete(false);
     setCurrentStep("init");
+    // Flip to 'starting' IMMEDIATELY so the button swaps to a spinner
+    // within the same frame as the click. Without this, the button stays
+    // on "Perform Job Hunt" for the full duration of updateSettings +
+    // startPipeline + SSE connect (~2-3s on Railway cold starts) and the
+    // user can't tell whether the click registered.
+    setStarting(true);
 
     try {
       // Save config first, then start
@@ -613,6 +624,8 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       connectSSE();
     } catch (err: any) {
       setError(err.message || "Failed to start pipeline");
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -1603,12 +1616,21 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                 <button
                   data-tour="start-pipeline"
                   onClick={handleStartPipeline}
-                  disabled={!config}
-                  className="w-full relative group overflow-hidden rounded-xl py-4 px-6 font-semibold text-base transition-all duration-300 disabled:opacity-50 launch-btn"
+                  disabled={!config || starting}
+                  className="w-full relative group overflow-hidden rounded-xl py-4 px-6 font-semibold text-base transition-all duration-300 disabled:opacity-80 disabled:cursor-wait launch-btn"
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    <span className="text-lg">▶</span>
-                    Perform Job Hunt
+                    {starting ? (
+                      <>
+                        <span className="inline-block w-4 h-4 rounded-full border-2 border-[#0c0e14] border-t-transparent animate-spin" />
+                        Starting pipeline…
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-lg">▶</span>
+                        Perform Job Hunt
+                      </>
+                    )}
                   </span>
                 </button>
               ) : (

@@ -88,10 +88,17 @@ const INDIA_LOCATIONS = [
   "chennai", "delhi", "noida", "gurgaon", "gurugram", "kolkata",
 ];
 
+// ── New Zealand ──────────────────────────────────────────────────────────────
+const NEWZEALAND_LOCATIONS = [
+  "new zealand", "nz", "auckland", "wellington", "christchurch",
+  "hamilton", "tauranga", "dunedin", "palmerston north", "napier",
+  "hastings", "rotorua", "nelson", "whangarei", "queenstown",
+];
+
 // ── APAC ─────────────────────────────────────────────────────────────────────
 const APAC_LOCATIONS = [
   "singapore", "hong kong", "japan", "tokyo", "australia", "sydney",
-  "melbourne", "brisbane", "new zealand", "auckland",
+  "melbourne", "brisbane", ...NEWZEALAND_LOCATIONS,
   "south korea", "seoul", "taiwan", "taipei",
   "china", "beijing", "shanghai", "shenzhen",
   "philippines", "manila", "vietnam", "hanoi", "indonesia", "jakarta",
@@ -107,6 +114,7 @@ const REGION_MAP: Record<string, string[]> = {
   us: US_LOCATIONS,
   canada: CANADA_LOCATIONS,
   india: INDIA_LOCATIONS,
+  newzealand: NEWZEALAND_LOCATIONS,
   apac: APAC_LOCATIONS,
 };
 

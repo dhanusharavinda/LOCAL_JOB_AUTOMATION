@@ -221,11 +221,15 @@ export async function scrapeIndeedViaApify(count: number): Promise<LinkedInJob[]
   }
 
   // Indeed country codes are lowercase ISO-3166-1 alpha-2 on this actor.
+  // When a new country gets added to the dashboard picker, add its code
+  // here too or Indeed silently falls back to Ireland and scrapes the
+  // wrong geography.
   const countryCodeMap: Record<string, string> = {
     ireland: "ie",
     uk: "uk",
     netherlands: "nl",
     india: "in",
+    newzealand: "nz",
   };
   const firstCountry = config.TARGET_COUNTRIES.split(",")[0].trim().toLowerCase();
   const country = countryCodeMap[firstCountry] || "ie";

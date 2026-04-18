@@ -18,6 +18,7 @@ const COUNTRY_FILTERS: { value: string; label: string }[] = [
   { value: "united kingdom",  label: "United Kingdom" },
   { value: "india",           label: "India" },
   { value: "netherlands",     label: "Netherlands" },
+  { value: "new zealand",     label: "New Zealand" },
 ];
 
 interface Props {
