@@ -43,22 +43,52 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ── CORS ────────────────────────────────────────────────────────────
-// Strict allow-list. Accepts a comma-separated CLIENT_URL for deploys
-// where dev and prod share a deploy (e.g. Vercel previews). Requests
-// from anything not in the list are rejected by cors(). Credentials
-// are on because supabase-js sets cookies on some flows.
+// Allow-list is CLIENT_URL (CSV of exact origins) plus any Vercel
+// preview that belongs to the same project. Vercel preview URLs look
+// like `<project>-git-<branch>-<team-slug>.vercel.app` and rotate on
+// every branch push — listing them individually is a maintenance
+// nightmare, so we derive the project prefix from the production
+// URL and auto-admit preview siblings. Non-browser clients (curl, the
+// pipeline subprocess, health checks) send no Origin and are let
+// through — auth middleware still gates them.
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+
+// Extract the Vercel project prefixes from CLIENT_URL. Matches
+// `<prefix>.vercel.app` so `<prefix>-git-<anything>.vercel.app` and
+// `<prefix>-<commit-hash>-<team>.vercel.app` previews come along.
+const vercelProjectPrefixes = allowedOrigins
+  .map((o) => {
+    try {
+      const u = new URL(o);
+      const m = u.host.match(/^([a-z0-9-]+)\.vercel\.app$/i);
+      return m ? m[1] : null;
+    } catch {
+      return null;
+    }
+  })
+  .filter((p): p is string => !!p);
+
+function isAllowedVercelPreview(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    if (!/\.vercel\.app$/i.test(u.host)) return false;
+    return vercelProjectPrefixes.some(
+      (prefix) => u.host === `${prefix}.vercel.app` || u.host.startsWith(`${prefix}-`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Non-browser clients (curl, the pipeline subprocess, health checks)
-      // send no Origin header — allow those through CORS, the auth
-      // middleware still gates them.
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (isAllowedVercelPreview(origin)) return cb(null, true);
       return cb(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
