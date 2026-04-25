@@ -134,6 +134,27 @@ router.post("/", async (req: Request, res: Response) => {
     return;
   }
 
+  // Cheap "is this actually a resume?" check BEFORE we spend an OpenAI
+  // call on it. A real resume practically always contains at least one
+  // of these section words. A job description, company brochure, or
+  // election-events doc almost never contains the resume-specific ones
+  // (employment, certifications, projects). We require 2+ matches so a
+  // JD that happens to mention "experience" once doesn't slip through.
+  const RESUME_KEYWORDS = /\b(experience|education|skills|summary|objective|employment|projects|certifications|qualifications|achievements|career history|professional background|references)\b/gi;
+  const keywordHits = (resumeText.toLowerCase().match(RESUME_KEYWORDS) || []).length;
+  if (keywordHits < 2) {
+    console.warn("[free-tailor] uploaded text doesn't look like a resume", {
+      keywordHits,
+      chars: resumeText.length,
+      preview: resumeText.slice(0, 200),
+    });
+    res.status(422).json({
+      error:
+        "This file doesn't look like a resume — we couldn't find any of the standard sections (Experience, Education, Skills, etc.). Make sure you uploaded YOUR CV, not a job description or other document.",
+    });
+    return;
+  }
+
   const MAX_INPUT_CHARS = 25000;
   const totalInput = (resumeText?.length || 0) + (jobDescription?.length || 0);
   if (totalInput > MAX_INPUT_CHARS) {
@@ -246,28 +267,52 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Detect schema-leak: the AI sometimes emits the prompt's JSON shape
-    // verbatim ("string", "string or null", null) when given thin or
-    // unparseable resume text — typical for a .doc that mammoth couldn't
-    // extract. The PDF would render literal "string or null" headings
-    // and personalInfo fields. Reject loudly so the user knows the
-    // resume input failed, not the AI.
+    // verbatim ("string", "string or null") when given resume text it
+    // can't parse. The PDF would render those literal placeholders. We
+    // reject ONLY on clear schema-leak signals — a real resume with a
+    // missing/empty name should NOT trigger this:
+    //
+    //   1. 5+ "string"/"string or null" literals anywhere in the output
+    //      → AI clearly echoed the schema instead of filling it.
+    //   2. The name field IS literally "string" or "string or null"
+    //      → AI failed on the most basic field; whole output is suspect.
+    //
+    // An empty/null name is allowed through — some resumes just don't
+    // have a clear text header (logos, images), and the rest of the
+    // tailored output may still be useful.
     const flat = JSON.stringify(inner).toLowerCase();
     const placeholderHits = (flat.match(/"string(?:\s*or\s*null)?"/g) || []).length;
-    const nameLooksReal =
-      typeof inner.personalInfo.name === "string" &&
-      inner.personalInfo.name.trim().length > 0 &&
-      !/^string( or null)?$/i.test(inner.personalInfo.name.trim());
-    if (placeholderHits >= 5 || !nameLooksReal) {
+    const rawName = typeof inner.personalInfo?.name === "string"
+      ? inner.personalInfo.name.trim()
+      : "";
+    const nameIsPlaceholder = /^string( or null)?$/i.test(rawName);
+
+    if (placeholderHits >= 5 || nameIsPlaceholder) {
       console.warn("[free-tailor] AI returned schema-shape placeholders, rejecting", {
         placeholderHits,
+        nameIsPlaceholder,
         name: inner.personalInfo?.name,
         resumeChars: resumeText.length,
+        // Sample what we sent OpenAI so we can debug locally without
+        // logging the user's full resume.
+        resumePreview: resumeText.slice(0, 200),
       });
       res.status(422).json({
         error:
-          "Couldn't read enough resume content from your file. Try uploading a PDF, or save your DOCX as PDF and re-upload. Legacy .doc files are not supported.",
+          "Our AI couldn't extract resume fields from this file — the content may not look like a CV. Make sure you uploaded YOUR resume (not a job description, company brochure, or other doc), then try again.",
       });
       return;
+    }
+
+    // Soft guard: if the resume input has < ~300 chars or doesn't contain
+    // any of the canonical resume section keywords, warn but still try.
+    // This catches "wrong file" before a wasted OpenAI call... though by
+    // this point the OpenAI call has already happened, so we just log.
+    const looksResumeShape = /\b(experience|education|skills|summary|objective|employment|projects|certifications)\b/i.test(resumeText);
+    if (!looksResumeShape) {
+      console.warn("[free-tailor] resume text lacks canonical section keywords", {
+        resumeChars: resumeText.length,
+      });
     }
 
     // Generate PDF
