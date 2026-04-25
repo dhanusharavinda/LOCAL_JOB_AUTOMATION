@@ -14,24 +14,33 @@ export interface CountryConfig {
   defaultEnabled: string[];
 }
 
+// Shared remote/hybrid/worldwide terms — added to every country so jobs
+// without an explicit country tag (e.g. "Remote", "Hybrid", "Anywhere")
+// still pass the location filter regardless of which country the user
+// picked. Country-specific filtering happens above; these are the
+// location-agnostic catch-all.
+const REMOTE_LIKE = ["remote", "hybrid", "worldwide", "global", "anywhere", "wfh", "work from home"];
+
 export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
   ireland: {
     code: "ireland",
     label: "Ireland",
     linkedinGeoId: "104738515",
+    // STRICT: Ireland-only locations. Previously this list also leaked
+    // UK + every major EU country/city, which meant "select Ireland"
+    // surfaced jobs from Berlin, Paris, London, etc. That defeats the
+    // point of a country picker. Northern Ireland (Belfast, Derry,
+    // Lisburn) stays in because it's geographically Ireland even if
+    // politically UK. Use the UK option to target Britain.
     locationRegions: [
-      "ireland", "dublin", "cork", "galway", "limerick", "waterford", "belfast",
-      "republic of ireland", "kilkenny", "wexford", "sligo", "drogheda", "dundalk",
+      "ireland", "republic of ireland", "northern ireland", "éire", "eire",
+      "dublin", "cork", "galway", "limerick", "waterford", "belfast",
+      "kilkenny", "wexford", "sligo", "drogheda", "dundalk",
       "athlone", "ennis", "tralee", "killarney", "letterkenny", "carlow", "maynooth",
-      "swords", "malahide", "shannon", "northern ireland", "derry", "lisburn",
-      "united kingdom", "uk", "england", "scotland", "wales",
-      "london", "manchester", "birmingham", "edinburgh", "glasgow", "bristol",
-      "leeds", "cambridge", "oxford", "liverpool",
-      "europe", "eu", "emea", "netherlands", "germany", "france", "spain", "italy",
-      "portugal", "belgium", "austria", "switzerland", "sweden", "denmark",
-      "norway", "finland", "poland", "czech", "amsterdam", "berlin", "munich",
-      "paris", "barcelona", "madrid", "lisbon", "brussels", "vienna", "zurich",
-      "stockholm", "copenhagen",
+      "swords", "malahide", "shannon", "derry", "lisburn",
+      "louth", "meath", "kildare", "donegal", "mayo", "clare", "kerry",
+      "tipperary", "wicklow", "wexford", "longford", "cavan", "monaghan",
+      ...REMOTE_LIKE,
     ],
     scrapers: [
       "SCRAPE_JOBSIE", "SCRAPE_IRISHJOBS", "SCRAPE_INDEED_IE", "SCRAPE_GRADIRELAND",
@@ -50,14 +59,20 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
     // the run logs despite selecting UK, it usually means this value drifted
     // and needs re-verifying via LinkedIn's search URL typeahead.
     linkedinGeoId: "101165590",
+    // STRICT UK only. Previously included europe / eu / emea which let
+    // continental-Europe jobs (and Ireland-tagged-Europe jobs) leak in
+    // when the user explicitly picked UK. If you want EU jobs, that's a
+    // future "Europe" option, not the UK one.
     locationRegions: [
-      "united kingdom", "uk", "england", "scotland", "wales", "northern ireland",
+      "united kingdom", "uk", "u.k.", "great britain", "britain",
+      "england", "scotland", "wales", "northern ireland",
       "london", "manchester", "birmingham", "edinburgh", "glasgow", "bristol",
       "leeds", "cambridge", "oxford", "liverpool", "newcastle", "sheffield",
       "nottingham", "cardiff", "belfast", "aberdeen", "brighton", "reading",
-      "coventry", "leicester", "southampton", "portsmouth",
-      // Shared EU / remote terms so remote-from-UK jobs surface too
-      "europe", "eu", "emea", "remote", "hybrid", "worldwide", "global",
+      "coventry", "leicester", "southampton", "portsmouth", "milton keynes",
+      "luton", "bath", "york", "norwich", "exeter", "plymouth", "swansea",
+      "hull", "preston", "stoke", "wolverhampton", "derby", "sunderland",
+      ...REMOTE_LIKE,
     ],
     scrapers: ["SCRAPE_INDEED_UK"],
     defaultEnabled: [
@@ -71,12 +86,14 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
     code: "netherlands",
     label: "Netherlands",
     linkedinGeoId: "102890719",
+    // STRICT Netherlands only. EU/Europe terms removed.
     locationRegions: [
-      "netherlands", "holland", "the netherlands",
+      "netherlands", "holland", "the netherlands", "nederland",
       "amsterdam", "rotterdam", "the hague", "den haag", "utrecht", "eindhoven",
       "groningen", "tilburg", "almere", "breda", "nijmegen", "haarlem", "arnhem",
-      "enschede", "leiden", "delft", "maastricht",
-      "europe", "eu", "emea", "remote", "hybrid", "worldwide", "global",
+      "enschede", "leiden", "delft", "maastricht", "apeldoorn", "amersfoort",
+      "zwolle", "dordrecht", "alkmaar", "leeuwarden",
+      ...REMOTE_LIKE,
     ],
     scrapers: ["SCRAPE_INDEED_NL"],
     defaultEnabled: [
@@ -91,7 +108,8 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
     label: "India",
     linkedinGeoId: "102713980",
     locationRegions: [
-      "india", "bangalore", "bengaluru", "hyderabad", "mumbai", "pune",
+      "india", "bharat",
+      "bangalore", "bengaluru", "hyderabad", "mumbai", "pune",
       "chennai", "delhi", "new delhi", "noida", "gurgaon", "gurugram", "kolkata",
       "ahmedabad", "jaipur", "lucknow", "kochi", "thiruvananthapuram", "coimbatore",
       "chandigarh", "indore", "bhopal", "nagpur", "visakhapatnam", "mysore",
@@ -99,6 +117,7 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "karnataka", "maharashtra", "tamil nadu", "telangana", "kerala",
       "andhra pradesh", "west bengal", "uttar pradesh", "gujarat", "rajasthan",
       "madhya pradesh", "haryana", "punjab",
+      ...REMOTE_LIKE,
     ],
     scrapers: [
       "SCRAPE_NAUKRI", "SCRAPE_INSTAHYRE", "SCRAPE_INDEED_IN",
@@ -118,7 +137,7 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "auckland", "wellington", "christchurch", "hamilton", "tauranga",
       "dunedin", "palmerston north", "napier", "nelson", "rotorua",
       "new plymouth", "whangarei", "invercargill", "queenstown",
-      "remote", "hybrid", "worldwide", "global",
+      ...REMOTE_LIKE,
     ],
     scrapers: ["SCRAPE_INDEED_NZ"],
     defaultEnabled: [

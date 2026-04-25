@@ -72,10 +72,19 @@ const SCRAPER_NAME_RE = new RegExp(
   "\\b(?:LinkedIn|Apify|Indeed(?:\\.[a-z]{2})?|Naukri|RemoteOK|Jobicy|Arbeitnow|Remotive|WeWorkRemotely|WWR|DevTo|Dev\\.to|CareerJet|IrishJobs|Jobs\\.ie|GradIreland|Instahyre|HackerNews|HN Hiring|Glassdoor|Google Docs|Google Drive|Google Sheets)\\b",
   "gi"
 );
+// Match any http(s) URL. Used to strip URLs from SSE logs entirely
+// instead of letting the name regex mangle them into broken hostnames
+// (e.g. linkedin.com → source.com produced an unclickable link in the
+// log panel that a user could copy and wonder why it 404s).
+const URL_RE = /https?:\/\/[^\s<>"']+/gi;
 function redactSensitive(s: string): string {
-  // Collapse every identifying vendor/scraper name to a neutral word so
-  // "Scraping LinkedIn jobs via Apify" becomes "Scraping jobs via source".
+  // 1. Drop URLs first — debug-style search URLs in the log reveal the
+  //    scraper anyway (geoId, host, path), and replacing scraper names
+  //    inside a URL produces a working-looking but bogus link.
+  // 2. THEN apply the user-friendly phrase substitutions.
+  // 3. THEN catch any remaining bare scraper names with the wide regex.
   return s
+    .replace(URL_RE, "[search url]")
     .replace(/Scraping LinkedIn jobs via Apify/gi, "Scraping primary source")
     .replace(/Scraping free job sources/gi, "Scraping secondary sources")
     .replace(/\bvia Apify\b/gi, "via source")
