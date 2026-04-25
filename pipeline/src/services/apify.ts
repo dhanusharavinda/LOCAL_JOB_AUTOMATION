@@ -222,8 +222,8 @@ export async function scrapeIndeedViaApify(count: number): Promise<LinkedInJob[]
 
   // Indeed country codes are lowercase ISO-3166-1 alpha-2 on this actor.
   // When a new country gets added to the dashboard picker, add its code
-  // here too or Indeed silently falls back to Ireland and scrapes the
-  // wrong geography.
+  // here too — the previous silent fallback to "ie" meant unknown
+  // countries scraped Ireland, with no log line saying so.
   const countryCodeMap: Record<string, string> = {
     ireland: "ie",
     uk: "uk",
@@ -232,7 +232,14 @@ export async function scrapeIndeedViaApify(count: number): Promise<LinkedInJob[]
     newzealand: "nz",
   };
   const firstCountry = config.TARGET_COUNTRIES.split(",")[0].trim().toLowerCase();
-  const country = countryCodeMap[firstCountry] || "ie";
+  const country = countryCodeMap[firstCountry];
+  if (!country) {
+    log.warn(
+      `  Indeed: TARGET_COUNTRIES="${firstCountry}" has no country-code mapping — skipping Indeed scrape rather than silently scraping the wrong country. ` +
+      "Supported: ireland, uk, netherlands, india, newzealand."
+    );
+    return [];
+  }
 
   // valig/indeed-jobs-scraper expects `title` (not `position`) and `limit`
   // (not `maxItems`). Output items have nested employer/location/description

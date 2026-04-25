@@ -312,6 +312,17 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
     return jobs;
   }
 
+  // Guard against silent 0-jobs runs caused by a malformed TARGET_COUNTRIES.
+  // If SELECTED_COUNTRY_TERMS came out empty (because the country isn't in
+  // REGION_MAP), the filter would reject every single job without telling
+  // the user why. Surface the misconfiguration loudly instead.
+  if (SELECTED_COUNTRY_TERMS.length === 0) {
+    log.warn(
+      `  Location filter: no recognised country terms for TARGET_COUNTRIES="${config.TARGET_COUNTRIES}". ` +
+      "Every job will be dropped. Pick a supported country (Ireland, UK, Netherlands, India, New Zealand) or set LOCATION_REGIONS=all to disable filtering."
+    );
+  }
+
   const passed: LinkedInJob[] = [];
   let droppedCount = 0;
 
@@ -394,7 +405,12 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
   }
 
   if (droppedCount > 0) {
-    log.info(`  ${droppedCount} total jobs dropped (outside Ireland/UK/EU or restricted remote)`);
+    // Replaced the old "outside Ireland/UK/EU" hardcoded string — it
+    // misled users on UK/India/NZ runs into thinking the filter was
+    // wrong. Surface the actual selected regions so the message tracks
+    // the user's choice.
+    const selectedSummary = resolveRegions().split(",").map((r) => r.trim()).filter(Boolean).join(", ") || "(none)";
+    log.info(`  ${droppedCount} total jobs dropped (outside ${selectedSummary} or restricted remote)`);
   }
 
   return passed;

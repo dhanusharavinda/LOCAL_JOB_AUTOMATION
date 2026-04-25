@@ -145,7 +145,19 @@ export function buildLinkedInUrl(): string {
   // of maintaining a parallel map here.
   const countries = config.TARGET_COUNTRIES.split(",").map((c) => c.trim().toLowerCase()).filter(Boolean);
   const firstCountry = countries[0];
-  const autoGeoId = (firstCountry && COUNTRY_REGISTRY[firstCountry]?.linkedinGeoId) || config.LINKEDIN_GEO_ID;
+  const registryGeoId = firstCountry ? COUNTRY_REGISTRY[firstCountry]?.linkedinGeoId : undefined;
+  const autoGeoId = registryGeoId || config.LINKEDIN_GEO_ID;
+  // If the user picked a country we don't know about, the previous silent
+  // fallback to LINKEDIN_GEO_ID (which defaults to Ireland) made it look
+  // like UK/NZ runs were scraping Ireland for no obvious reason. Surface
+  // the mismatch in the log instead — the run continues with Ireland's
+  // geoId so the pipeline doesn't crash, but the user knows why.
+  if (firstCountry && !registryGeoId) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[buildLinkedInUrl] TARGET_COUNTRIES="${firstCountry}" not in COUNTRY_REGISTRY — falling back to LINKEDIN_GEO_ID=${config.LINKEDIN_GEO_ID}. Add the country to pipeline/src/countries.ts to fix.`
+    );
+  }
 
   // Manual LINKEDIN_SEARCH_URL override — only honoured when it matches the
   // currently-selected country's geoId. Without this guard, a persisted URL

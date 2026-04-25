@@ -14,12 +14,12 @@ export interface CountryConfig {
   defaultEnabled: string[];
 }
 
-// Shared remote/hybrid/worldwide terms — added to every country so jobs
-// without an explicit country tag (e.g. "Remote", "Hybrid", "Anywhere")
-// still pass the location filter regardless of which country the user
-// picked. Country-specific filtering happens above; these are the
-// location-agnostic catch-all.
-const REMOTE_LIKE = ["remote", "hybrid", "worldwide", "global", "anywhere", "wfh", "work from home"];
+// Bare-remote handling lives in the filter (services/location-filter.ts
+// uses GENERIC_REMOTE_TERMS + the user's INCLUDE_REMOTE flag to decide
+// whether tagless "Remote" jobs pass). DO NOT add "remote"/"hybrid"/
+// "worldwide" into country locationRegions here — that would short-
+// circuit the INCLUDE_REMOTE check and let bare-remote jobs through
+// even when the user explicitly turned it off.
 
 export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
   ireland: {
@@ -40,7 +40,6 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "swords", "malahide", "shannon", "derry", "lisburn",
       "louth", "meath", "kildare", "donegal", "mayo", "clare", "kerry",
       "tipperary", "wicklow", "wexford", "longford", "cavan", "monaghan",
-      ...REMOTE_LIKE,
     ],
     scrapers: [
       "SCRAPE_JOBSIE", "SCRAPE_IRISHJOBS", "SCRAPE_INDEED_IE", "SCRAPE_GRADIRELAND",
@@ -72,7 +71,6 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "coventry", "leicester", "southampton", "portsmouth", "milton keynes",
       "luton", "bath", "york", "norwich", "exeter", "plymouth", "swansea",
       "hull", "preston", "stoke", "wolverhampton", "derby", "sunderland",
-      ...REMOTE_LIKE,
     ],
     scrapers: ["SCRAPE_INDEED_UK"],
     defaultEnabled: [
@@ -93,7 +91,6 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "groningen", "tilburg", "almere", "breda", "nijmegen", "haarlem", "arnhem",
       "enschede", "leiden", "delft", "maastricht", "apeldoorn", "amersfoort",
       "zwolle", "dordrecht", "alkmaar", "leeuwarden",
-      ...REMOTE_LIKE,
     ],
     scrapers: ["SCRAPE_INDEED_NL"],
     defaultEnabled: [
@@ -117,7 +114,6 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "karnataka", "maharashtra", "tamil nadu", "telangana", "kerala",
       "andhra pradesh", "west bengal", "uttar pradesh", "gujarat", "rajasthan",
       "madhya pradesh", "haryana", "punjab",
-      ...REMOTE_LIKE,
     ],
     scrapers: [
       "SCRAPE_NAUKRI", "SCRAPE_INSTAHYRE", "SCRAPE_INDEED_IN",
@@ -137,7 +133,6 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
       "auckland", "wellington", "christchurch", "hamilton", "tauranga",
       "dunedin", "palmerston north", "napier", "nelson", "rotorua",
       "new plymouth", "whangarei", "invercargill", "queenstown",
-      ...REMOTE_LIKE,
     ],
     scrapers: ["SCRAPE_INDEED_NZ"],
     defaultEnabled: [
