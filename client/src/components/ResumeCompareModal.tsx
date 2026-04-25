@@ -146,9 +146,12 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
     });
   }, []);
 
-  const acceptedCount = analysis?.optimizations.reduce(
-    (sum, s) => sum + s.bullets.filter((b) => b.accepted).length, 0
-  ) ?? 0;
+  // Defensive — if the server ever returns a malformed analysis (e.g.
+  // OpenAI hits its token limit and truncates JSON), reduce on undefined
+  // would crash the entire modal. Treat missing arrays as empty.
+  const acceptedCount = (analysis?.optimizations ?? []).reduce(
+    (sum, s) => sum + (s?.bullets ?? []).filter((b) => b?.accepted).length, 0
+  );
 
   async function handleApply() {
     if (!analysis) return;
@@ -183,10 +186,24 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
             <span className="text-sm font-bold text-blue-400">ReWrite</span>
             {analysis && phase === "results" && (
               <>
-                <span className="text-xs text-gray-600">MATCH SCORE</span>
-                <span className={`text-xl font-black tabular-nums ${scoreColor(analysis.matchScore)}`}>
-                  {analysis.matchScore}/100
+                <span className="text-xs text-gray-600">ATS SCORE</span>
+                <span className={`text-xl font-black tabular-nums ${scoreColor(analysis.atsScore ?? analysis.matchScore)}`}>
+                  {analysis.atsScore ?? analysis.matchScore}/100
                 </span>
+                {/* When the model returns separate match + ATS scores
+                    (it often does — match is overall fit, ATS is keyword
+                    density), surface both so the user can tell whether
+                    a borderline JD is missing keywords or genuinely a
+                    weak fit. */}
+                {analysis.atsScore != null && analysis.matchScore != null && analysis.atsScore !== analysis.matchScore && (
+                  <>
+                    <span className="text-xs text-gray-700">·</span>
+                    <span className="text-xs text-gray-600">FIT</span>
+                    <span className={`text-sm font-bold tabular-nums ${scoreColor(analysis.matchScore)}`}>
+                      {analysis.matchScore}
+                    </span>
+                  </>
+                )}
               </>
             )}
           </div>

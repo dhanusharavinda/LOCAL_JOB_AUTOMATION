@@ -385,6 +385,10 @@ export interface ResumeAnalysis {
   jobTitle: string;
   companyName: string;
   matchScore: number;
+  // ATS keyword-density score. The server returns both `matchScore`
+  // (overall fit) and `atsScore` (keyword coverage). They're often the
+  // same number, but for borderline JDs it's useful to see them split.
+  atsScore?: number;
   analysis: {
     strengths: string[];
     foundKeywords: string[];

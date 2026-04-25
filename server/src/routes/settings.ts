@@ -14,6 +14,8 @@ import {
 } from "../storage";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mammoth = require("mammoth");
 
 /**
  * Settings routes (Postgres edition).
@@ -253,8 +255,29 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
         text = req.file.buffer.toString("utf-8").trim();
         await uploadResumeOriginal(userId, req.file.buffer, ext, "text/plain");
       } else if (ext === ".docx" || ext === ".doc") {
-        res.status(400).json({ error: "DOCX support coming soon. Please upload a PDF or TXT file, or paste your resume text." });
-        return;
+        // Mammoth handles .docx fine; .doc (legacy binary format, pre-2007)
+        // is unsupported by mammoth — we still try, and if it fails we
+        // return a clear error rather than the previous "coming soon" lie.
+        try {
+          const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+          text = String(result?.value || "").trim();
+          await uploadResumeOriginal(
+            userId,
+            req.file.buffer,
+            ext,
+            ext === ".docx"
+              ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              : "application/msword",
+          );
+        } catch (err: any) {
+          console.error("[settings/resume] DOCX parse failed:", err?.message || err);
+          res.status(400).json({
+            error: ext === ".doc"
+              ? "Legacy .doc files aren't supported. Save your resume as .docx or PDF and try again."
+              : "Couldn't read this DOCX. Re-export it from Word or save as PDF and try again.",
+          });
+          return;
+        }
       }
     } else if (req.body.text) {
       text = String(req.body.text).trim();
