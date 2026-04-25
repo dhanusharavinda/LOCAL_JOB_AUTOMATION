@@ -4,17 +4,41 @@ import { log } from "../logger";
 
 const BASE_URL = "https://api.apify.com/v2";
 
-async function apifyFetch(path: string, options?: RequestInit): Promise<any> {
-  const url = `${BASE_URL}${path}${path.includes("?") ? "&" : "?"}token=${config.APIFY_API_TOKEN}`;
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    throw new Error(`Apify API error: ${res.status} ${res.statusText}`);
-  }
-  return res.json();
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Apify is the upstream we cannot control — it returns 502/503/504/429
+// often enough that ONE bad-gateway response shouldn't abort the whole
+// pipeline run. Retry transient failures with exponential backoff before
+// surfacing the error to the caller.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+async function apifyFetch(path: string, options?: RequestInit): Promise<any> {
+  const url = `${BASE_URL}${path}${path.includes("?") ? "&" : "?"}token=${config.APIFY_API_TOKEN}`;
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res.json();
+
+      // Non-retryable (4xx other than 429) — bail immediately
+      if (!RETRYABLE_STATUSES.has(res.status)) {
+        throw new Error(`Apify API error: ${res.status} ${res.statusText}`);
+      }
+      lastErr = new Error(`Apify API error: ${res.status} ${res.statusText}`);
+    } catch (err: any) {
+      // fetch() rejection (DNS/network/timeout) — retryable
+      lastErr = err instanceof Error ? err : new Error(String(err));
+    }
+    if (attempt < MAX_RETRIES) {
+      // 1s, 2s, 4s — total worst-case 7s before giving up.
+      const backoff = 1000 * Math.pow(2, attempt);
+      log.warn(`  Apify request failed (${lastErr.message}) — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      await delay(backoff);
+    }
+  }
+  throw lastErr || new Error("Apify request failed after retries");
 }
 
 /**

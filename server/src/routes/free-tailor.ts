@@ -245,6 +245,31 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
+    // Detect schema-leak: the AI sometimes emits the prompt's JSON shape
+    // verbatim ("string", "string or null", null) when given thin or
+    // unparseable resume text — typical for a .doc that mammoth couldn't
+    // extract. The PDF would render literal "string or null" headings
+    // and personalInfo fields. Reject loudly so the user knows the
+    // resume input failed, not the AI.
+    const flat = JSON.stringify(inner).toLowerCase();
+    const placeholderHits = (flat.match(/"string(?:\s*or\s*null)?"/g) || []).length;
+    const nameLooksReal =
+      typeof inner.personalInfo.name === "string" &&
+      inner.personalInfo.name.trim().length > 0 &&
+      !/^string( or null)?$/i.test(inner.personalInfo.name.trim());
+    if (placeholderHits >= 5 || !nameLooksReal) {
+      console.warn("[free-tailor] AI returned schema-shape placeholders, rejecting", {
+        placeholderHits,
+        name: inner.personalInfo?.name,
+        resumeChars: resumeText.length,
+      });
+      res.status(422).json({
+        error:
+          "Couldn't read enough resume content from your file. Try uploading a PDF, or save your DOCX as PDF and re-upload. Legacy .doc files are not supported.",
+      });
+      return;
+    }
+
     // Generate PDF
     const pdfBuffer = await generateLocalPdf(inner);
 

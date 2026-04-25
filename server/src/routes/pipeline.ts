@@ -395,10 +395,24 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
 
   child.on("exit", async (code) => {
     const success = code === 0;
+    // On failure, surface the error message FIRST so it shows in the
+    // log panel...
+    if (!success) {
+      broadcast(userId, {
+        time: new Date().toISOString(),
+        type: "error",
+        message: `Pipeline exited with code ${code}`,
+      });
+    }
+    // ...then ALWAYS emit a `complete` event regardless of success so
+    // the client's SSE handler resets `running=false`. The previous
+    // behaviour broadcast `{type: "error"}` only on failure, which the
+    // client treated as just another log line — the Stop button stayed
+    // visible and the user couldn't start a fresh run without reloading.
     broadcast(userId, {
       time: new Date().toISOString(),
-      type: success ? "complete" : "error",
-      message: success ? "Pipeline complete" : `Pipeline exited with code ${code}`,
+      type: "complete",
+      message: success ? "Pipeline complete" : `Pipeline failed (exit code ${code})`,
     });
     state.running = false;
     state.process = null;
@@ -417,6 +431,14 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
       time: new Date().toISOString(),
       type: "error",
       message: `Pipeline spawn failed: ${err.message}`,
+    });
+    // Mirror the same "always emit complete" pattern so the client
+    // resets after a spawn failure too. Without this, a botched spawn
+    // (missing tsx, bad env, etc.) leaves the UI stuck on "running".
+    broadcast(userId, {
+      time: new Date().toISOString(),
+      type: "complete",
+      message: "Pipeline failed to start",
     });
     state.running = false;
     state.process = null;

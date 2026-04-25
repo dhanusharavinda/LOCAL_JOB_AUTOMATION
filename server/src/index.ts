@@ -194,9 +194,28 @@ app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, async (re
       res.status(413).json({ error: "DOCX too large — max 2MB" });
       return;
     }
+    // Quick magic-byte check: real .docx files are zip archives starting
+    // with "PK". Legacy .doc binaries start with 0xD0CF11E0. Mammoth
+    // silently produces empty / partial output for .doc, which then
+    // cascades into the schema-leak bug downstream — fail fast instead.
+    if (buffer.length >= 2 && (buffer[0] !== 0x50 || buffer[1] !== 0x4b)) {
+      res.status(400).json({
+        error: "This isn't a valid .docx (looks like a legacy .doc). Save as PDF or re-export as .docx and try again.",
+      });
+      return;
+    }
     const result = await mammoth.extractRawText({ buffer });
-    res.json({ text: result.value || "" });
-  } catch {
+    const text = String(result?.value || "").trim();
+    if (text.length < 50) {
+      res.status(422).json({
+        error:
+          "Couldn't extract enough text from this DOCX. The document may be image-based or heavily formatted. Try saving as PDF.",
+      });
+      return;
+    }
+    res.json({ text });
+  } catch (err: any) {
+    console.error("[/api/parse-docx]", err?.message || err);
     res.status(500).json({ error: "Could not parse DOCX. Please try a different file." });
   }
 });

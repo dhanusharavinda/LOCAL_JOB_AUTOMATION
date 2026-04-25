@@ -29,7 +29,16 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setError(null);
     const ext = file.name.split(".").pop()?.toLowerCase();
 
-    if (ext !== "pdf" && ext !== "docx" && ext !== "doc") {
+    // Legacy .doc (pre-2007 binary format) isn't reliably extractable
+    // by mammoth — when it half-extracts, the AI receives thin text and
+    // emits placeholder JSON that renders as "string or null" all over
+    // the PDF. Reject up front and tell the user to re-save as .docx
+    // or PDF.
+    if (ext === "doc") {
+      setError("Legacy .doc files aren't supported. Save your resume as PDF or .docx and upload again.");
+      return;
+    }
+    if (ext !== "pdf" && ext !== "docx") {
       setError("Please upload a PDF or DOCX file.");
       return;
     }
@@ -249,7 +258,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.docx"
                   onChange={handleFileInput}
                   className="hidden"
                 />
