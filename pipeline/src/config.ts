@@ -50,8 +50,14 @@ export const config = {
   LINKEDIN_KEYWORDS: optional("LINKEDIN_KEYWORDS", ""),
   LINKEDIN_SKILLS: optional("LINKEDIN_SKILLS", ""),
   LINKEDIN_GEO_ID: optional("LINKEDIN_GEO_ID", "104738515"),
-  LINKEDIN_TIME_FILTER: optional("LINKEDIN_TIME_FILTER", "r86400"),
-  LINKEDIN_EXPERIENCE: optional("LINKEDIN_EXPERIENCE", "1,2,3"),
+  // Defaults widened from r86400 (24h) → r604800 (1 week) and from
+  // "1,2,3" (intern+entry+associate) → "" (all levels). The narrow
+  // defaults silently restricted searches in slow markets and excluded
+  // mid-senior listings that make up the bulk of real openings.
+  // Existing users keep whatever they have in user_settings; only
+  // brand-new accounts inherit these.
+  LINKEDIN_TIME_FILTER: optional("LINKEDIN_TIME_FILTER", "r604800"),
+  LINKEDIN_EXPERIENCE: optional("LINKEDIN_EXPERIENCE", ""),
   LINKEDIN_WORK_TYPE: optional("LINKEDIN_WORK_TYPE", ""),
   LINKEDIN_JOB_TYPE: optional("LINKEDIN_JOB_TYPE", ""),
   LINKEDIN_SORT: optional("LINKEDIN_SORT", "DD"),
@@ -257,11 +263,12 @@ export function buildLinkedInUrl(): string {
         merged.push(`f_TPR=${tpr}`);
       }
 
-      // Inject experience filter if missing.
-      if (!url.searchParams.get("f_E") && config.LINKEDIN_EXPERIENCE) {
-        url.searchParams.set("f_E", config.LINKEDIN_EXPERIENCE);
-        merged.push(`f_E=${config.LINKEDIN_EXPERIENCE}`);
-      }
+      // Do NOT auto-inject experience filter (f_E) into pasted URLs.
+      // The default config has f_E=1,2,3 (intern + entry + associate)
+      // which excludes mid-senior listings — the bulk of the market for
+      // most roles in Ireland/UK/NL. If the user wants an experience
+      // filter, they encode it in the URL or via the keyword-mode
+      // dropdown. URL mode = URL is the source of truth for filters.
 
       // Sort by most recent if not already specified.
       if (!url.searchParams.get("sortBy")) {

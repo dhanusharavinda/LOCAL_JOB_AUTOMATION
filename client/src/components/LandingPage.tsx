@@ -377,7 +377,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           // when the user types their target role. Hardcoded software
           // defaults previously crowded out non-tech users.
           SEARCH_KEYWORDS: "", LINKEDIN_KEYWORDS: "", LINKEDIN_SKILLS: "", LINKEDIN_SEARCH_URL: "",
-          LINKEDIN_EXPERIENCE: "1,2,3", LINKEDIN_TIME_FILTER: "r86400", LINKEDIN_WORK_TYPE: "", LINKEDIN_JOB_TYPE: "",
+          LINKEDIN_EXPERIENCE: "", LINKEDIN_TIME_FILTER: "r604800", LINKEDIN_WORK_TYPE: "", LINKEDIN_JOB_TYPE: "",
           TARGET_ROLE: "",
           SCRAPE_LINKEDIN: true, SCRAPE_REMOTEOK: true, SCRAPE_JOBICY: true, SCRAPE_HN: true,
           SCRAPE_WWR: true, SCRAPE_ARBEITNOW: true, SCRAPE_REMOTIVE: true, SCRAPE_DEVTO: true,

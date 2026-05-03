@@ -54,8 +54,13 @@ const DEFAULT_CONFIG = {
   LINKEDIN_KEYWORDS: "",
   LINKEDIN_SKILLS: "",
   LINKEDIN_SEARCH_URL: "",
-  LINKEDIN_EXPERIENCE: "1,2,3",
-  LINKEDIN_TIME_FILTER: "r86400",
+  // Defaults widened: empty experience filter (no level restriction)
+  // and 1-week time window. Old defaults ("1,2,3" + "r86400") silently
+  // excluded mid-senior listings and limited to last 24h, which produced
+  // 0-3 jobs per run in slow markets. Users can still narrow these via
+  // the dashboard.
+  LINKEDIN_EXPERIENCE: "",
+  LINKEDIN_TIME_FILTER: "r604800",
   LINKEDIN_WORK_TYPE: "",
   LINKEDIN_JOB_TYPE: "",
   TARGET_ROLE: "",
