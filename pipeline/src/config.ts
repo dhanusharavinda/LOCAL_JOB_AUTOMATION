@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "path";
 import { COUNTRY_REGISTRY } from "./countries";
+import { log } from "./logger";
 
 // override:FALSE — the server spawns the pipeline as a subprocess and
 // injects per-user config (APIFY_JOB_COUNT, LINKEDIN_KEYWORDS, TARGET_ROLE,
@@ -159,26 +160,43 @@ export function buildLinkedInUrl(): string {
     );
   }
 
-  // Manual LINKEDIN_SEARCH_URL override — only honoured when it matches the
-  // currently-selected country's geoId. Without this guard, a persisted URL
-  // from a previous country selection silently hijacks every subsequent run
-  // and LinkedIn keeps returning Dublin jobs even after switching to UK / NL.
-  if (config.LINKEDIN_SEARCH_URL) {
+  // Manual LINKEDIN_SEARCH_URL override. Trust what the user pasted —
+  // they typed in URL mode specifically because they wanted THAT search.
+  // The previous behaviour silently rebuilt a fresh URL whenever the
+  // pasted URL's geoId didn't match TARGET_COUNTRIES, so a UK URL pasted
+  // while Ireland was selected got replaced with an Ireland search and
+  // the user had no idea their URL wasn't honoured. Now we honour it
+  // and log a warning if the geoId looks inconsistent with the country
+  // picker so the user can self-diagnose.
+  if (config.LINKEDIN_SEARCH_URL && config.LINKEDIN_SEARCH_URL.trim()) {
     try {
       const url = new URL(config.LINKEDIN_SEARCH_URL);
       const urlGeoId = url.searchParams.get("geoId");
-      if (!urlGeoId || urlGeoId === autoGeoId) {
-        url.searchParams.delete("currentJobId");
-        url.searchParams.delete("origin");
-        url.searchParams.delete("referralSearchId");
-        url.searchParams.delete("start");
-        return url.toString();
+      const urlKeywords = url.searchParams.get("keywords") || "";
+      // Strip session-specific params that LinkedIn adds when you copy
+      // the URL while viewing a job — they pin the search to that job
+      // and break the actor's pagination.
+      url.searchParams.delete("currentJobId");
+      url.searchParams.delete("origin");
+      url.searchParams.delete("referralSearchId");
+      url.searchParams.delete("start");
+
+      // Heads-up if the pasted URL targets a different country than
+      // what's selected in the dashboard. Common cause of "I selected
+      // UK but got Ireland jobs" complaints.
+      if (urlGeoId && urlGeoId !== autoGeoId) {
+        log.warn(
+          `  Heads up: pasted LinkedIn URL has geoId=${urlGeoId} but your selected country (${firstCountry || "default"}) maps to geoId=${autoGeoId}. ` +
+          "Honouring the pasted URL — clear it in Settings if you want the country picker to drive the search instead."
+        );
       }
-      // URL's geoId is stale vs the current country selection — fall through
-      // to the auto-built URL below. Caller sees a fresh search for the
-      // country they actually picked.
+      if (!urlKeywords.trim()) {
+        log.warn("  Heads up: pasted LinkedIn URL has no `keywords` param — LinkedIn will return very few results. Add keywords in the URL or switch to keyword mode.");
+      }
+      return url.toString();
     } catch {
-      // Malformed URL — ignore and build fresh.
+      log.warn(`  Pasted LINKEDIN_SEARCH_URL is malformed — falling back to keyword-mode URL builder.`);
+      // Fall through to fresh build below.
     }
   }
 
