@@ -142,7 +142,7 @@ Rules:
 - is_reach: true only if seniority_fit <= 2 but role_match >= 3
 - Each reasoning should be 1 short sentence, specific to this job
 - If compensation info is missing from the JD, score compensation as 3 (neutral)
-- Be strict on role_match: the job's actual function must genuinely overlap with the candidate's target role or resume experience`;
+- Be FAIR on role_match: give credit for adjacent or transferable roles where the candidate's skills genuinely apply. A "Data Engineer" candidate looking at a "Backend Engineer" or "ML Engineer" role should typically score 3-4, not 2. Only reserve 1-2 for genuinely different fields (sales, accounting, marketing for a tech candidate, etc.).`;
 }
 
 /**

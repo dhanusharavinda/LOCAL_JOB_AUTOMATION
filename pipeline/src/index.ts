@@ -344,6 +344,11 @@ async function main() {
   // threshold based on what their actual scrape returned, instead of
   // guessing from a generic warning.
   const allScores: number[] = [];
+  // Track jobs whose final score was gate-capped (role_match=1 or
+  // skills_alignment=1 → score forced down to 4/10 regardless of other
+  // dimensions). High gate-cap counts mean the keyword search is pulling
+  // off-target jobs; the AI scorer is doing its job but LinkedIn isn't.
+  let gateCappedCount = 0;
   let completedCount = 0;
 
   await mapConcurrent(locationFiltered, PHASE1_CONCURRENCY, async (job) => {
@@ -361,6 +366,7 @@ async function main() {
       // Track the score before any threshold gate so the histogram
       // includes everything we actually scored.
       allScores.push(verdict.score);
+      if (verdict.score_breakdown?.gate_capped) gateCappedCount++;
 
       if (verdict.score < config.RELEVANCE_SCORE_THRESHOLD) {
         log.skip(`Not relevant (score: ${verdict.score}/10): ${verdict.reason}`);
@@ -433,29 +439,53 @@ async function main() {
       `  Score distribution (out of ${allScores.length}): ` +
       `9-10: ${buckets["9-10"]} · 7-8: ${buckets["7-8"]} · 5-6: ${buckets["5-6"]} · 3-4: ${buckets["3-4"]} · 0-2: ${buckets["0-2"]}`
     );
+    if (gateCappedCount > 0) {
+      const pctCapped = Math.round((gateCappedCount / allScores.length) * 100);
+      log.info(
+        `  ${gateCappedCount} of ${allScores.length} jobs (${pctCapped}%) were gate-capped at 4/10 ` +
+        "(role_match or skills_alignment scored 1 — the job's function is fundamentally different from your target role)."
+      );
+    }
 
-    // If the user got fewer relevant jobs than they wanted, tell them
-    // exactly what threshold would have produced their target. Picking
-    // the highest threshold that yields >= targetRelevantJobs lets the
-    // user lower the slider once and rerun rather than guess-and-check.
+    // Smart suggestion. Pick the right lever based on the histogram:
+    //   - If most jobs are gate-capped → keywords are pulling off-target
+    //     listings, lowering the threshold won't help quality.
+    //   - If many borderline 5-6 jobs exist → lowering threshold actually
+    //     helps; show by how much.
     if (scoredJobs.length < targetRelevantJobs) {
-      let suggestedThreshold = config.RELEVANCE_SCORE_THRESHOLD;
-      for (let t = config.RELEVANCE_SCORE_THRESHOLD - 1; t >= 1; t--) {
-        const wouldPass = allScores.filter((s) => s >= t).length;
-        if (wouldPass >= targetRelevantJobs) {
-          suggestedThreshold = t;
-          break;
-        }
-        // Keep stepping down even if we never hit target — pick the lowest
-        // threshold we tried so the user sees a concrete suggestion.
-        suggestedThreshold = t;
-      }
-      const wouldPassAtSuggested = allScores.filter((s) => s >= suggestedThreshold).length;
-      if (suggestedThreshold < config.RELEVANCE_SCORE_THRESHOLD) {
-        log.info(
-          `  Tip: lower the AI Tuning "Minimum match score" slider from ${config.RELEVANCE_SCORE_THRESHOLD} to ${suggestedThreshold} ` +
-          `to capture ${wouldPassAtSuggested} jobs next run. Or refine LINKEDIN_KEYWORDS to scrape more on-target roles to begin with.`
+      const gateCapRatio = gateCappedCount / allScores.length;
+      const borderline = buckets["5-6"];
+
+      if (gateCapRatio >= 0.6) {
+        // Majority of jobs were gate-capped → keyword problem, not threshold.
+        log.warn(
+          `  Most scraped jobs (${Math.round(gateCapRatio * 100)}%) were fundamentally off-role. ` +
+          "Lowering the Minimum match score won't help — those gate-capped jobs would still be rejected as bad matches. " +
+          "Tighten your LINKEDIN_KEYWORDS or paste a more specific search URL so LinkedIn returns on-target listings."
         );
+      } else if (borderline > 0 && config.RELEVANCE_SCORE_THRESHOLD > 5) {
+        // Plenty of borderline jobs sitting at 5-6 — lowering threshold
+        // to 5 would unlock them.
+        const wouldPassAt5 = allScores.filter((s) => s >= 5).length;
+        log.info(
+          `  Tip: lower the AI Tuning "Minimum match score" slider from ${config.RELEVANCE_SCORE_THRESHOLD} to 5 ` +
+          `to capture ${wouldPassAt5} jobs next run (${borderline} extra borderline matches in the 5-6 range).`
+        );
+      } else {
+        // Find the highest threshold that would yield the target count.
+        let suggestedThreshold = config.RELEVANCE_SCORE_THRESHOLD;
+        for (let t = config.RELEVANCE_SCORE_THRESHOLD - 1; t >= 1; t--) {
+          const wouldPass = allScores.filter((s) => s >= t).length;
+          suggestedThreshold = t;
+          if (wouldPass >= targetRelevantJobs) break;
+        }
+        const wouldPassAtSuggested = allScores.filter((s) => s >= suggestedThreshold).length;
+        if (suggestedThreshold < config.RELEVANCE_SCORE_THRESHOLD) {
+          log.info(
+            `  Tip: lower the AI Tuning "Minimum match score" slider from ${config.RELEVANCE_SCORE_THRESHOLD} to ${suggestedThreshold} ` +
+            `to capture ${wouldPassAtSuggested} jobs next run.`
+          );
+        }
       }
     }
   }
