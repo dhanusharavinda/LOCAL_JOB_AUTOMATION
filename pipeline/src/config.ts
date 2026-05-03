@@ -263,12 +263,18 @@ export function buildLinkedInUrl(): string {
         merged.push(`f_TPR=${tpr}`);
       }
 
-      // Do NOT auto-inject experience filter (f_E) into pasted URLs.
-      // The default config has f_E=1,2,3 (intern + entry + associate)
-      // which excludes mid-senior listings — the bulk of the market for
-      // most roles in Ireland/UK/NL. If the user wants an experience
-      // filter, they encode it in the URL or via the keyword-mode
-      // dropdown. URL mode = URL is the source of truth for filters.
+      // Inject experience filter (f_E) from config when the URL doesn't
+      // specify one. The user's dashboard chips populate
+      // LINKEDIN_EXPERIENCE (e.g. "2" = entry-level only). LinkedIn URLs
+      // copied from the browser often don't capture the experience
+      // chip selection, so without this auto-merge a user who picked
+      // 'entry level' in the dashboard would get all levels (which is
+      // what the user just complained about — every result senior).
+      // Empty config value means 'all levels' and we skip the inject.
+      if (!url.searchParams.get("f_E") && config.LINKEDIN_EXPERIENCE && config.LINKEDIN_EXPERIENCE.trim()) {
+        url.searchParams.set("f_E", config.LINKEDIN_EXPERIENCE);
+        merged.push(`f_E=${config.LINKEDIN_EXPERIENCE}`);
+      }
 
       // Sort by most recent if not already specified.
       if (!url.searchParams.get("sortBy")) {
