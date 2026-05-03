@@ -246,21 +246,15 @@ export function buildLinkedInUrl(): string {
         );
       }
 
-      // Inject time filter if missing. Default to 1-WEEK (r604800)
-      // instead of 24h (r86400) for URL mode — slow markets routinely
-      // have <5 listings per day, so 24h windows produce empty results.
-      // Also auto-widen if the URL's saved time filter is r86400 because
-      // it's almost always wrong for non-tech-hub markets like Ireland;
-      // we widen with a clear log line so the user knows.
+      // Inject time filter if missing — honour the user's saved setting
+      // verbatim (no auto-widen). If the URL itself specifies f_TPR we
+      // skip this entirely (the user's URL choice wins). If the saved
+      // setting is also empty we fall back to 1-week so the actor isn't
+      // hit with an unbounded "all time" query.
       if (!url.searchParams.get("f_TPR")) {
-        const tpr = (config.LINKEDIN_TIME_FILTER && config.LINKEDIN_TIME_FILTER !== "r86400")
-          ? config.LINKEDIN_TIME_FILTER
-          : "r604800";
+        const tpr = config.LINKEDIN_TIME_FILTER || "r604800";
         url.searchParams.set("f_TPR", tpr);
         merged.push(`f_TPR=${tpr}`);
-        if (config.LINKEDIN_TIME_FILTER === "r86400") {
-          log.info("  Widened time filter from 24h → 1 week — Past 24h often returns 0 jobs in slow markets. Override via the dashboard if you want strict 24h.");
-        }
       }
 
       // Inject experience filter if missing.
