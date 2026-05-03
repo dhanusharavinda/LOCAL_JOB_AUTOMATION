@@ -177,6 +177,18 @@ export function buildLinkedInUrl(): string {
       url.searchParams.delete("referralSearchId");
       url.searchParams.delete("start");
 
+      // Normalize the path. Users typically copy the URL while on
+      // /jobs/search-results/ (the active-search page with a job
+      // detail panel open) — but the Apify LinkedIn actor expects
+      // the canonical /jobs/search/ path and silently returns 0 when
+      // given the variant. Force the canonical path; the query string
+      // is what actually drives the search.
+      const originalPath = url.pathname;
+      if (!/^\/jobs\/search\/?$/.test(originalPath)) {
+        url.pathname = "/jobs/search/";
+        log.info(`  Normalized pasted URL path from ${originalPath} → /jobs/search/ (the actor needs the canonical path)`);
+      }
+
       const merged: string[] = [];
 
       // Inject keywords if missing — fall back through LINKEDIN_KEYWORDS,
@@ -234,6 +246,18 @@ export function buildLinkedInUrl(): string {
           "If you want the URL used verbatim, paste a complete URL with geoId/f_TPR/f_E set."
         );
       }
+
+      // Heads-up if the URL has restrictive filters that often produce
+      // 0 results. Salary filter (f_SAL) is the most common one — users
+      // copy a URL while filtering by their target salary band, then
+      // run the pipeline expecting it to scrape broadly.
+      if (url.searchParams.get("f_SAL")) {
+        log.warn(
+          "  Pasted URL has a salary filter (f_SAL) applied — LinkedIn often returns 0 jobs when this is combined " +
+          "with a narrow geo + time filter. If results are sparse, remove the salary filter from your URL."
+        );
+      }
+
       return url.toString();
     } catch {
       log.warn("  Pasted LINKEDIN_SEARCH_URL is malformed — falling back to keyword-mode URL builder.");
