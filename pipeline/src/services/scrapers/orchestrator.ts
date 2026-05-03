@@ -24,28 +24,48 @@ export const SOURCE_LABELS: Record<string, string> = {
  * low-quality output was polluting the AI relevance scoring step.
  */
 export async function scrapeAllFreeSources(totalBudget?: number): Promise<LinkedInJob[]> {
-  // Derive a usable keyword list with three layers of fallback:
+  // Derive a usable keyword list with FOUR layers of fallback:
   //   1. SEARCH_KEYWORDS (explicit free-scraper config)
   //   2. LINKEDIN_KEYWORDS (filled via the role expander)
   //   3. TARGET_ROLE (the role string the user typed in)
-  // The previous behaviour silently skipped Indeed/Naukri if only #2 or
-  // #3 were set — common when the user pastes a LinkedIn URL and never
-  // touches the keyword field. Now we surface the fallback so the user
-  // sees what's being used.
+  //   4. keywords param parsed out of LINKEDIN_SEARCH_URL — covers
+  //      URL-mode users who never filled any keyword field
   const fromSearch = config.SEARCH_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
   const fromLinkedIn = config.LINKEDIN_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
   const fromTargetRole = config.TARGET_ROLE.trim() ? [config.TARGET_ROLE.trim()] : [];
+  const fromUrl = (() => {
+    if (!config.LINKEDIN_SEARCH_URL) return [] as string[];
+    try {
+      const u = new URL(config.LINKEDIN_SEARCH_URL);
+      const raw = (u.searchParams.get("keywords") || "").trim();
+      if (!raw) return [];
+      // LinkedIn URLs use UPPERCASE OR as the boolean. Split on it (and
+      // its lowercase variant in case the user typed naturally) plus
+      // commas so each phrase becomes a separate Indeed search term.
+      return raw
+        .split(/\s+OR\s+|\s+or\s+|,/)
+        .map((k) => k.trim())
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  })();
+
   let keywords = fromSearch;
   if (keywords.length === 0 && fromLinkedIn.length > 0) {
     log.info(`  SEARCH_KEYWORDS empty — falling back to LINKEDIN_KEYWORDS (${fromLinkedIn.slice(0, 3).join(", ")}...)`);
     keywords = fromLinkedIn;
   }
   if (keywords.length === 0 && fromTargetRole.length > 0) {
-    log.info(`  SEARCH_KEYWORDS + LINKEDIN_KEYWORDS both empty — falling back to TARGET_ROLE ("${fromTargetRole[0]}")`);
+    log.info(`  SEARCH_KEYWORDS + LINKEDIN_KEYWORDS empty — falling back to TARGET_ROLE ("${fromTargetRole[0]}")`);
     keywords = fromTargetRole;
   }
+  if (keywords.length === 0 && fromUrl.length > 0) {
+    log.info(`  All keyword fields empty — extracted from pasted URL: ${fromUrl.slice(0, 3).join(", ")}`);
+    keywords = fromUrl;
+  }
   if (keywords.length === 0) {
-    log.warn("SEARCH_KEYWORDS, LINKEDIN_KEYWORDS, and TARGET_ROLE are all empty — secondary scrapers can't run. Fill in at least one in your settings.");
+    log.warn("SEARCH_KEYWORDS, LINKEDIN_KEYWORDS, TARGET_ROLE, and URL keywords are all empty — secondary scrapers can't run. Fill in at least one in your settings.");
     return [];
   }
 

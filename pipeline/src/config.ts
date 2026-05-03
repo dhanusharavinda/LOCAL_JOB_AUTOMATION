@@ -220,6 +220,19 @@ export function buildLinkedInUrl(): string {
           url.searchParams.set("keywords", joined);
           merged.push(`keywords="${joined.slice(0, 60)}"`);
         }
+      } else {
+        // The user's URL has keywords. LinkedIn treats UPPERCASE OR as the
+        // boolean operator and lowercase "or" as a literal search word. A
+        // hand-typed "AI engineer or Data engineer" therefore matches
+        // ~zero jobs (no listing has that literal phrase). Auto-uppercase
+        // OR/AND/NOT so the user's natural-language keywords actually
+        // work as boolean queries.
+        const fixed = urlKeywords
+          .replace(/\b(or|and|not)\b/g, (m) => m.toUpperCase());
+        if (fixed !== urlKeywords) {
+          url.searchParams.set("keywords", fixed);
+          log.info(`  Uppercased boolean operators in URL keywords: "${urlKeywords.slice(0, 50)}" → "${fixed.slice(0, 50)}" (LinkedIn requires OR/AND/NOT in caps)`);
+        }
       }
 
       // Inject geoId if missing — without it the Apify actor returns 0.
@@ -233,14 +246,21 @@ export function buildLinkedInUrl(): string {
         );
       }
 
-      // Inject time filter if missing. Default to 1-WEEK (r604800) instead
-      // of 24h (r86400) for URL mode — slow markets routinely have <5
-      // listings per day, so 24h windows produce empty results and
-      // confuse users who copy-pasted the bare LinkedIn search URL.
+      // Inject time filter if missing. Default to 1-WEEK (r604800)
+      // instead of 24h (r86400) for URL mode — slow markets routinely
+      // have <5 listings per day, so 24h windows produce empty results.
+      // Also auto-widen if the URL's saved time filter is r86400 because
+      // it's almost always wrong for non-tech-hub markets like Ireland;
+      // we widen with a clear log line so the user knows.
       if (!url.searchParams.get("f_TPR")) {
-        const tpr = config.LINKEDIN_TIME_FILTER || "r604800";
+        const tpr = (config.LINKEDIN_TIME_FILTER && config.LINKEDIN_TIME_FILTER !== "r86400")
+          ? config.LINKEDIN_TIME_FILTER
+          : "r604800";
         url.searchParams.set("f_TPR", tpr);
         merged.push(`f_TPR=${tpr}`);
+        if (config.LINKEDIN_TIME_FILTER === "r86400") {
+          log.info("  Widened time filter from 24h → 1 week — Past 24h often returns 0 jobs in slow markets. Override via the dashboard if you want strict 24h.");
+        }
       }
 
       // Inject experience filter if missing.
