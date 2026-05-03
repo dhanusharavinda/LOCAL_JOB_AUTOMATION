@@ -24,9 +24,28 @@ export const SOURCE_LABELS: Record<string, string> = {
  * low-quality output was polluting the AI relevance scoring step.
  */
 export async function scrapeAllFreeSources(totalBudget?: number): Promise<LinkedInJob[]> {
-  const keywords = config.SEARCH_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
+  // Derive a usable keyword list with three layers of fallback:
+  //   1. SEARCH_KEYWORDS (explicit free-scraper config)
+  //   2. LINKEDIN_KEYWORDS (filled via the role expander)
+  //   3. TARGET_ROLE (the role string the user typed in)
+  // The previous behaviour silently skipped Indeed/Naukri if only #2 or
+  // #3 were set — common when the user pastes a LinkedIn URL and never
+  // touches the keyword field. Now we surface the fallback so the user
+  // sees what's being used.
+  const fromSearch = config.SEARCH_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
+  const fromLinkedIn = config.LINKEDIN_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
+  const fromTargetRole = config.TARGET_ROLE.trim() ? [config.TARGET_ROLE.trim()] : [];
+  let keywords = fromSearch;
+  if (keywords.length === 0 && fromLinkedIn.length > 0) {
+    log.info(`  SEARCH_KEYWORDS empty — falling back to LINKEDIN_KEYWORDS (${fromLinkedIn.slice(0, 3).join(", ")}...)`);
+    keywords = fromLinkedIn;
+  }
+  if (keywords.length === 0 && fromTargetRole.length > 0) {
+    log.info(`  SEARCH_KEYWORDS + LINKEDIN_KEYWORDS both empty — falling back to TARGET_ROLE ("${fromTargetRole[0]}")`);
+    keywords = fromTargetRole;
+  }
   if (keywords.length === 0) {
-    log.warn("SEARCH_KEYWORDS is empty — non-LinkedIn scrapers skipped");
+    log.warn("SEARCH_KEYWORDS, LINKEDIN_KEYWORDS, and TARGET_ROLE are all empty — secondary scrapers can't run. Fill in at least one in your settings.");
     return [];
   }
 

@@ -162,6 +162,28 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
     throw new Error("Apify returned unexpected format (expected array)");
   }
 
+  // When the actor returns 0 results, the user has no idea why. Surface
+  // the actual search params (parsed from the URL we built) so they can
+  // diagnose: usually it's a too-narrow time filter (r86400 = last 24h
+  // is brutal in slow markets), an empty keyword string, or a geoId
+  // pointing at a region with no listings for those keywords.
+  if (dataset.length === 0) {
+    try {
+      const u = new URL(searchUrl);
+      const kw = u.searchParams.get("keywords") || "(none)";
+      const geo = u.searchParams.get("geoId") || "(none)";
+      const tpr = u.searchParams.get("f_TPR") || "(none)";
+      const exp = u.searchParams.get("f_E") || "(none)";
+      const wt = u.searchParams.get("f_WT") || "(any)";
+      log.warn(
+        `Search returned 0 jobs. Params used: keywords="${kw.slice(0, 80)}" geoId=${geo} time=${tpr} experience=${exp} workType=${wt}. ` +
+        "Common causes: time filter too narrow (try r604800 = 1 week), keywords too specific, or no listings for this combo."
+      );
+    } catch {
+      log.warn("Search returned 0 jobs and the search URL couldn't be parsed for diagnostics.");
+    }
+  }
+
   // Log raw keys of first item so we can debug field name mismatches
   if (dataset.length > 0) {
     const firstItem = dataset[0];
