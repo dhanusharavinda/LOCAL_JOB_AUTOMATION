@@ -232,6 +232,23 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
+  // Server-side mirror of the client validation: refuse to start a run
+  // with zero searchable input. The client already blocks this, but the
+  // server enforcement is the source of truth — guards against curl users
+  // and stale client builds.
+  const trimmedUrl = String(userConfig.LINKEDIN_SEARCH_URL || "").trim();
+  const trimmedLinkedInKw = String(userConfig.LINKEDIN_KEYWORDS || "").trim();
+  const trimmedSearchKw = String(userConfig.SEARCH_KEYWORDS || "").trim();
+  if (!trimmedUrl && !trimmedLinkedInKw && !trimmedSearchKw) {
+    release();
+    res.status(400).json({
+      error:
+        "Add keywords OR paste a search URL before starting the pipeline. " +
+        "Use Keywords mode to type roles like 'AI Engineer, Data Engineer', or URL mode to paste a LinkedIn search URL.",
+    });
+    return;
+  }
+
   // Gate: remaining jobs-scraped budget for today. The user can run the
   // pipeline as many times as they want per day, but the total jobs scraped
   // across all runs is capped at their plan's daily limit.

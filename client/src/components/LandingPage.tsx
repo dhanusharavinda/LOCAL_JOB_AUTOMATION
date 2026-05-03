@@ -601,13 +601,21 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       return;
     }
 
-    // Require role OR a pasted LinkedIn URL. The URL fully drives the
-    // LinkedIn search, and SEARCH_KEYWORDS still feeds the free scrapers,
-    // so as long as ONE of these is set the pipeline can run.
+    // STRICT requirement: the user must have either real keywords OR a
+    // pasted URL. Previously we accepted "expected role only" because
+    // the role auto-fills keywords, but that auto-fill silently fails
+    // in some flows (URL mode toggle, settings reload, etc.) and
+    // produced "0 jobs scraped" because the pipeline got nothing
+    // searchable. Force explicit input here so the failure mode is
+    // a visible "fill in a field" error instead of a silent zero run.
     const hasLinkedInUrl = !!config.LINKEDIN_SEARCH_URL && config.LINKEDIN_SEARCH_URL.trim().length > 0;
+    const hasLinkedInKeywords = !!config.LINKEDIN_KEYWORDS && config.LINKEDIN_KEYWORDS.trim().length > 0;
     const hasFreeKeywords = !!config.SEARCH_KEYWORDS && config.SEARCH_KEYWORDS.trim().length > 0;
-    if (!expectedRole.trim() && !hasLinkedInUrl && !hasFreeKeywords) {
-      setError("Enter your expected job role, paste a LinkedIn search URL, or fill in the Free Scraper Keywords field.");
+    if (!hasLinkedInUrl && !hasLinkedInKeywords && !hasFreeKeywords) {
+      setError(
+        "Add keywords OR paste a search URL before starting the pipeline. " +
+        "Use Keywords mode to type roles like 'AI Engineer, Data Engineer', or URL mode to paste a LinkedIn search URL."
+      );
       return;
     }
 

@@ -176,6 +176,20 @@ export function buildLinkedInUrl(): string {
       url.searchParams.delete("origin");
       url.searchParams.delete("referralSearchId");
       url.searchParams.delete("start");
+      // Salary filter (f_SAL) is the #1 cause of "0 jobs scraped" for
+      // URL-mode users. LinkedIn encodes it like f_SA_id_227001:276001
+      // (~$227k-$276k USD band), which is principal/staff-level only
+      // in slow markets like Ireland and excludes 95% of postings that
+      // don't disclose salary at all. Auto-strip it so a casual copy-
+      // paste of a "filtered for me right now" URL doesn't accidentally
+      // restrict the whole pipeline run.
+      if (url.searchParams.has("f_SAL")) {
+        url.searchParams.delete("f_SAL");
+        log.info(
+          "  Removed salary filter (f_SAL) from pasted URL — it dropped 95% of LinkedIn postings " +
+          "(most don't disclose salary). If you actually want a salary cutoff, set it via the dashboard's filters instead."
+        );
+      }
 
       // Normalize the path. Users typically copy the URL while on
       // /jobs/search-results/ (the active-search page with a job
@@ -244,17 +258,6 @@ export function buildLinkedInUrl(): string {
         log.info(
           `  Pasted LinkedIn URL was missing params — auto-merged: ${merged.join(", ")}. ` +
           "If you want the URL used verbatim, paste a complete URL with geoId/f_TPR/f_E set."
-        );
-      }
-
-      // Heads-up if the URL has restrictive filters that often produce
-      // 0 results. Salary filter (f_SAL) is the most common one — users
-      // copy a URL while filtering by their target salary band, then
-      // run the pipeline expecting it to scrape broadly.
-      if (url.searchParams.get("f_SAL")) {
-        log.warn(
-          "  Pasted URL has a salary filter (f_SAL) applied — LinkedIn often returns 0 jobs when this is combined " +
-          "with a narrow geo + time filter. If results are sparse, remove the salary filter from your URL."
         );
       }
 
