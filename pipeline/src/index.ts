@@ -339,6 +339,11 @@ async function main() {
     jobCategory: string | null;
   }
   const scoredJobs: ScoredJob[] = [];
+  // Track every score (including rejected ones) so we can show the user
+  // a distribution histogram at the end. Lets them calibrate the
+  // threshold based on what their actual scrape returned, instead of
+  // guessing from a generic warning.
+  const allScores: number[] = [];
   let completedCount = 0;
 
   await mapConcurrent(locationFiltered, PHASE1_CONCURRENCY, async (job) => {
@@ -352,6 +357,10 @@ async function main() {
       // due to concurrency, so we count completions and show `n/total`.
       const n = ++completedCount;
       log.job(n, locationFiltered.length, job.title, job.companyName);
+
+      // Track the score before any threshold gate so the histogram
+      // includes everything we actually scored.
+      allScores.push(verdict.score);
 
       if (verdict.score < config.RELEVANCE_SCORE_THRESHOLD) {
         log.skip(`Not relevant (score: ${verdict.score}/10): ${verdict.reason}`);
@@ -406,6 +415,49 @@ async function main() {
     log.warn(
       `Only ${scoredJobs.length} quality job${scoredJobs.length === 1 ? "" : "s"} passed the AI filter for your role (target: ${targetRelevantJobs}).`
     );
+  }
+
+  // Always log the score distribution so the user can decide whether to
+  // lower the threshold or refine their keywords. This is the actionable
+  // diagnostic that was missing — previously the user just saw "Only 1
+  // passed" with no way to know whether to drop threshold by 1 or 5.
+  if (allScores.length > 0) {
+    const buckets = {
+      "9-10": allScores.filter((s) => s >= 9).length,
+      "7-8":  allScores.filter((s) => s >= 7 && s < 9).length,
+      "5-6":  allScores.filter((s) => s >= 5 && s < 7).length,
+      "3-4":  allScores.filter((s) => s >= 3 && s < 5).length,
+      "0-2":  allScores.filter((s) => s < 3).length,
+    };
+    log.info(
+      `  Score distribution (out of ${allScores.length}): ` +
+      `9-10: ${buckets["9-10"]} · 7-8: ${buckets["7-8"]} · 5-6: ${buckets["5-6"]} · 3-4: ${buckets["3-4"]} · 0-2: ${buckets["0-2"]}`
+    );
+
+    // If the user got fewer relevant jobs than they wanted, tell them
+    // exactly what threshold would have produced their target. Picking
+    // the highest threshold that yields >= targetRelevantJobs lets the
+    // user lower the slider once and rerun rather than guess-and-check.
+    if (scoredJobs.length < targetRelevantJobs) {
+      let suggestedThreshold = config.RELEVANCE_SCORE_THRESHOLD;
+      for (let t = config.RELEVANCE_SCORE_THRESHOLD - 1; t >= 1; t--) {
+        const wouldPass = allScores.filter((s) => s >= t).length;
+        if (wouldPass >= targetRelevantJobs) {
+          suggestedThreshold = t;
+          break;
+        }
+        // Keep stepping down even if we never hit target — pick the lowest
+        // threshold we tried so the user sees a concrete suggestion.
+        suggestedThreshold = t;
+      }
+      const wouldPassAtSuggested = allScores.filter((s) => s >= suggestedThreshold).length;
+      if (suggestedThreshold < config.RELEVANCE_SCORE_THRESHOLD) {
+        log.info(
+          `  Tip: lower the AI Tuning "Minimum match score" slider from ${config.RELEVANCE_SCORE_THRESHOLD} to ${suggestedThreshold} ` +
+          `to capture ${wouldPassAtSuggested} jobs next run. Or refine LINKEDIN_KEYWORDS to scrape more on-target roles to begin with.`
+        );
+      }
+    }
   }
 
   // ── Step 4 Phase 2: Select top N and tailor resumes ──
