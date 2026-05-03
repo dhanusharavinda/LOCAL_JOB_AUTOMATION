@@ -615,46 +615,22 @@ async function main() {
         }
       }
 
-      // ── Generate cover letter + why I'm a fit (each can be toggled off) ──
-      // "Generate once" policy: check whether the tracker already has these
-      // assets for this job (by job_link). If both exist, skip the OpenAI
-      // call entirely and reuse what's stored. If only one is missing, we
-      // still do a single call (the prompt returns both together) and only
-      // the missing field gets written. This prevents duplicate spend if a
-      // job ever re-enters the pipeline and preserves any manual regens.
-      let coverLetter = "";
-      let whyImAFit = "";
-      const existingAssets = job.link
-        ? await fetchJobAssetStatus(job.link)
-        : { exists: false, hasCoverLetter: false, hasWhyFit: false };
-      const needCoverLetter = config.ENABLE_COVER_LETTER && !existingAssets.hasCoverLetter;
-      const needWhyFit      = config.ENABLE_WHY_FIT      && !existingAssets.hasWhyFit;
-
-      if (needCoverLetter || needWhyFit) {
-        try {
-          const candidateSkills = extractSkillsList(resumeData);
-          const candidateName = resumeData.resumeData?.personalInfo?.name || "";
-          const result = await generateCoverLetter(
-            job.companyName,
-            job.title,
-            candidateSkills,
-            job.descriptionText,
-            candidateName
-          );
-          coverLetter = needCoverLetter ? result.coverLetter : "";
-          whyImAFit   = needWhyFit      ? result.whyImAFit   : "";
-          const parts: string[] = [];
-          if (needCoverLetter) parts.push("cover letter");
-          if (needWhyFit)      parts.push("why-I'm-a-fit");
-          log.success(`Generated ${parts.join(" + ")}`);
-        } catch (err: any) {
-          log.error(`Cover letter generation failed: ${err.message}`);
-        }
-      } else if (!config.ENABLE_COVER_LETTER && !config.ENABLE_WHY_FIT) {
-        log.info("  Cover letter + why-I'm-a-fit disabled in settings — skipped");
-      } else {
-        log.info("  Cover letter + why-I'm-a-fit already generated for this job — skipped (one-time policy)");
-      }
+      // Cover letter + why-I'm-a-fit are STRICTLY on-demand now. The
+      // pipeline never auto-generates these regardless of config.
+      // ENABLE_COVER_LETTER / ENABLE_WHY_FIT settings — the user clicks
+      // "Generate" inside the JobDetailModal when they actually want
+      // them. Reasons:
+      //   - Most users only care about CL/why-fit for jobs they're
+      //     genuinely applying to, not the whole top-N pool.
+      //   - Auto-gen burned OpenAI tokens on jobs the user later
+      //     rejected, and overwrote manually-edited copies if a job
+      //     re-entered the pipeline.
+      //   - "Click to view" only appearing AFTER user-initiated
+      //     generation is the contract the UI now expects.
+      // Variables stay declared so attachJobAssets keeps the same
+      // shape; both are sent as empty strings → null in the upsert.
+      const coverLetter = "";
+      const whyImAFit = "";
 
       // Google Sheets append was removed with the rest of the Google
       // integration. Tracker attachment below is now the sole output sink.

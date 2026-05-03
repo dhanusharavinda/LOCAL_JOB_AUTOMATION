@@ -284,20 +284,27 @@ export async function attachJobAssets(
       if (checkRes.ok) {
         const data = (await checkRes.json()) as any;
         if (data.exists && data.id) {
+          // Only include cover_letter / hiring_message in the PATCH if
+          // we actually generated them this run. Sending nulls would
+          // wipe values the user generated manually via the on-demand
+          // Generate button — pipeline runs are now strictly on-demand-
+          // skip for these fields.
+          const patchBody: Record<string, unknown> = {
+            resume_url: resumeUrl,
+            match_score: score ?? null,
+            match_reason: matchReason ?? null,
+            job_category: jobCategory ?? null,
+            resume_profile_id: resumeProfileId ?? null,
+            keyword_match_rate: keywordMatchRate ?? null,
+          };
+          if (coverLetter) patchBody.cover_letter = coverLetter;
+          if (whyImAFit) patchBody.hiring_message = whyImAFit;
+
           const patchRes = await fetch(`${API_URL()}/${data.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json", ...internalAuthHeaders() },
             signal: withTimeout(FETCH_TIMEOUT_MS),
-            body: JSON.stringify({
-              resume_url: resumeUrl,
-              cover_letter: coverLetter || null,
-              hiring_message: whyImAFit || null,
-              match_score: score ?? null,
-              match_reason: matchReason ?? null,
-              job_category: jobCategory ?? null,
-              resume_profile_id: resumeProfileId ?? null,
-              keyword_match_rate: keywordMatchRate ?? null,
-            }),
+            body: JSON.stringify(patchBody),
           });
           if (patchRes.ok) return;
         }
