@@ -160,50 +160,105 @@ export function buildLinkedInUrl(): string {
     );
   }
 
-  // Manual LINKEDIN_SEARCH_URL override. Trust what the user pasted —
-  // they typed in URL mode specifically because they wanted THAT search.
-  // The previous behaviour silently rebuilt a fresh URL whenever the
-  // pasted URL's geoId didn't match TARGET_COUNTRIES, so a UK URL pasted
-  // while Ireland was selected got replaced with an Ireland search and
-  // the user had no idea their URL wasn't honoured. Now we honour it
-  // and log a warning if the geoId looks inconsistent with the country
-  // picker so the user can self-diagnose.
+  // Manual LINKEDIN_SEARCH_URL override. Honour the pasted URL but MERGE
+  // in missing params from the user's other config — a URL with only
+  // `?keywords=...` and no geoId returns 0 jobs from the Apify actor,
+  // which silently breaks "URL mode" for the common copy-paste case
+  // where users only kept the keywords portion. Filling in the gaps
+  // from the rest of the config makes URL mode robust to partial input.
   if (config.LINKEDIN_SEARCH_URL && config.LINKEDIN_SEARCH_URL.trim()) {
     try {
       const url = new URL(config.LINKEDIN_SEARCH_URL);
-      const urlGeoId = url.searchParams.get("geoId");
-      const urlKeywords = url.searchParams.get("keywords") || "";
-      // Strip session-specific params that LinkedIn adds when you copy
-      // the URL while viewing a job — they pin the search to that job
-      // and break the actor's pagination.
+      // Strip session-specific params LinkedIn adds when you copy the
+      // URL while viewing a job — they pin the search to that job and
+      // break the actor's pagination.
       url.searchParams.delete("currentJobId");
       url.searchParams.delete("origin");
       url.searchParams.delete("referralSearchId");
       url.searchParams.delete("start");
 
-      // Heads-up if the pasted URL targets a different country than
-      // what's selected in the dashboard. Common cause of "I selected
-      // UK but got Ireland jobs" complaints.
-      if (urlGeoId && urlGeoId !== autoGeoId) {
+      const merged: string[] = [];
+
+      // Inject keywords if missing — fall back through LINKEDIN_KEYWORDS,
+      // then SEARCH_KEYWORDS, then TARGET_ROLE.
+      const urlKeywords = (url.searchParams.get("keywords") || "").trim();
+      if (!urlKeywords) {
+        const fallbackKw =
+          (config.LINKEDIN_KEYWORDS || "").trim() ||
+          (config.SEARCH_KEYWORDS || "").trim() ||
+          (config.TARGET_ROLE || "").trim();
+        if (fallbackKw) {
+          // Same OR-join LinkedIn expects when multiple keyword phrases
+          // are provided.
+          const joined = fallbackKw.split(",").map((k) => k.trim()).filter(Boolean).join(" OR ");
+          url.searchParams.set("keywords", joined);
+          merged.push(`keywords="${joined.slice(0, 60)}"`);
+        }
+      }
+
+      // Inject geoId if missing — without it the Apify actor returns 0.
+      if (!url.searchParams.get("geoId")) {
+        url.searchParams.set("geoId", autoGeoId);
+        merged.push(`geoId=${autoGeoId}`);
+      } else if (url.searchParams.get("geoId") !== autoGeoId) {
         log.warn(
-          `  Heads up: pasted LinkedIn URL has geoId=${urlGeoId} but your selected country (${firstCountry || "default"}) maps to geoId=${autoGeoId}. ` +
-          "Honouring the pasted URL — clear it in Settings if you want the country picker to drive the search instead."
+          `  Heads up: pasted URL geoId=${url.searchParams.get("geoId")} differs from country picker (${firstCountry || "default"} = ${autoGeoId}). ` +
+          "Honouring the URL's geoId — clear the URL in Settings if you want the picker to drive the country."
         );
       }
-      if (!urlKeywords.trim()) {
-        log.warn("  Heads up: pasted LinkedIn URL has no `keywords` param — LinkedIn will return very few results. Add keywords in the URL or switch to keyword mode.");
+
+      // Inject time filter if missing. Default to 1-WEEK (r604800) instead
+      // of 24h (r86400) for URL mode — slow markets routinely have <5
+      // listings per day, so 24h windows produce empty results and
+      // confuse users who copy-pasted the bare LinkedIn search URL.
+      if (!url.searchParams.get("f_TPR")) {
+        const tpr = config.LINKEDIN_TIME_FILTER || "r604800";
+        url.searchParams.set("f_TPR", tpr);
+        merged.push(`f_TPR=${tpr}`);
+      }
+
+      // Inject experience filter if missing.
+      if (!url.searchParams.get("f_E") && config.LINKEDIN_EXPERIENCE) {
+        url.searchParams.set("f_E", config.LINKEDIN_EXPERIENCE);
+        merged.push(`f_E=${config.LINKEDIN_EXPERIENCE}`);
+      }
+
+      // Sort by most recent if not already specified.
+      if (!url.searchParams.get("sortBy")) {
+        url.searchParams.set("sortBy", config.LINKEDIN_SORT || "DD");
+      }
+
+      if (merged.length > 0) {
+        log.info(
+          `  Pasted LinkedIn URL was missing params — auto-merged: ${merged.join(", ")}. ` +
+          "If you want the URL used verbatim, paste a complete URL with geoId/f_TPR/f_E set."
+        );
       }
       return url.toString();
     } catch {
-      log.warn(`  Pasted LINKEDIN_SEARCH_URL is malformed — falling back to keyword-mode URL builder.`);
+      log.warn("  Pasted LINKEDIN_SEARCH_URL is malformed — falling back to keyword-mode URL builder.");
       // Fall through to fresh build below.
     }
   }
 
-  const keywords = config.LINKEDIN_KEYWORDS
+  // Keywords with three-layer fallback so URL-builder mode works even when
+  // the user only filled TARGET_ROLE: LINKEDIN_KEYWORDS → SEARCH_KEYWORDS
+  // → TARGET_ROLE. Without this, an empty LINKEDIN_KEYWORDS produced
+  // keywords="" in the URL, which the actor accepts but returns 0 jobs.
+  const linkedInKwSource =
+    config.LINKEDIN_KEYWORDS.trim() ||
+    config.SEARCH_KEYWORDS.trim() ||
+    config.TARGET_ROLE.trim();
+  const keywords = linkedInKwSource
     .split(",")
     .map((k) => k.trim())
     .filter(Boolean);
+  if (keywords.length === 0) {
+    log.warn(
+      "  buildLinkedInUrl: no keywords available — LINKEDIN_KEYWORDS, SEARCH_KEYWORDS, and TARGET_ROLE are all empty. " +
+      "LinkedIn search will return 0 jobs. Type a role in the dashboard's Expected Role field."
+    );
+  }
 
   // Append skills as additional OR terms (e.g., "python developer", "sql developer")
   const skills = config.LINKEDIN_SKILLS
