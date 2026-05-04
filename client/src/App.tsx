@@ -44,6 +44,7 @@ export default function App() {
   const [sortByScore, setSortByScore] = useState(false);
   const [sortByDeadline, setSortByDeadline] = useState(true);
   const [sortByFreshness, setSortByFreshness] = useState(false);
+  const [sortByGrade, setSortByGrade] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string>("");
   // Separate work-type filter — remote/hybrid/onsite. Cross-cuts the
   // country filter so a user can e.g. see only UK + remote jobs.
@@ -319,6 +320,26 @@ export default function App() {
         const pa = a.posted_at ? new Date(a.posted_at).getTime() : 0;
         const pb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
         return pb - pa; // newest posted first
+      });
+    }
+    if (sortByGrade) {
+      // A=0 .. F=4, unknown last. score_breakdown is JSON; parse defensively.
+      const gradeRank = (j: Job): number => {
+        if (!j.score_breakdown) return 99;
+        try {
+          const g = (JSON.parse(j.score_breakdown)?.letter_grade || "").toUpperCase();
+          const idx = "ABCDF".indexOf(g);
+          return idx === -1 ? 99 : idx;
+        } catch {
+          return 99;
+        }
+      };
+      return [...searched].sort((a, b) => {
+        const ra = gradeRank(a);
+        const rb = gradeRank(b);
+        if (ra !== rb) return ra - rb;
+        // Tie-break by raw score so A-grades order by their numeric score.
+        return (b.match_score ?? -1) - (a.match_score ?? -1);
       });
     }
     return searched;
@@ -899,7 +920,7 @@ export default function App() {
 
         {/* Sort by deadline */}
         <button
-          onClick={() => { setSortByDeadline((v) => !v); setSortByScore(false); setSortByFreshness(false); }}
+          onClick={() => { setSortByDeadline((v) => !v); setSortByScore(false); setSortByFreshness(false); setSortByGrade(false); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByDeadline
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
@@ -914,7 +935,7 @@ export default function App() {
 
         {/* Sort by score */}
         <button
-          onClick={() => { setSortByScore((v) => !v); setSortByDeadline(false); setSortByFreshness(false); }}
+          onClick={() => { setSortByScore((v) => !v); setSortByDeadline(false); setSortByFreshness(false); setSortByGrade(false); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByScore
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
@@ -927,9 +948,25 @@ export default function App() {
           Score
         </button>
 
+        {/* Sort by grade (A → F, ties broken by raw score) */}
+        <button
+          onClick={() => { setSortByGrade((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByFreshness(false); }}
+          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
+            sortByGrade
+              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+              : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
+          }`}
+          title="Sort by letter grade — A first, then B, C, D, F"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 19l7-14 7 14M8 14h8" />
+          </svg>
+          Grade
+        </button>
+
         {/* Sort by freshness (newest posted first) */}
         <button
-          onClick={() => { setSortByFreshness((v) => !v); setSortByScore(false); setSortByDeadline(false); }}
+          onClick={() => { setSortByFreshness((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByGrade(false); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByFreshness
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
