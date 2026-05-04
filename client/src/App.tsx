@@ -45,6 +45,12 @@ export default function App() {
   const [sortByDeadline, setSortByDeadline] = useState(true);
   const [sortByFreshness, setSortByFreshness] = useState(false);
   const [sortByGrade, setSortByGrade] = useState(false);
+  // Seniority sort is tri-state — single button that cycles
+  // off → high (most senior first) → low (least senior first) → off.
+  // Other sorts are binary; this one needs both directions because the
+  // user might want to find graduate roles OR director roles depending
+  // on context.
+  const [sortBySeniority, setSortBySeniority] = useState<"off" | "high" | "low">("off");
   const [locationFilter, setLocationFilter] = useState<string>("");
   // Separate work-type filter — remote/hybrid/onsite. Cross-cuts the
   // country filter so a user can e.g. see only UK + remote jobs.
@@ -339,6 +345,37 @@ export default function App() {
         const rb = gradeRank(b);
         if (ra !== rb) return ra - rb;
         // Tie-break by raw score so A-grades order by their numeric score.
+        return (b.match_score ?? -1) - (a.match_score ?? -1);
+      });
+    }
+    if (sortBySeniority !== "off") {
+      // Map LinkedIn-style seniority strings to a 1-6 scale matching
+      // LinkedIn's f_E filter:
+      //   1=Intern, 2=Entry, 3=Associate, 4=Mid-Senior, 5=Director, 6=Executive
+      // Anything we can't parse drops to 0 so it sinks to the bottom of
+      // BOTH high and low sorts (truly unranked).
+      const seniorityRank = (j: Job): number => {
+        const s = (j.seniority_level || "").toLowerCase();
+        if (!s) return 0;
+        if (/exec(utive)?|c-?level|chief|c[oef]o|cto/.test(s)) return 6;
+        if (/director|vp|vice president|head of/.test(s)) return 5;
+        if (/mid-senior|mid senior|senior|\bsr\.?\b|staff|principal|lead/.test(s)) return 4;
+        if (/associate/.test(s)) return 3;
+        if (/entry|graduate|grad|junior|\bjr\.?\b/.test(s)) return 2;
+        if (/intern/.test(s)) return 1;
+        return 0;
+      };
+      const direction = sortBySeniority === "high" ? -1 : 1;
+      return [...searched].sort((a, b) => {
+        const ra = seniorityRank(a);
+        const rb = seniorityRank(b);
+        // Unknowns (rank 0) always go to the bottom regardless of
+        // direction — they're not a valid 'lowest' answer either.
+        if (ra === 0 && rb !== 0) return 1;
+        if (rb === 0 && ra !== 0) return -1;
+        if (ra !== rb) return (rb - ra) * direction;
+        // Tie-break by match_score so within the same level the
+        // best-fitting jobs surface first.
         return (b.match_score ?? -1) - (a.match_score ?? -1);
       });
     }
@@ -920,7 +957,7 @@ export default function App() {
 
         {/* Sort by deadline */}
         <button
-          onClick={() => { setSortByDeadline((v) => !v); setSortByScore(false); setSortByFreshness(false); setSortByGrade(false); }}
+          onClick={() => { setSortByDeadline((v) => !v); setSortByScore(false); setSortByFreshness(false); setSortByGrade(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByDeadline
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
@@ -935,7 +972,7 @@ export default function App() {
 
         {/* Sort by score */}
         <button
-          onClick={() => { setSortByScore((v) => !v); setSortByDeadline(false); setSortByFreshness(false); setSortByGrade(false); }}
+          onClick={() => { setSortByScore((v) => !v); setSortByDeadline(false); setSortByFreshness(false); setSortByGrade(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByScore
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
@@ -950,7 +987,7 @@ export default function App() {
 
         {/* Sort by grade (A → F, ties broken by raw score) */}
         <button
-          onClick={() => { setSortByGrade((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByFreshness(false); }}
+          onClick={() => { setSortByGrade((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByFreshness(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByGrade
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
@@ -964,9 +1001,48 @@ export default function App() {
           Grade
         </button>
 
+        {/* Sort by seniority (tri-state: off → high → low → off).
+            'high' means most senior first (Director / Executive at top);
+            'low' means most junior first (Internship / Entry at top). */}
+        <button
+          onClick={() => {
+            setSortBySeniority((cur) => cur === "off" ? "high" : cur === "high" ? "low" : "off");
+            setSortByScore(false);
+            setSortByDeadline(false);
+            setSortByFreshness(false);
+            setSortByGrade(false);
+          }}
+          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
+            sortBySeniority !== "off"
+              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+              : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
+          }`}
+          title={
+            sortBySeniority === "off"
+              ? "Sort by seniority — click to start with highest first"
+              : sortBySeniority === "high"
+                ? "Highest seniority first (Director → Intern). Click again to flip."
+                : "Lowest seniority first (Intern → Director). Click again to clear."
+          }
+        >
+          {/* Bar-chart-style icon flips orientation to match direction */}
+          <svg
+            className={`w-4 h-4 transition-transform ${sortBySeniority === "low" ? "rotate-180" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m-6 4h3" />
+          </svg>
+          Seniority
+          {sortBySeniority !== "off" && (
+            <span className="ml-0.5 text-[10px] opacity-70">
+              {sortBySeniority === "high" ? "↓" : "↑"}
+            </span>
+          )}
+        </button>
+
         {/* Sort by freshness (newest posted first) */}
         <button
-          onClick={() => { setSortByFreshness((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByGrade(false); }}
+          onClick={() => { setSortByFreshness((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByGrade(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByFreshness
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
