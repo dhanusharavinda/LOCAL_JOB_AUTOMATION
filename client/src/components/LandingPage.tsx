@@ -315,11 +315,23 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   const [searchMode, setSearchMode] = useState<"manual" | "url" | "nl">("manual");
   // Natural-language search: free-form sentence the user types, parsed
   // by OpenAI into structured config (keywords, country, experience,
-  // etc.) and applied to the saved settings on click.
+  // etc.) and applied to the saved settings on click. Two-step flow:
+  // user clicks Parse → preview shows extracted fields → user clicks
+  // Apply. Stops the AI from silently writing weird values into config.
   const [nlText, setNlText] = useState("");
   const [nlParsing, setNlParsing] = useState(false);
   const [nlError, setNlError] = useState<string | null>(null);
-  const [nlPreview, setNlPreview] = useState<string | null>(null);
+  const [nlApplied, setNlApplied] = useState<string | null>(null);
+  // Editable chips of the parsed result. null = nothing parsed yet
+  // (show Parse button); object = preview shown with Apply / Re-parse.
+  const [nlParsed, setNlParsed] = useState<{
+    keywords: string[];
+    country: string | null;
+    experience_levels: string[];
+    work_type: string | null;
+    time_filter: string | null;
+    dropped_keywords: string[];
+  } | null>(null);
   // Resume & role state
   const [resumeStatus, setResumeStatus] = useState<ResumeStatus | null>(null);
   // Active target companies loaded from the user's Portals library. Used
@@ -1387,12 +1399,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                           <textarea
                             rows={3}
                             value={nlText}
-                            onChange={(e) => { setNlText(e.target.value); setNlError(null); setNlPreview(null); }}
+                            onChange={(e) => { setNlText(e.target.value); setNlError(null); setNlApplied(null); setNlParsed(null); }}
                             placeholder={"e.g. AI engineer, AI solutions analyst, also data engineer for entry level in Dublin, remote-friendly"}
                             className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)] transition-colors font-body resize-none"
                           />
                           <p className="text-xs text-[var(--text-tertiary)] mt-1.5">
-                            Mention roles, location, experience level, work type. The AI fills in keyword + filter fields for you — review and tweak before running.
+                            Mention roles, location, experience level, work type. The AI extracts <strong>role titles only</strong> — company names are filtered out (they'd otherwise restrict the search to that company on LinkedIn).
                           </p>
                         </div>
                         {nlError && (
@@ -1400,72 +1412,152 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                             {nlError}
                           </div>
                         )}
-                        {nlPreview && (
+                        {nlApplied && (
                           <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-                            {nlPreview}
+                            {nlApplied}
                           </div>
                         )}
-                        <button
-                          type="button"
-                          disabled={nlParsing || !nlText.trim()}
-                          onClick={async () => {
-                            setNlParsing(true);
-                            setNlError(null);
-                            setNlPreview(null);
-                            try {
-                              const parsed = await parseSearchText(nlText);
-                              const summary: string[] = [];
-                              // Apply keywords (joined comma-separated, the
-                              // shape both LINKEDIN_KEYWORDS and SEARCH_KEYWORDS
-                              // expect downstream).
-                              if (parsed.keywords.length > 0) {
-                                const kw = parsed.keywords.join(", ");
-                                updateConfig("LINKEDIN_KEYWORDS", kw);
-                                updateConfig("SEARCH_KEYWORDS", kw);
-                                summary.push(`Keywords: ${kw}`);
+
+                        {/* Preview pane — shown after Parse, hidden again
+                            after Apply. Lets the user remove rogue keywords
+                            (e.g. a brand name the AI somehow let through)
+                            BEFORE the values land in config + the pipeline
+                            silently scrapes only that company. */}
+                        {nlParsed && (
+                          <div className="px-3 py-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-2.5">
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">Preview — review before applying</div>
+
+                            {nlParsed.dropped_keywords.length > 0 && (
+                              <div className="px-2.5 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]">
+                                Dropped <span className="font-mono">{nlParsed.dropped_keywords.join(", ")}</span> — looked like company name(s). Add a real role title to your description and re-parse if you wanted to search by company.
+                              </div>
+                            )}
+
+                            <div>
+                              <div className="text-[11px] text-[var(--text-secondary)] mb-1">Keywords</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {nlParsed.keywords.length === 0 && (
+                                  <span className="text-[11px] text-[var(--text-ghost)] italic">No role titles extracted — your description should mention at least one role.</span>
+                                )}
+                                {nlParsed.keywords.map((k, i) => (
+                                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)] text-[11px]">
+                                    {k}
+                                    <button
+                                      type="button"
+                                      onClick={() => setNlParsed((p) => p ? { ...p, keywords: p.keywords.filter((_, j) => j !== i) } : p)}
+                                      className="text-[var(--accent)]/60 hover:text-[var(--accent)] text-xs"
+                                      title="Remove this keyword"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                              <div>
+                                <div className="text-[var(--text-secondary)] mb-0.5">Country</div>
+                                <div className="text-[var(--text-primary)]">{nlParsed.country ?? <span className="text-[var(--text-ghost)] italic">(none)</span>}</div>
+                              </div>
+                              <div>
+                                <div className="text-[var(--text-secondary)] mb-0.5">Experience</div>
+                                <div className="text-[var(--text-primary)]">
+                                  {nlParsed.experience_levels.length === 0
+                                    ? <span className="text-[var(--text-ghost)] italic">(any)</span>
+                                    : nlParsed.experience_levels.map((v) => ({ "1": "Intern", "2": "Entry", "3": "Associate", "4": "Mid-Senior", "5": "Director", "6": "Executive" } as Record<string, string>)[v] || v).join(", ")
+                                  }
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[var(--text-secondary)] mb-0.5">Work type</div>
+                                <div className="text-[var(--text-primary)]">
+                                  {nlParsed.work_type ? ({ "1": "On-site", "2": "Remote", "3": "Hybrid" } as Record<string, string>)[nlParsed.work_type] : <span className="text-[var(--text-ghost)] italic">(any)</span>}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[var(--text-secondary)] mb-0.5">Time</div>
+                                <div className="text-[var(--text-primary)]">
+                                  {nlParsed.time_filter ? ({ r86400: "Past 24h", r604800: "Past Week", r2592000: "Past Month" } as Record<string, string>)[nlParsed.time_filter] : <span className="text-[var(--text-ghost)] italic">(any)</span>}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={nlParsed.keywords.length === 0}
+                                onClick={() => {
+                                  const p = nlParsed;
+                                  if (p.keywords.length > 0) {
+                                    const kw = p.keywords.join(", ");
+                                    updateConfig("LINKEDIN_KEYWORDS", kw);
+                                    updateConfig("SEARCH_KEYWORDS", kw);
+                                  }
+                                  if (p.country) {
+                                    updateConfig("TARGET_COUNTRIES", p.country as PipelineConfig["TARGET_COUNTRIES"]);
+                                    const regionMap: Record<string, string> = {
+                                      ireland: "ireland", uk: "uk", netherlands: "netherlands",
+                                      india: "india", newzealand: "newzealand",
+                                    };
+                                    updateConfig("LOCATION_REGIONS", regionMap[p.country] || p.country);
+                                  }
+                                  if (p.experience_levels.length > 0) {
+                                    updateConfig("LINKEDIN_EXPERIENCE", p.experience_levels.join(","));
+                                  }
+                                  if (p.work_type) {
+                                    updateConfig("LINKEDIN_WORK_TYPE", p.work_type);
+                                  }
+                                  if (p.time_filter) {
+                                    updateConfig("LINKEDIN_TIME_FILTER", p.time_filter);
+                                  }
+                                  setNlApplied("Settings updated. Switch to Keywords & Filters tab to review the populated fields, or click Perform Job Hunt to start.");
+                                  setNlParsed(null);
+                                }}
+                                className="flex-1 launch-btn rounded-xl py-2.5 px-4 font-medium text-sm transition-all disabled:opacity-50"
+                              >
+                                Apply
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setNlParsed(null); setNlApplied(null); setNlError(null); }}
+                                className="px-4 py-2.5 rounded-xl border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-sm transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {!nlParsed && (
+                          <button
+                            type="button"
+                            disabled={nlParsing || !nlText.trim()}
+                            onClick={async () => {
+                              setNlParsing(true);
+                              setNlError(null);
+                              setNlApplied(null);
+                              try {
+                                const parsed = await parseSearchText(nlText);
+                                setNlParsed({
+                                  keywords: parsed.keywords,
+                                  country: parsed.country,
+                                  experience_levels: parsed.experience_levels,
+                                  work_type: parsed.work_type,
+                                  time_filter: parsed.time_filter,
+                                  dropped_keywords: parsed.dropped_keywords ?? [],
+                                });
+                              } catch (err: any) {
+                                setNlError(err?.message || "Parse failed. Try again.");
+                              } finally {
+                                setNlParsing(false);
                               }
-                              // Country mirrors the country picker.
-                              if (parsed.country) {
-                                updateConfig("TARGET_COUNTRIES", parsed.country);
-                                const regionMap: Record<string, string> = {
-                                  ireland: "ireland", uk: "uk", netherlands: "netherlands",
-                                  india: "india", newzealand: "newzealand",
-                                };
-                                updateConfig("LOCATION_REGIONS", regionMap[parsed.country] || parsed.country);
-                                summary.push(`Country: ${parsed.country}`);
-                              }
-                              if (parsed.experience_levels.length > 0) {
-                                updateConfig("LINKEDIN_EXPERIENCE", parsed.experience_levels.join(","));
-                                const labels = parsed.experience_levels.map((v) =>
-                                  ({ "1": "Intern", "2": "Entry", "3": "Associate", "4": "Mid-Senior", "5": "Director", "6": "Executive" } as Record<string, string>)[v] || v
-                                );
-                                summary.push(`Experience: ${labels.join(" / ")}`);
-                              }
-                              if (parsed.work_type) {
-                                updateConfig("LINKEDIN_WORK_TYPE", parsed.work_type);
-                                const wt = ({ "1": "On-site", "2": "Remote", "3": "Hybrid" } as Record<string, string>)[parsed.work_type] || parsed.work_type;
-                                summary.push(`Work type: ${wt}`);
-                              }
-                              if (parsed.time_filter) {
-                                updateConfig("LINKEDIN_TIME_FILTER", parsed.time_filter);
-                                const tf = ({ r86400: "Past 24h", r604800: "Past Week", r2592000: "Past Month" } as Record<string, string>)[parsed.time_filter] || parsed.time_filter;
-                                summary.push(`Time: ${tf}`);
-                              }
-                              if (summary.length === 0) {
-                                setNlError("AI couldn't extract anything actionable. Try mentioning role + location explicitly.");
-                              } else {
-                                setNlPreview(`Applied: ${summary.join(" · ")}. Switch to Keywords & Filters to review.`);
-                              }
-                            } catch (err: any) {
-                              setNlError(err?.message || "Parse failed. Try again.");
-                            } finally {
-                              setNlParsing(false);
-                            }
-                          }}
-                          className="w-full launch-btn rounded-xl py-2.5 px-4 font-medium text-sm transition-all disabled:opacity-50"
-                        >
-                          {nlParsing ? "Parsing…" : "✨ Parse and apply"}
-                        </button>
+                            }}
+                            className="w-full launch-btn rounded-xl py-2.5 px-4 font-medium text-sm transition-all disabled:opacity-50"
+                          >
+                            {nlParsing ? "Parsing…" : "✨ Parse"}
+                          </button>
+                        )}
                       </div>
                     )}
 

@@ -360,6 +360,11 @@ export interface ParsedSearch {
   experience_levels: string[]; // subset of "1".."6"
   work_type: "1" | "2" | "3" | null;  // 1=on-site, 2=remote, 3=hybrid
   time_filter: "r86400" | "r604800" | "r2592000" | null;
+  // Server-side filter strips common company/brand names from keywords
+  // (LinkedIn matches keywords against company names too, so 'Agoda' as
+  // a keyword silently restricts the search to Agoda jobs only). The
+  // dropped names are returned so the UI can warn the user.
+  dropped_keywords?: string[];
 }
 
 export async function parseSearchText(text: string): Promise<ParsedSearch> {

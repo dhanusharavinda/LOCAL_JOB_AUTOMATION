@@ -338,22 +338,33 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
           {
             role: "system",
             content:
-              "You convert a casual job-search description into a structured search config. " +
+              "You convert a casual job-search description into a structured search config for a LinkedIn-style job board. " +
               "Return ONLY a JSON object — no prose, no markdown, no code fences. Schema:\n" +
               "{\n" +
-              `  "keywords": [array of 1-6 short role-title strings, exactly as you'd type them in a LinkedIn search],\n` +
+              `  "keywords": [array of 1-6 generic ROLE-TITLE strings only],\n` +
               `  "country": "ireland" | "uk" | "netherlands" | "india" | "newzealand" | null,\n` +
               `  "experience_levels": [subset of ["1","2","3","4","5","6"] where 1=Intern, 2=Entry, 3=Associate, 4=Mid-Senior, 5=Director, 6=Executive] (empty array if not specified),\n` +
               `  "work_type": "1" | "2" | "3" | null  (1=on-site, 2=remote, 3=hybrid; null if not specified),\n` +
               `  "time_filter": "r86400" | "r604800" | "r2592000" | null  (24h | 1week | 1month; null if not specified)\n` +
               "}\n\n" +
-              "Rules:\n" +
-              "- Map any city/region in the input to the matching country code (Dublin → ireland, London → uk, Amsterdam → netherlands, Bangalore → india, Auckland → newzealand). If the city is in an unsupported country, set country to null.\n" +
-              "- Split keywords on conjunctions like 'or', 'and', 'also', commas. Drop filler words.\n" +
-              "- 'graduate' / 'junior' / 'fresher' → experience [\"2\"]; 'entry' → [\"2\"]; 'mid' → [\"4\"]; 'senior' / 'staff' → [\"4\"]; 'lead' / 'principal' → [\"4\",\"5\"]; 'director' → [\"5\"].\n" +
-              "- 'remote-friendly' / 'open to remote' → work_type \"2\". 'hybrid' → \"3\". 'on-site' / 'in office' → \"1\".\n" +
-              "- 'this week' → r604800. 'today' / 'last 24 hours' → r86400. 'this month' → r2592000.\n" +
-              "- If anything is missing, leave it null/empty — do NOT make up defaults.",
+              "CRITICAL — keywords MUST be generic role titles, never company names:\n" +
+              "- ALLOWED in keywords: 'Software Engineer', 'AI Engineer', 'Data Scientist', 'Frontend Developer', 'Product Manager', 'Backend Engineer', 'DevOps Engineer', 'ML Engineer', 'Solutions Architect', etc.\n" +
+              "- FORBIDDEN in keywords: any company name (Agoda, Google, Amazon, Stripe, Shopify, Booking.com, Microsoft, Apple, etc.) and any product/brand name. The keyword field on LinkedIn matches BOTH job title AND company name, so 'Agoda' as a keyword silently restricts the entire search to Agoda jobs only.\n" +
+              "- If the user mentions a company they want to work at, IGNORE it for the keywords field. Only the role title matters for the search. (Future feature: company-specific filtering, not now.)\n" +
+              "- If the user types only a company name with no role ('I want jobs at Stripe'), return keywords=[] — the parser couldn't extract a role to search for.\n\n" +
+              "Other rules:\n" +
+              "- Map any city/region to country code (Dublin → ireland, London → uk, Amsterdam → netherlands, Bangalore → india, Auckland → newzealand). Unsupported country → null.\n" +
+              "- Split role titles on conjunctions ('or', 'and', 'also'), commas. Drop filler words.\n" +
+              "- 'graduate' / 'junior' / 'fresher' / 'entry' → ['2']; 'mid' → ['4']; 'senior' / 'staff' → ['4']; 'lead' / 'principal' → ['4','5']; 'director' → ['5'].\n" +
+              "- 'remote' / 'remote-friendly' / 'wfh' → work_type '2'; 'hybrid' → '3'; 'on-site' / 'in office' → '1'.\n" +
+              "- 'this week' → r604800; 'today' / 'last 24h' → r86400; 'this month' → r2592000.\n" +
+              "- If a field isn't mentioned, leave it null/empty. Do NOT invent defaults.\n\n" +
+              "Examples:\n" +
+              "Input: 'AI engineer or data engineer entry level in Dublin'\n" +
+              "Output: {\"keywords\":[\"AI Engineer\",\"Data Engineer\"],\"country\":\"ireland\",\"experience_levels\":[\"2\"],\"work_type\":null,\"time_filter\":null}\n\n" +
+              "Input: 'remote backend roles at Stripe or Shopify'\n" +
+              "Output: {\"keywords\":[\"Backend Engineer\"],\"country\":null,\"experience_levels\":[],\"work_type\":\"2\",\"time_filter\":null}\n" +
+              "(Stripe and Shopify dropped — they're company names, not role titles.)",
           },
           { role: "user", content: text },
         ],
@@ -368,11 +379,57 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
         res.status(500).json({ error: "AI returned invalid JSON. Try rephrasing your description." });
         return;
       }
+      // Defensive list of common company/brand names. The prompt tells
+      // the AI not to put these in keywords, but models occasionally
+      // slip — so we strip them server-side as a second line of defence.
+      // This is non-exhaustive on purpose: covers the obvious cases
+      // (FAANG + popular tech employers) and the brand the user just
+      // got bitten by. Better-quality role titles compose two+ words
+      // ("Software Engineer", "Data Scientist") which are caught by the
+      // shape check below.
+      const COMPANY_BLACKLIST = new Set([
+        "agoda", "booking", "booking.com", "expedia", "airbnb", "stripe", "shopify",
+        "google", "alphabet", "meta", "facebook", "amazon", "apple", "microsoft",
+        "netflix", "uber", "lyft", "twitter", "x", "linkedin", "tiktok", "bytedance",
+        "salesforce", "oracle", "ibm", "intel", "nvidia", "amd", "tesla", "spacex",
+        "openai", "anthropic", "deepmind", "huggingface", "mistral",
+        "github", "gitlab", "atlassian", "slack", "zoom", "asana", "notion", "linear",
+        "figma", "canva", "miro", "datadog", "newrelic", "splunk", "snowflake",
+        "databricks", "mongodb", "elastic", "cloudflare", "fastly", "vercel", "netlify",
+        "heroku", "digitalocean", "paypal", "square", "block", "klarna", "revolut",
+        "wise", "n26", "monzo", "hubspot", "intercom", "zendesk", "twilio", "segment",
+        "mixpanel", "amplitude", "shopee", "grab", "mercadolibre", "rappi", "didi",
+      ]);
+      const looksLikeCompanyName = (kw: string): boolean => {
+        const lower = kw.toLowerCase().trim();
+        if (COMPANY_BLACKLIST.has(lower)) return true;
+        // Single capitalized token with no role-title words → almost
+        // certainly a brand. Real role titles include words like
+        // engineer / developer / manager / analyst / scientist /
+        // designer / architect / lead / director / specialist.
+        const words = kw.trim().split(/\s+/);
+        if (words.length === 1) {
+          const ROLE_NOUNS = /\b(engineer|developer|programmer|architect|manager|director|analyst|scientist|designer|lead|specialist|consultant|coordinator|administrator|officer|associate|intern|apprentice|writer|editor|recruiter|accountant|nurse|doctor|teacher|advisor|strategist|representative|executive|operator|technician|researcher|advocate)\b/i;
+          if (!ROLE_NOUNS.test(lower)) return true;
+        }
+        return false;
+      };
+
       // Validate + sanitize each field so a hallucinated country code
       // can't slip through into the user's saved config.
-      const keywords = Array.isArray(parsed.keywords)
+      const rawKeywords = Array.isArray(parsed.keywords)
         ? parsed.keywords.filter((k: any) => typeof k === "string" && k.trim()).slice(0, 6).map((k: string) => k.trim())
         : [];
+      const filtered: string[] = [];
+      const dropped: string[] = [];
+      for (const k of rawKeywords) {
+        if (looksLikeCompanyName(k)) dropped.push(k);
+        else filtered.push(k);
+      }
+      const keywords = filtered;
+      if (dropped.length > 0) {
+        console.info(`[parse-search] dropped ${dropped.length} company-name keywords: ${dropped.join(", ")}`);
+      }
       const country = typeof parsed.country === "string" && SUPPORTED_COUNTRIES.includes(parsed.country)
         ? parsed.country
         : null;
@@ -385,7 +442,14 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
       const timeFilter = typeof parsed.time_filter === "string" && TIME_FILTERS.includes(parsed.time_filter)
         ? parsed.time_filter
         : null;
-      res.json({ keywords, country, experience_levels: experienceLevels, work_type: workType, time_filter: timeFilter });
+      res.json({
+        keywords,
+        country,
+        experience_levels: experienceLevels,
+        work_type: workType,
+        time_filter: timeFilter,
+        dropped_keywords: dropped,
+      });
     } catch (err: any) {
       console.error("[POST /api/settings/parse-search]", err?.message || err);
       res.status(500).json({ error: "AI parser failed. Please try again." });
