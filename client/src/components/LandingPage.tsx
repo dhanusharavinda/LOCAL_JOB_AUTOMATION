@@ -13,6 +13,7 @@ import {
   LimitsInfo,
   AuthUser,
   TargetCompany,
+  parseSearchText,
 } from "../api";
 import { getCurrentAccessToken } from "../supabaseClient";
 
@@ -311,7 +312,14 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   // "manual" = keyword builder + filters; "url" = paste a full search URL.
   // Auto-detect mode on load from whether the saved config has a URL;
   // after that the user toggles explicitly.
-  const [searchMode, setSearchMode] = useState<"manual" | "url">("manual");
+  const [searchMode, setSearchMode] = useState<"manual" | "url" | "nl">("manual");
+  // Natural-language search: free-form sentence the user types, parsed
+  // by OpenAI into structured config (keywords, country, experience,
+  // etc.) and applied to the saved settings on click.
+  const [nlText, setNlText] = useState("");
+  const [nlParsing, setNlParsing] = useState(false);
+  const [nlError, setNlError] = useState<string | null>(null);
+  const [nlPreview, setNlPreview] = useState<string | null>(null);
   // Resume & role state
   const [resumeStatus, setResumeStatus] = useState<ResumeStatus | null>(null);
   // Active target companies loaded from the user's Portals library. Used
@@ -1097,13 +1105,13 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                         newzealand:  "newzealand",
                       };
                       updateConfig("LOCATION_REGIONS", regionMap[code] || code);
-                      // Clear any persisted LinkedIn search URL — if we
-                      // left it in place, a previous country's hand-built
-                      // search URL would hijack every future run and
-                      // LinkedIn would keep returning jobs from the old
-                      // location. The pipeline rebuilds a fresh URL from
-                      // the new geoId + keywords on every run.
-                      updateConfig("LINKEDIN_SEARCH_URL", "");
+                      // Don't auto-clear LINKEDIN_SEARCH_URL on country
+                      // change. The pipeline now auto-merges the country's
+                      // geoId into the pasted URL when the URL's geoId
+                      // doesn't match (and warns the user), so silently
+                      // wiping the URL surprises users who deliberately
+                      // pasted a search and confuses 'why did my URL
+                      // disappear when I clicked save'.
                     }}
                     className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
                       isActive
@@ -1246,9 +1254,10 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                         type="button"
                         onClick={() => {
                           setSearchMode("manual");
-                          // Switching to manual → clear any saved URL so the
-                          // pipeline uses the keyword builder on the next run.
-                          if (config.LINKEDIN_SEARCH_URL?.trim()) updateConfig("LINKEDIN_SEARCH_URL", "");
+                          // Don't auto-clear the URL when switching tabs —
+                          // user might just be checking the keyword fields
+                          // and switching back. URL persists; pipeline
+                          // honors whichever (URL OR keywords) is set.
                         }}
                         className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                           searchMode === "manual"
@@ -1268,6 +1277,18 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                         }`}
                       >
                         Paste Search URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSearchMode("nl")}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+                          searchMode === "nl"
+                            ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm"
+                            : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                        }`}
+                        title="Describe your search in plain English — AI populates the filters for you"
+                      >
+                        <span aria-hidden>✨</span> Ask AI
                       </button>
                     </div>
 
@@ -1355,6 +1376,96 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                             </div>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* ── Natural-language mode ── */}
+                    {searchMode === "nl" && (
+                      <div className="space-y-3 landing-section-enter">
+                        <div>
+                          <label className="block text-xs text-[var(--text-secondary)] mb-1.5">Describe your search</label>
+                          <textarea
+                            rows={3}
+                            value={nlText}
+                            onChange={(e) => { setNlText(e.target.value); setNlError(null); setNlPreview(null); }}
+                            placeholder={"e.g. AI engineer, AI solutions analyst, also data engineer for entry level in Dublin, remote-friendly"}
+                            className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)] transition-colors font-body resize-none"
+                          />
+                          <p className="text-xs text-[var(--text-tertiary)] mt-1.5">
+                            Mention roles, location, experience level, work type. The AI fills in keyword + filter fields for you — review and tweak before running.
+                          </p>
+                        </div>
+                        {nlError && (
+                          <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                            {nlError}
+                          </div>
+                        )}
+                        {nlPreview && (
+                          <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+                            {nlPreview}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          disabled={nlParsing || !nlText.trim()}
+                          onClick={async () => {
+                            setNlParsing(true);
+                            setNlError(null);
+                            setNlPreview(null);
+                            try {
+                              const parsed = await parseSearchText(nlText);
+                              const summary: string[] = [];
+                              // Apply keywords (joined comma-separated, the
+                              // shape both LINKEDIN_KEYWORDS and SEARCH_KEYWORDS
+                              // expect downstream).
+                              if (parsed.keywords.length > 0) {
+                                const kw = parsed.keywords.join(", ");
+                                updateConfig("LINKEDIN_KEYWORDS", kw);
+                                updateConfig("SEARCH_KEYWORDS", kw);
+                                summary.push(`Keywords: ${kw}`);
+                              }
+                              // Country mirrors the country picker.
+                              if (parsed.country) {
+                                updateConfig("TARGET_COUNTRIES", parsed.country);
+                                const regionMap: Record<string, string> = {
+                                  ireland: "ireland", uk: "uk", netherlands: "netherlands",
+                                  india: "india", newzealand: "newzealand",
+                                };
+                                updateConfig("LOCATION_REGIONS", regionMap[parsed.country] || parsed.country);
+                                summary.push(`Country: ${parsed.country}`);
+                              }
+                              if (parsed.experience_levels.length > 0) {
+                                updateConfig("LINKEDIN_EXPERIENCE", parsed.experience_levels.join(","));
+                                const labels = parsed.experience_levels.map((v) =>
+                                  ({ "1": "Intern", "2": "Entry", "3": "Associate", "4": "Mid-Senior", "5": "Director", "6": "Executive" } as Record<string, string>)[v] || v
+                                );
+                                summary.push(`Experience: ${labels.join(" / ")}`);
+                              }
+                              if (parsed.work_type) {
+                                updateConfig("LINKEDIN_WORK_TYPE", parsed.work_type);
+                                const wt = ({ "1": "On-site", "2": "Remote", "3": "Hybrid" } as Record<string, string>)[parsed.work_type] || parsed.work_type;
+                                summary.push(`Work type: ${wt}`);
+                              }
+                              if (parsed.time_filter) {
+                                updateConfig("LINKEDIN_TIME_FILTER", parsed.time_filter);
+                                const tf = ({ r86400: "Past 24h", r604800: "Past Week", r2592000: "Past Month" } as Record<string, string>)[parsed.time_filter] || parsed.time_filter;
+                                summary.push(`Time: ${tf}`);
+                              }
+                              if (summary.length === 0) {
+                                setNlError("AI couldn't extract anything actionable. Try mentioning role + location explicitly.");
+                              } else {
+                                setNlPreview(`Applied: ${summary.join(" · ")}. Switch to Keywords & Filters to review.`);
+                              }
+                            } catch (err: any) {
+                              setNlError(err?.message || "Parse failed. Try again.");
+                            } finally {
+                              setNlParsing(false);
+                            }
+                          }}
+                          className="w-full launch-btn rounded-xl py-2.5 px-4 font-medium text-sm transition-all disabled:opacity-50"
+                        >
+                          {nlParsing ? "Parsing…" : "✨ Parse and apply"}
+                        </button>
                       </div>
                     )}
 

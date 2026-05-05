@@ -94,6 +94,51 @@ async function runApifyActor(
   return dataset;
 }
 
+/**
+ * Internal helper that runs ONE LinkedIn scrape against a given URL.
+ * Returns the validated jobs array (may be empty). Splitting this out
+ * lets scrapeLinkedInJobs retry with a broadened URL when the first
+ * pass returns 0 results.
+ */
+async function runLinkedInScrape(searchUrl: string, count: number, label: string): Promise<LinkedInJob[]> {
+  log.info(`${label}...`);
+  log.info(`  Search URL: ${searchUrl}`);
+  log.info(`  Requesting ${count} jobs from Apify`);
+  const runResult = await apifyFetch(`/acts/${config.APIFY_ACTOR_ID}/runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ count, scrapeCompany: false, urls: [searchUrl] }),
+  });
+  const runId = runResult.data.id;
+  const datasetId = runResult.data.defaultDatasetId;
+  log.info(`Actor run started (ID: ${runId})`);
+
+  const pollIntervalMs = 10000;
+  const maxPolls = Math.ceil((config.APIFY_MAX_POLL_MINUTES * 60 * 1000) / pollIntervalMs);
+  let status = runResult.data.status;
+  let pollCount = 0;
+  while (status !== "SUCCEEDED" && status !== "FAILED" && status !== "ABORTED") {
+    pollCount++;
+    if (pollCount > maxPolls) {
+      throw new Error(
+        `Apify actor timed out after ${config.APIFY_MAX_POLL_MINUTES} minutes (run ID: ${runId}). ` +
+        `Check https://console.apify.com/actors/runs/${runId} for status.`
+      );
+    }
+    await delay(pollIntervalMs);
+    const runInfo = await apifyFetch(`/actor-runs/${runId}`);
+    status = runInfo.data.status;
+    const elapsedSec = pollCount * (pollIntervalMs / 1000);
+    log.info(`  Scraping in progress... (${elapsedSec}s elapsed, status: ${status})`);
+  }
+  if (status !== "SUCCEEDED") throw new Error(`Apify actor run ${status}: ${runId}`);
+
+  log.success("Scraping complete, fetching results...");
+  const dataset = await apifyFetch(`/datasets/${datasetId}/items`);
+  if (!Array.isArray(dataset)) throw new Error("Apify returned unexpected format (expected array)");
+  return dataset as LinkedInJob[];
+}
+
 export async function scrapeLinkedInJobs(explicitCount?: number): Promise<LinkedInJob[]> {
   // Step 1: Start the actor run
   const searchUrl = buildLinkedInUrl();
@@ -102,83 +147,52 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
   // raw candidates to hit the target after filtering. Falls back to the
   // user-facing APIFY_JOB_COUNT when called without an argument.
   const count = explicitCount ?? config.APIFY_JOB_COUNT;
-  log.info("Starting Apify LinkedIn scraper...");
-  log.info(`  Search URL: ${searchUrl}`);
-  log.info(`  Requesting ${count} jobs from Apify`);
-  const runResult = await apifyFetch(`/acts/${config.APIFY_ACTOR_ID}/runs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      count,
-      // scrapeCompany: false — halves actor compute cost by skipping the
-      // per-job company profile fetch. We only used companyWebsite and
-      // companyLinkedinUrl for the Google Sheets export, and both degrade
-      // gracefully to empty cells. Scoring / tailoring never read them.
-      scrapeCompany: false,
-      urls: [searchUrl],
-    }),
-  });
 
-  const runId = runResult.data.id;
-  const datasetId = runResult.data.defaultDatasetId;
-  log.info(`Actor run started (ID: ${runId})`);
+  let dataset = await runLinkedInScrape(searchUrl, count, "Starting Apify LinkedIn scraper");
 
-  // Step 2: Poll until complete (with timeout)
-  const pollIntervalMs = 10000;
-  const maxPolls = Math.ceil((config.APIFY_MAX_POLL_MINUTES * 60 * 1000) / pollIntervalMs);
-  let status = runResult.data.status;
-  let pollCount = 0;
-
-  while (status !== "SUCCEEDED" && status !== "FAILED" && status !== "ABORTED") {
-    pollCount++;
-
-    if (pollCount > maxPolls) {
-      throw new Error(
-        `Apify actor timed out after ${config.APIFY_MAX_POLL_MINUTES} minutes (run ID: ${runId}). ` +
-        `Check https://console.apify.com/actors/runs/${runId} for status.`
-      );
-    }
-
-    await delay(pollIntervalMs);
-    const runInfo = await apifyFetch(`/actor-runs/${runId}`);
-    status = runInfo.data.status;
-
-    // Log EVERY poll so the SSE stream has a heartbeat and the UI
-    // doesn't look frozen while Apify runs (used to log every 3rd).
-    const elapsedSec = pollCount * (pollIntervalMs / 1000);
-    log.info(`  Scraping in progress... (${elapsedSec}s elapsed, status: ${status})`);
-  }
-
-  if (status !== "SUCCEEDED") {
-    throw new Error(`Apify actor run ${status}: ${runId}`);
-  }
-
-  // Step 3: Get dataset items
-  log.success("Scraping complete, fetching results...");
-  const dataset = await apifyFetch(`/datasets/${datasetId}/items`);
-
-  // Validate that we got an array with data
-  if (!Array.isArray(dataset)) {
-    throw new Error("Apify returned unexpected format (expected array)");
-  }
-
-  // When the actor returns 0 results, the user has no idea why. Surface
-  // the actual search params (parsed from the URL we built) so they can
-  // diagnose: usually it's a too-narrow time filter (r86400 = last 24h
-  // is brutal in slow markets), an empty keyword string, or a geoId
-  // pointing at a region with no listings for those keywords.
+  // Auto-broaden experience filter when 0 results came back AND f_E was
+  // restricting things. Common case: user picked 'entry level' but the
+  // current week only has senior listings. Rather than zero-result the
+  // run, retry without f_E and let the AI scorer's seniority_fit
+  // dimension penalise mid-senior matches in scoring instead. The
+  // user's intent (entry-level preference) gets honoured by the
+  // scorer's reasoning, just not as a hard scrape filter.
   if (dataset.length === 0) {
     try {
       const u = new URL(searchUrl);
-      const kw = u.searchParams.get("keywords") || "(none)";
-      const geo = u.searchParams.get("geoId") || "(none)";
-      const tpr = u.searchParams.get("f_TPR") || "(none)";
-      const exp = u.searchParams.get("f_E") || "(none)";
-      const wt = u.searchParams.get("f_WT") || "(any)";
-      log.warn(
-        `Search returned 0 jobs. Params used: keywords="${kw.slice(0, 80)}" geoId=${geo} time=${tpr} experience=${exp} workType=${wt}. ` +
-        "Common causes: time filter too narrow (try r604800 = 1 week), keywords too specific, or no listings for this combo."
-      );
+      const hadF_E = u.searchParams.has("f_E");
+      if (hadF_E) {
+        const exp = u.searchParams.get("f_E") || "(none)";
+        log.warn(
+          `LinkedIn returned 0 jobs with experience filter f_E=${exp}. ` +
+          "Retrying with experience filter removed — the AI scorer will still penalise non-matching seniority."
+        );
+        u.searchParams.delete("f_E");
+        const broadenedUrl = u.toString();
+        dataset = await runLinkedInScrape(broadenedUrl, count, "Retrying without experience filter");
+        if (dataset.length === 0) {
+          // Still nothing — fall through to the generic 0-result diagnostic.
+          const kw = u.searchParams.get("keywords") || "(none)";
+          const geo = u.searchParams.get("geoId") || "(none)";
+          const tpr = u.searchParams.get("f_TPR") || "(none)";
+          const wt = u.searchParams.get("f_WT") || "(any)";
+          log.warn(
+            `Retry also returned 0. Params: keywords="${kw.slice(0, 80)}" geoId=${geo} time=${tpr} workType=${wt}. ` +
+            "The keywords + location combo has no listings in this time window. Try widening the time filter or simplifying keywords."
+          );
+        } else {
+          log.success(`Broadened search returned ${dataset.length} jobs (experience filter removed).`);
+        }
+      } else {
+        const kw = u.searchParams.get("keywords") || "(none)";
+        const geo = u.searchParams.get("geoId") || "(none)";
+        const tpr = u.searchParams.get("f_TPR") || "(none)";
+        const wt = u.searchParams.get("f_WT") || "(any)";
+        log.warn(
+          `Search returned 0 jobs. Params used: keywords="${kw.slice(0, 80)}" geoId=${geo} time=${tpr} workType=${wt}. ` +
+          "Common causes: time filter too narrow (try r604800 = 1 week), keywords too specific, or no listings for this combo."
+        );
+      }
     } catch {
       log.warn("Search returned 0 jobs and the search URL couldn't be parsed for diagnostics.");
     }
@@ -207,8 +221,13 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
     log.warn(`${dataset.length - validJobs.length} jobs dropped due to missing required fields`);
   }
 
-  // Sanitize fields that Apify may return as objects/arrays instead of strings
-  for (const job of validJobs) {
+  // Sanitize fields that Apify may return as objects/arrays instead of
+  // strings. The TypeScript type says employmentType is a string, but
+  // the actor occasionally returns an array (e.g. ["Full-time","Remote"])
+  // — cast to any so the runtime check + array-flatten doesn't fight
+  // the narrowed type.
+  for (const j of validJobs) {
+    const job = j as any;
     if (job.employmentType && typeof job.employmentType !== "string") {
       job.employmentType = Array.isArray(job.employmentType)
         ? job.employmentType.join(", ")

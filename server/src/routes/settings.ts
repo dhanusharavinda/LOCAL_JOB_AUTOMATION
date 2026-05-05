@@ -307,6 +307,92 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
   }
 });
 
+// ─── POST /api/settings/parse-search ────────────────────────────────
+// Natural-language search parser. Takes a free-form sentence like
+//   "AI engineer or data engineer in Dublin, entry level, remote-friendly"
+// and returns a structured config the client can apply to the pipeline
+// settings panel. Pure parser — does NOT mutate user_settings; the
+// client decides which fields to persist.
+{
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const OpenAILib = require("openai") as { default: any };
+  const SUPPORTED_COUNTRIES = ["ireland", "uk", "netherlands", "india", "newzealand"];
+  const TIME_FILTERS = ["r86400", "r604800", "r2592000"];
+
+  router.post("/parse-search", requireAuth, async (req: Request, res: Response) => {
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (text.length < 5 || text.length > 500) {
+      res.status(400).json({ error: "Describe your search in 5-500 characters." });
+      return;
+    }
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "AI parser is not configured on the server." });
+      return;
+    }
+    try {
+      const openai = new OpenAILib.default({ apiKey, maxRetries: 2 });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You convert a casual job-search description into a structured search config. " +
+              "Return ONLY a JSON object — no prose, no markdown, no code fences. Schema:\n" +
+              "{\n" +
+              `  "keywords": [array of 1-6 short role-title strings, exactly as you'd type them in a LinkedIn search],\n` +
+              `  "country": "ireland" | "uk" | "netherlands" | "india" | "newzealand" | null,\n` +
+              `  "experience_levels": [subset of ["1","2","3","4","5","6"] where 1=Intern, 2=Entry, 3=Associate, 4=Mid-Senior, 5=Director, 6=Executive] (empty array if not specified),\n` +
+              `  "work_type": "1" | "2" | "3" | null  (1=on-site, 2=remote, 3=hybrid; null if not specified),\n` +
+              `  "time_filter": "r86400" | "r604800" | "r2592000" | null  (24h | 1week | 1month; null if not specified)\n` +
+              "}\n\n" +
+              "Rules:\n" +
+              "- Map any city/region in the input to the matching country code (Dublin → ireland, London → uk, Amsterdam → netherlands, Bangalore → india, Auckland → newzealand). If the city is in an unsupported country, set country to null.\n" +
+              "- Split keywords on conjunctions like 'or', 'and', 'also', commas. Drop filler words.\n" +
+              "- 'graduate' / 'junior' / 'fresher' → experience [\"2\"]; 'entry' → [\"2\"]; 'mid' → [\"4\"]; 'senior' / 'staff' → [\"4\"]; 'lead' / 'principal' → [\"4\",\"5\"]; 'director' → [\"5\"].\n" +
+              "- 'remote-friendly' / 'open to remote' → work_type \"2\". 'hybrid' → \"3\". 'on-site' / 'in office' → \"1\".\n" +
+              "- 'this week' → r604800. 'today' / 'last 24 hours' → r86400. 'this month' → r2592000.\n" +
+              "- If anything is missing, leave it null/empty — do NOT make up defaults.",
+          },
+          { role: "user", content: text },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      });
+      const raw = completion.choices[0]?.message?.content || "{}";
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        res.status(500).json({ error: "AI returned invalid JSON. Try rephrasing your description." });
+        return;
+      }
+      // Validate + sanitize each field so a hallucinated country code
+      // can't slip through into the user's saved config.
+      const keywords = Array.isArray(parsed.keywords)
+        ? parsed.keywords.filter((k: any) => typeof k === "string" && k.trim()).slice(0, 6).map((k: string) => k.trim())
+        : [];
+      const country = typeof parsed.country === "string" && SUPPORTED_COUNTRIES.includes(parsed.country)
+        ? parsed.country
+        : null;
+      const experienceLevels = Array.isArray(parsed.experience_levels)
+        ? parsed.experience_levels.filter((e: any) => typeof e === "string" && /^[1-6]$/.test(e))
+        : [];
+      const workType = typeof parsed.work_type === "string" && /^[1-3]$/.test(parsed.work_type)
+        ? parsed.work_type
+        : null;
+      const timeFilter = typeof parsed.time_filter === "string" && TIME_FILTERS.includes(parsed.time_filter)
+        ? parsed.time_filter
+        : null;
+      res.json({ keywords, country, experience_levels: experienceLevels, work_type: workType, time_filter: timeFilter });
+    } catch (err: any) {
+      console.error("[POST /api/settings/parse-search]", err?.message || err);
+      res.status(500).json({ error: "AI parser failed. Please try again." });
+    }
+  });
+}
+
 // ─── DELETE /api/settings/resume ─────────────────────────────────────
 router.delete("/resume", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;

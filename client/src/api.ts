@@ -353,6 +353,28 @@ export async function deleteResume(): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete resume");
 }
 
+// ─── Natural-language search parser ──────────────────────────────────
+export interface ParsedSearch {
+  keywords: string[];
+  country: "ireland" | "uk" | "netherlands" | "india" | "newzealand" | null;
+  experience_levels: string[]; // subset of "1".."6"
+  work_type: "1" | "2" | "3" | null;  // 1=on-site, 2=remote, 3=hybrid
+  time_filter: "r86400" | "r604800" | "r2592000" | null;
+}
+
+export async function parseSearchText(text: string): Promise<ParsedSearch> {
+  const res = await fetch("/api/settings/parse-search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Parse failed" }));
+    throw new Error(err.error || "Parse failed");
+  }
+  return res.json();
+}
+
 // ─── Resume Analysis (ReWrite) API ──────────────────────────────────
 
 export interface BulletSuggestion {
