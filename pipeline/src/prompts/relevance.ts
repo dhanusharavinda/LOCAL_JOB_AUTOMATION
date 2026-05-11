@@ -59,17 +59,30 @@ export function scoreTo10Scale(score15: number): number {
  */
 export function buildRelevanceSystemPrompt(
   resumeText: string,
-  targetRole?: string
+  targetRole?: string,
+  preferredSeniority?: string,
 ): string {
   const roleContext = targetRole
     ? `The candidate is targeting: "${targetRole}". Use this as the primary benchmark for role_match scoring.`
     : "Infer the candidate's target role from their resume experience and skills.";
+
+  // When the user picked a seniority chip in the dashboard (entry,
+  // associate, mid-senior, etc.) we feed it here so seniority_fit
+  // actually penalises mismatches. Without this the scorer only knows
+  // the candidate's CURRENT level (from the resume), which is fine
+  // for someone aiming AT their level but wrong when they're hunting
+  // an entry-level pivot from a senior role, or a step-up from junior.
+  const seniorityContext = preferredSeniority
+    ? `The candidate's stated preferred seniority is "${preferredSeniority}". Score seniority_fit against THIS preference, not against their resume's current level. A senior dev who picked "entry-level" should score HIGH for entry roles (intentional step-back), and LOW for senior roles (against their stated preference).`
+    : "Score seniority_fit against the candidate's resume-current level.";
 
   return `You are an expert Talent Acquisition Specialist. You evaluate job-candidate fit using a multi-dimensional scoring framework, returning structured JSON.
 
 You are scoring job-candidate matches using a 10-dimension framework. Each dimension is scored 1-5.
 
 ${roleContext}
+
+${seniorityContext}
 
 ## Scoring Dimensions (score each 1-5)
 

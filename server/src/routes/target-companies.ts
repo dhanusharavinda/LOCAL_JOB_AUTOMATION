@@ -54,7 +54,13 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // ─── POST /api/target-companies/seed ─────────────────────────────────
-// Bulk-insert a starter set of companies. Accepts an array in req.body.companies.
+// Idempotent: for each entry, UPDATE the row matching (user_id, company_name)
+// if it exists, otherwise INSERT. Lets users who seeded the broken-URL
+// defaults from before just re-click "Seed Defaults" to repair their data
+// without producing duplicate rows. We don't have a UNIQUE constraint on
+// (user_id, company_name) at the DB layer (would break in-flight schemas);
+// the explicit SELECT-then-UPDATE-or-INSERT here keeps it idempotent without
+// requiring a migration.
 router.post("/seed", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { companies } = req.body;
@@ -63,20 +69,38 @@ router.post("/seed", async (req: Request, res: Response) => {
     return;
   }
   let inserted = 0;
+  let updated = 0;
   try {
     for (const c of companies) {
       if (!c.company_name || !c.careers_url) continue;
-      await sql`
-        INSERT INTO target_companies (
-          user_id, company_name, careers_url, ats_type, title_keywords, negative_keywords
-        ) VALUES (
-          ${userId}, ${c.company_name}, ${c.careers_url}, ${c.ats_type || "custom"},
-          ${sql.json(c.title_keywords || [])}, ${sql.json(c.negative_keywords || [])}
-        )
+      const existing = await sql<{ id: number }[]>`
+        SELECT id FROM target_companies
+         WHERE user_id = ${userId} AND company_name = ${c.company_name}
+         LIMIT 1
       `;
-      inserted++;
+      if (existing[0]) {
+        // Patch the URL + ats_type so users who seeded the old (broken)
+        // marketing URLs get auto-fixed on re-seed.
+        await sql`
+          UPDATE target_companies
+             SET careers_url = ${c.careers_url},
+                 ats_type    = ${c.ats_type || "custom"}
+           WHERE id = ${existing[0].id} AND user_id = ${userId}
+        `;
+        updated++;
+      } else {
+        await sql`
+          INSERT INTO target_companies (
+            user_id, company_name, careers_url, ats_type, title_keywords, negative_keywords
+          ) VALUES (
+            ${userId}, ${c.company_name}, ${c.careers_url}, ${c.ats_type || "custom"},
+            ${sql.json(c.title_keywords || [])}, ${sql.json(c.negative_keywords || [])}
+          )
+        `;
+        inserted++;
+      }
     }
-    res.json({ inserted, total: companies.length });
+    res.json({ inserted, updated, total: companies.length });
   } catch (err: any) {
     console.error("[POST /api/target-companies/seed]", err?.message || err);
     res.status(500).json({ error: "Database error" });

@@ -2,13 +2,15 @@ import { LinkedInJob } from "../../types";
 import { config } from "../../config";
 import { log } from "../../logger";
 import { deduplicateJobs } from "../deduplicator";
-import { scrapeNaukriViaApify, scrapeIndeedViaApify } from "../apify";
+import { scrapeNaukriViaApify, scrapeIndeedViaApify, scrapeTruefetchViaApify, scrapeUpworkViaApify } from "../apify";
 
 /** Source display names for logging and UI labels */
 export const SOURCE_LABELS: Record<string, string> = {
   linkedin: "LinkedIn",
   naukri: "Naukri",
   indeed: "Indeed",
+  truefetch: "Truefetch",
+  upwork: "Upwork",
   company_portal: "Portal",
 };
 
@@ -80,7 +82,12 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
   // passes the over-scraped budget (APIFY_JOB_COUNT * 2.5) so each source
   // returns enough candidates to survive the AI cut.
   const budget = totalBudget ?? Math.ceil(config.APIFY_JOB_COUNT * 2.5);
-  const activeSources = wantsIndia ? 2 : 1; // Indeed always + Naukri when India
+  // Active source count: Indeed always + Truefetch when SCRAPE_TRUEFETCH
+  // + Upwork when SCRAPE_UPWORK + Naukri when India.
+  let activeSources = 1; // Indeed
+  if (config.SCRAPE_TRUEFETCH) activeSources++;
+  if (config.SCRAPE_UPWORK) activeSources++;
+  if (wantsIndia) activeSources++;
   const perSource = Math.max(10, Math.floor(budget / activeSources));
 
   const scraperTasks: Promise<LinkedInJob[]>[] = [];
@@ -95,6 +102,19 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
   // Indeed always runs — the country flag inside scrapeIndeedViaApify picks
   // the right Indeed domain (IE, GB, NL, IN) based on TARGET_COUNTRIES.
   scraperTasks.push(withLog("Indeed", scrapeIndeedViaApify(perSource)));
+
+  // Truefetch multi-source aggregator. Disabled if SCRAPE_TRUEFETCH=false.
+  if (config.SCRAPE_TRUEFETCH) {
+    scraperTasks.push(withLog("Truefetch", scrapeTruefetchViaApify(perSource)));
+    log.info("  Truefetch enabled (multi-source aggregator)");
+  }
+
+  // Upwork freelance / contract gigs. Disabled by default — flip
+  // SCRAPE_UPWORK=true if hunting contract work.
+  if (config.SCRAPE_UPWORK) {
+    scraperTasks.push(withLog("Upwork", scrapeUpworkViaApify(perSource)));
+    log.info("  Upwork enabled (freelance / contract gigs)");
+  }
 
   // Naukri only runs when India is selected — it's India-specific.
   if (wantsIndia) {

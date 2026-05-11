@@ -17,10 +17,11 @@ import { downloadResumeText } from "../storage";
 const router = Router();
 router.use(requireAuth);
 
+const RA_CHAT_MODEL = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 function getOpenAI(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
-  return new OpenAI({ apiKey, maxRetries: 2 });
+  return new OpenAI({ apiKey, baseURL: process.env.OPENAI_BASE_URL || undefined, maxRetries: 2 });
 }
 
 // ─── POST /api/jobs/:id/analyze-resume ───────────────────────────────
@@ -157,7 +158,7 @@ ${resumeForPrompt}
 Return ONLY the JSON. No markdown. No prose.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: RA_CHAT_MODEL,
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.4,

@@ -4,6 +4,13 @@ import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { generateLocalPdf } from "../pdf";
 import { uploadResumePdf } from "../storage";
+import { isAdmin } from "./auth";
+
+// Admins get an effectively unlimited daily count for the free-tailor
+// hook. We don't say "Infinity" because the client renders the number,
+// so a big-but-finite value reads as "unlimited" without crashing
+// React/JSON. Anything > 1000 is unreachable in practice.
+const ADMIN_QUOTA = 9999;
 
 /**
  * Resume Tailor — the marketing-bait feature on the landing page.
@@ -30,7 +37,12 @@ const DAILY_QUOTA: Record<"free" | "pro", number> = {
   pro: 5,
 };
 
-function quotaFor(plan: string | undefined): number {
+function quotaFor(plan: string | undefined, email?: string): number {
+  // Admins (ADMIN_EMAILS env) get an effectively unlimited quota so the
+  // owner can iterate on the tailor without daily caps. This is purely
+  // server-side — the client doesn't know about the admin bypass and
+  // doesn't need to.
+  if (isAdmin(email)) return ADMIN_QUOTA;
   if (plan === "pro" || plan === "enterprise") return DAILY_QUOTA.pro;
   return DAILY_QUOTA.free;
 }
@@ -96,17 +108,22 @@ function advisoryLockKey(userId: string): bigint {
   return h > SIGNED_MAX ? h - (MASK + 1n) : h;
 }
 
+// Env-driven model selection. Same OPENAI_MODEL var the rest of the
+// server uses, so flipping it once changes every chat-completion call.
+const TAILOR_CHAT_MODEL = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 function getOpenAI(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
-  return new OpenAI({ apiKey, maxRetries: 2 });
+  const baseURL = process.env.OPENAI_BASE_URL || undefined;
+  return new OpenAI({ apiKey, baseURL, maxRetries: 2 });
 }
 
 // ─── GET /api/free-tailor/status ────────────────────────────────────
 router.get("/status", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const plan = req.user!.plan;
-  const quota = quotaFor(plan);
+  const email = req.user!.email;
+  const quota = quotaFor(plan, email);
   const used = await countUsedToday(userId);
   const remaining = Math.max(0, quota - used);
   res.json({
@@ -122,7 +139,9 @@ router.get("/status", async (req: Request, res: Response) => {
 router.post("/", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const plan = req.user!.plan;
-  const quota = quotaFor(plan);
+  const email = req.user!.email;
+  const userIsAdmin = isAdmin(email);
+  const quota = quotaFor(plan, email);
   const { resumeText, jobDescription } = req.body;
 
   if (!resumeText || resumeText.length < 50) {
@@ -161,35 +180,45 @@ router.post("/", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Input too large. Resume + job description must be under 25,000 characters combined." });
   }
 
-  // ── Plan-based daily quota: free=1, pro=5 ──
-  // A pg transaction-scoped advisory lock keyed on the user id serializes
-  // concurrent requests from the same user, so we cannot count `used=0`
-  // in two tabs at once and burn two OpenAI calls. Different users hash
-  // to different keys so they don't block each other.
-  const lockKey = advisoryLockKey(userId);
+  // ── Plan-based daily quota: free=1, pro=5; admin unlimited ──
+  //
+  // Admins skip the advisory-lock txn AND the log insert: no need to
+  // serialize their own requests against themselves, and we don't want
+  // their iteration usage polluting the free_tailor_log table the
+  // /status endpoint counts against (which would also surface a wrong
+  // "remaining" number to other tools reading that table).
   let used: number;
-  try {
-    used = await sql.begin(async (tx) => {
-      // postgres.js's template parameterizer doesn't accept BigInt directly
-      // (TypeScript error TS2769). Cast via string + Postgres's ::bigint so
-      // the 64-bit advisory-lock key survives without precision loss.
-      await tx`SELECT pg_advisory_xact_lock(${lockKey.toString()}::bigint)`;
-      const rows = await tx<{ count: string }[]>`
-        SELECT COUNT(*) AS count FROM free_tailor_log
-         WHERE user_id = ${userId}
-           AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
-      `;
-      const current = parseInt(rows[0]?.count || "0", 10);
-      if (current >= quota) return current;
-      // Reserve the slot inside the same transaction so a second concurrent
-      // request that re-reads after we commit sees the updated count.
-      await tx`INSERT INTO free_tailor_log (user_id) VALUES (${userId})`;
-      return current;
-    }) as number;
-  } catch (err: any) {
-    console.error("[POST /api/free-tailor] quota txn failed", err?.message || err);
-    res.status(500).json({ error: "Could not verify quota. Please try again." });
-    return;
+  if (userIsAdmin) {
+    used = 0;
+  } else {
+    // A pg transaction-scoped advisory lock keyed on the user id serializes
+    // concurrent requests from the same user, so we cannot count `used=0`
+    // in two tabs at once and burn two OpenAI calls. Different users hash
+    // to different keys so they don't block each other.
+    const lockKey = advisoryLockKey(userId);
+    try {
+      used = await sql.begin(async (tx) => {
+        // postgres.js's template parameterizer doesn't accept BigInt directly
+        // (TypeScript error TS2769). Cast via string + Postgres's ::bigint so
+        // the 64-bit advisory-lock key survives without precision loss.
+        await tx`SELECT pg_advisory_xact_lock(${lockKey.toString()}::bigint)`;
+        const rows = await tx<{ count: string }[]>`
+          SELECT COUNT(*) AS count FROM free_tailor_log
+           WHERE user_id = ${userId}
+             AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
+        `;
+        const current = parseInt(rows[0]?.count || "0", 10);
+        if (current >= quota) return current;
+        // Reserve the slot inside the same transaction so a second concurrent
+        // request that re-reads after we commit sees the updated count.
+        await tx`INSERT INTO free_tailor_log (user_id) VALUES (${userId})`;
+        return current;
+      }) as number;
+    } catch (err: any) {
+      console.error("[POST /api/free-tailor] quota txn failed", err?.message || err);
+      res.status(500).json({ error: "Could not verify quota. Please try again." });
+      return;
+    }
   }
   if (used >= quota) {
     const isPro = plan === "pro" || plan === "enterprise";
@@ -237,7 +266,7 @@ router.post("/", async (req: Request, res: Response) => {
     const userPrompt = `Job description:\n\n${jd}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: TAILOR_CHAT_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

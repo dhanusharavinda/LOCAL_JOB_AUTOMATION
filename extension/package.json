@@ -1,0 +1,26 @@
+{
+  "name": "job-tracker-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GO CANDID8 auto-apply browser extension",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.27",
+    "@types/chrome": "^0.0.279",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.10"
+  }
+}

@@ -129,7 +129,10 @@ router.patch("/me", requireAuth, async (req: Request, res: Response) => {
 // (CSV of emails). Keeps the gate off the database schema so you can add
 // admins without a migration. For bigger teams, promote this to a
 // profiles.role column later.
-function isAdmin(email: string | undefined): boolean {
+//
+// Exported so other routes (e.g. free-tailor.ts) can bypass quotas for
+// the owner without duplicating the ADMIN_EMAILS lookup.
+export function isAdmin(email: string | undefined): boolean {
   if (!email) return false;
   const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
   if (!adminCsv) return false;

@@ -851,6 +851,19 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                   Dashboard
                 </button>
               )}
+              {currentUser && (
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("go-candid8/practice-interview", { detail: {} }))}
+                  className="flex items-center gap-1.5 text-base font-medium px-3 py-1.5 rounded-xl bg-[rgba(255,87,34,0.1)] border border-[rgba(255,87,34,0.25)] text-[var(--accent)] hover:bg-[rgba(255,87,34,0.18)] transition-all"
+                  title="Practice with an AI interviewer using your voice - BETA"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  AI Interviewer
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">BETA</span>
+                </button>
+              )}
               {currentUser ? (
                 <div className="flex items-center gap-3 pl-2 border-l border-[var(--border-subtle)]" data-tour="user-menu">
                   <div className="flex flex-col items-end leading-tight">

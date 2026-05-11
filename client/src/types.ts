@@ -56,6 +56,10 @@ export interface Job {
   score_breakdown: string | null;    // JSON string of ScoreBreakdown
   detected_role_type: string | null;
   keyword_match_rate: number | null;
+  /** Latest interview-practice readiness score for this role (0-100).
+   *  Populated by /api/interview/score and surfaced as a small badge
+   *  on the kanban card and JobDetailModal "Practice" button. */
+  interview_readiness_score?: number | null;
   created_at: string;
   updated_at: string;
 }

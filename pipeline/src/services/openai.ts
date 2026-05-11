@@ -45,7 +45,8 @@ function cleanJsonResponse(text: string): string {
 export async function checkJobRelevance(
   resumeText: string,
   jobDescription: string,
-  targetRole?: string
+  targetRole?: string,
+  preferredSeniority?: string,
 ): Promise<JobVerdict> {
   const openai = getClient();
 
@@ -54,13 +55,14 @@ export async function checkJobRelevance(
     ? jobDescription.slice(0, 3000) + "\n[...truncated]"
     : jobDescription;
 
-  // System message = static prefix (framework + resume + target role).
-  // Must be byte-stable across all Phase 1 calls for prompt caching to hit.
-  // User message = just the JD — small, unique per job.
+  // System message = static prefix (framework + resume + target role +
+  // preferred seniority). Must be byte-stable across all Phase 1 calls
+  // for prompt caching to hit. User message = just the JD — small,
+  // unique per job.
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: buildRelevanceSystemPrompt(resumeText, targetRole) },
+      { role: "system", content: buildRelevanceSystemPrompt(resumeText, targetRole, preferredSeniority) },
       { role: "user", content: buildRelevanceUserPrompt(truncatedDesc) },
     ],
     temperature: 0.3,
@@ -81,7 +83,15 @@ export async function checkJobRelevance(
 
       for (const [key, cfg] of Object.entries(SCORING_DIMENSIONS)) {
         const dimKey = key as ScoringDimensionKey;
-        const dimScore = dims[dimKey]?.score ?? 3;
+        // Coerce defensively: the model occasionally returns "score": "4"
+        // (string), "score": null, or omits the field. Without Number()+
+        // isFinite the Math.min/max produces NaN, which then propagates
+        // into weightedSum → weightedScore → letter grade — corrupting
+        // the whole verdict silently. Fall back to the neutral score of
+        // 3 if the value isn't a finite number.
+        const raw = dims[dimKey]?.score;
+        const num = typeof raw === "number" ? raw : Number(raw);
+        const dimScore = Number.isFinite(num) ? num : 3;
         const clampedScore = Math.max(1, Math.min(5, dimScore));
         weightedSum += clampedScore * cfg.weight;
         totalWeight += cfg.weight;

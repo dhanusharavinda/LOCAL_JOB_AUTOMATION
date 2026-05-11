@@ -131,6 +131,34 @@ export async function downloadResumeMeta(userId: string): Promise<string | null>
 }
 
 /**
+ * Sign the user's main uploaded original resume (resume_original.pdf
+ * or .docx). Used by the auto-apply extension as a fallback when no
+ * job-specific tailored resume exists for the page being filled.
+ *
+ * Returns null if no original resume has been uploaded yet, or if
+ * storage is not configured.
+ */
+export async function getMainResumeSignedUrl(
+  userId: string
+): Promise<{ signedUrl: string; filename: string } | null> {
+  const admin = getAdmin();
+  if (!admin) return null;
+  const { data: list } = await admin.storage.from(RESUME_BUCKET).list(userId);
+  if (!list || list.length === 0) return null;
+  // Prefer PDF, fall back to DOCX. Skip the metadata + extracted-text files.
+  const original = list.find((f) => f.name.startsWith("resume_original.pdf"))
+    || list.find((f) => f.name.startsWith("resume_original."))
+    || null;
+  if (!original) return null;
+  const path = `${userId}/${original.name}`;
+  const { data, error } = await admin.storage
+    .from(RESUME_BUCKET)
+    .createSignedUrl(path, 60 * 60 * 24 * 7);
+  if (error || !data?.signedUrl) return null;
+  return { signedUrl: data.signedUrl, filename: original.name };
+}
+
+/**
  * Delete every resume-related file for a user (text, meta, original).
  * Called when the user clicks "Remove uploaded resume" in Settings.
  */

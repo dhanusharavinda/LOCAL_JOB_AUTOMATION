@@ -36,23 +36,72 @@ function matchesTitleFilter(title: string, keywords: string[], negatives: string
   return posMatch && !negMatch;
 }
 
+// Path segments that are NEVER a real ATS slug — they appear when a user
+// pastes the marketing careers page (e.g. atlassian.com/company/careers)
+// instead of the ATS-internal URL (boards.greenhouse.io/atlassian).
+const NON_SLUG_PATH_PARTS = new Set([
+  "company", "careers", "career", "jobs", "job", "all-jobs",
+  "about", "about-us", "openings", "positions", "work-with-us",
+  "join", "join-us", "join-our-team", "team", "hire",
+]);
+
+const KNOWN_ATS_HOSTS: Record<string, string[]> = {
+  greenhouse: ["boards.greenhouse.io", "job-boards.greenhouse.io"],
+  lever: ["jobs.lever.co"],
+  ashby: ["jobs.ashbyhq.com"],
+};
+
+/**
+ * Resolve the ATS-internal slug for a target company.
+ *
+ * Happy path: the careers_url is an ATS URL (boards.greenhouse.io/<slug>,
+ * jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>) — take the first
+ * non-empty path segment.
+ *
+ * Fallback: the user pasted a marketing page (atlassian.com/company/
+ * careers) — derive a guess by lowercasing the company name with
+ * non-alphanumeric chars stripped. That's the slug for ~90% of companies
+ * (Atlassian → atlassian, Datadog → datadog). We log loudly so the user
+ * sees the guess in the pipeline log and can override if the company's
+ * actual slug is non-obvious (e.g. Spotify uses "spotifyjobs").
+ */
+function resolveAtsSlug(careersUrl: string, companyName: string, atsType: string): string | null {
+  const knownHosts = KNOWN_ATS_HOSTS[atsType] || [];
+  try {
+    const url = new URL(careersUrl);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const firstPart = parts[0] || "";
+
+    // Happy path: URL is a known ATS host and path[0] looks like a slug.
+    if (knownHosts.includes(url.hostname) && firstPart && !NON_SLUG_PATH_PARTS.has(firstPart.toLowerCase())) {
+      return firstPart;
+    }
+
+    // Marketing-page case: ATS host doesn't match OR path[0] is a generic
+    // word like "careers". Fall back to a name-derived slug + warn.
+    const guess = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (guess) {
+      log.warn(
+        `[PortalScanner] ${companyName}: careers_url "${careersUrl}" doesn't look like a ` +
+        `${atsType} ATS endpoint. Guessing slug = "${guess}" from company name. ` +
+        `If this is wrong, update the careers_url to e.g. ${knownHosts[0] ? `https://${knownHosts[0]}/<real-slug>` : "the ATS-internal URL"}.`
+      );
+      return guess;
+    }
+    return null;
+  } catch {
+    log.warn(`[PortalScanner] ${companyName}: careers_url "${careersUrl}" is not a valid URL`);
+    return null;
+  }
+}
+
 /**
  * Greenhouse API: GET https://boards.greenhouse.io/v1/boards/{slug}/jobs
  * or GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs
  */
 async function scrapeGreenhouse(company: TargetCompany): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
-  // Extract slug from URL patterns:
-  // https://boards.greenhouse.io/{slug}
-  // https://job-boards.greenhouse.io/{slug}
-  let slug = "";
-  try {
-    const url = new URL(company.careers_url);
-    const parts = url.pathname.split("/").filter(Boolean);
-    slug = parts[0] || "";
-  } catch {
-    return jobs;
-  }
+  const slug = resolveAtsSlug(company.careers_url, company.company_name, "greenhouse");
   if (!slug) return jobs;
 
   const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`;
@@ -86,14 +135,7 @@ async function scrapeGreenhouse(company: TargetCompany): Promise<ScrapedJob[]> {
  */
 async function scrapeLever(company: TargetCompany): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
-  let slug = "";
-  try {
-    const url = new URL(company.careers_url);
-    const parts = url.pathname.split("/").filter(Boolean);
-    slug = parts[0] || "";
-  } catch {
-    return jobs;
-  }
+  const slug = resolveAtsSlug(company.careers_url, company.company_name, "lever");
   if (!slug) return jobs;
 
   const apiUrl = `https://api.lever.co/v0/postings/${slug}?mode=json`;
@@ -128,14 +170,7 @@ async function scrapeLever(company: TargetCompany): Promise<ScrapedJob[]> {
  */
 async function scrapeAshby(company: TargetCompany): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
-  let slug = "";
-  try {
-    const url = new URL(company.careers_url);
-    const parts = url.pathname.split("/").filter(Boolean);
-    slug = parts[0] || "";
-  } catch {
-    return jobs;
-  }
+  const slug = resolveAtsSlug(company.careers_url, company.company_name, "ashby");
   if (!slug) return jobs;
 
   // Ashby GraphQL API
@@ -241,8 +276,16 @@ export async function scanTargetCompanyPortals(): Promise<ScrapedJob[]> {
           jobs = await scrapeAshby(company);
           break;
         default:
-          // Custom/generic — skip for now (would need Puppeteer or HTML parsing)
-          log.info(`  [PortalScanner] ${company.company_name}: custom ATS, skipping automated scan`);
+          // Custom/generic — no public ATS API to query, would need a
+          // headless browser to scrape the marketing careers page. Kept
+          // in the target_companies table so the company shows up in the
+          // LinkedIn "Focus company" dropdown for narrowing LinkedIn
+          // scrapes, but portal-scanner can't fetch jobs from them.
+          log.info(
+            `  [PortalScanner] ${company.company_name}: ats_type="custom" — no public API, skipped. ` +
+            `(It's still useful as a LinkedIn focus filter.) ` +
+            `If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.`
+          );
           continue;
       }
       if (jobs.length > 0) {

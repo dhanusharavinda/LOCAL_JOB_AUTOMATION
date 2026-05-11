@@ -7,10 +7,11 @@ import { downloadResumeText } from "../storage";
 const router = Router();
 router.use(requireAuth);
 
+const CL_CHAT_MODEL = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 function getOpenAI(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
-  return new OpenAI({ apiKey, maxRetries: 2 });
+  return new OpenAI({ apiKey, baseURL: process.env.OPENAI_BASE_URL || undefined, maxRetries: 2 });
 }
 
 /** Fetch job + resume text for the signed-in user. */
@@ -196,7 +197,7 @@ router.post("/:id/cover-letter", async (req: Request, res: Response) => {
     const prompt = buildPrompt(job.company_name, job.job_title, skills, job.description!);
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: CL_CHAT_MODEL,
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.7,
@@ -250,7 +251,7 @@ router.post("/:id/why-fit", async (req: Request, res: Response) => {
     const prompt = buildWhyFitPrompt(job.company_name, job.job_title, skills, job.description!);
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: CL_CHAT_MODEL,
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.7,
@@ -369,7 +370,7 @@ ${skills}
 Generate the JSON now.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: CL_CHAT_MODEL,
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.7,

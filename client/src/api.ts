@@ -966,3 +966,270 @@ export async function deleteCandidate(id: number): Promise<void> {
   const res = await fetch(`/api/candidates/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete candidate");
 }
+
+// ─── Apply (auto-apply feature) ─────────────────────────────────────────
+export interface ApplyProfile {
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
+  street?: string | null;
+  city?: string | null;
+  state_region?: string | null;
+  postcode?: string | null;
+  country?: string | null;
+  work_auth_status?: string | null;
+  requires_sponsorship?: boolean | null;
+  willing_to_relocate?: boolean | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  years_experience?: number | null;
+  highest_degree?: string | null;
+  university?: string | null;
+  graduation_year?: number | null;
+  start_date?: string | null;
+  ethnicity?: string | null;
+  gender?: string | null;
+  veteran_status?: string | null;
+  disability_status?: string | null;
+  pronouns?: string | null;
+  why_interested?: string | null;
+  greatest_achievement?: string | null;
+  problem_solved?: string | null;
+  unique_strength?: string | null;
+  custom_answers?: Record<string, string>;
+}
+
+export async function getApplyProfile(): Promise<{ profile: ApplyProfile; exists: boolean }> {
+  const res = await fetch("/api/apply/profile");
+  if (!res.ok) throw new Error("Failed to load apply profile");
+  return res.json();
+}
+
+export async function saveApplyProfile(profile: Partial<ApplyProfile>): Promise<{ profile: ApplyProfile }> {
+  const res = await fetch("/api/apply/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || "Could not save apply profile");
+  }
+  return res.json();
+}
+
+export async function applyAtsSubmit(jobId: number): Promise<{ ok: boolean; ats?: string; response?: any; needsProfile?: boolean }> {
+  const res = await fetch(`/api/apply/ats-submit/${jobId}`, { method: "POST" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err: any = new Error(body?.error || `ATS submit failed (HTTP ${res.status})`);
+    err.needsProfile = !!body?.needsProfile;
+    err.ats = body?.ats;
+    throw err;
+  }
+  return body;
+}
+
+export interface ExtractedResumeContacts {
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export async function extractResumeContacts(): Promise<ExtractedResumeContacts> {
+  const res = await fetch("/api/apply/extract-from-resume", { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || "Could not parse resume");
+  }
+  return res.json();
+}
+
+// ─── Interview practice ────────────────────────────────────────────────
+export interface InterviewQuestion {
+  idx: number;
+  question: string;
+  type: "behavioral" | "technical" | "jd_specific";
+  rubric_target: string[];
+  hidden_hint: string;
+  expected_length: "short" | "medium" | "long";
+}
+
+export interface InterviewStartResponse {
+  sessionId: number;
+  mode: "behavioral" | "technical";
+  questions: InterviewQuestion[];
+  followupCap: number;
+  sessionMaxMs: number;
+}
+
+export interface InterviewTurnResponse {
+  action: "follow_up" | "next" | "wrap";
+  followUpQuestion?: string;
+}
+
+export interface InterviewRubric {
+  overall_readiness?: number;
+  dimensions?: Record<string, number>;
+  by_question?: Array<{ q_idx: number; score: number; strengths: string[]; gaps: string[]; pull_quote: string }>;
+  weak_areas_to_prep?: string[];
+  stories_used?: string[];
+}
+
+export interface InterviewMetrics {
+  total_words: number;
+  total_seconds: number;
+  wpm: number;
+  filler_count: number;
+  filler_per_100w: number;
+  hedging_count: number;
+  self_correct_count: number;
+  turn_count: number;
+}
+
+export type InterviewDifficulty = "easy" | "medium" | "hard";
+
+export async function interviewStart(input: {
+  jobId?: number;
+  manualJd?: string;
+  manualResumeText?: string;
+  fineTuneFocus?: string;
+  mode: "behavioral" | "technical";
+  difficulty?: InterviewDifficulty;
+}): Promise<InterviewStartResponse> {
+  const res = await fetch("/api/interview/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || `Could not start interview (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
+export async function interviewTurn(input: {
+  sessionId: number;
+  qIdx: number;
+  answer: string;
+  followUpDepth: number;
+}): Promise<InterviewTurnResponse> {
+  const res = await fetch("/api/interview/turn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error("Decide step failed");
+  return res.json();
+}
+
+export async function interviewScore(input: {
+  sessionId: number;
+  transcript: Array<{ qIdx: number; role: "ai" | "user"; text: string; t_start: number; t_end: number }>;
+}): Promise<{ readiness_score: number; rubric: InterviewRubric; metrics: InterviewMetrics }> {
+  const res = await fetch("/api/interview/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error("Scoring failed");
+  return res.json();
+}
+
+export async function interviewTtsBlob(text: string): Promise<Blob> {
+  const res = await fetch("/api/interview/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error("TTS failed");
+  return res.blob();
+}
+
+/**
+ * Whisper-backed STT. Avoids Chrome's SpeechRecognition (which routes
+ * through Google's servers and fails on corp / slow networks). The
+ * blob is whatever MediaRecorder produced — typically audio/webm in
+ * Chrome, audio/mp4 in Safari. Server uses the mimetype to pick the
+ * right extension when forwarding to OpenAI.
+ *
+ * Hard 25s client-side timeout via AbortController. Whisper itself
+ * is usually <3s for a typical answer; anything over 25s is either
+ * the OpenAI endpoint having a bad day or a stuck network. Better to
+ * fail loudly so the UI can show the typed-answer fallback than to
+ * leave the user staring at "Transcribing..." forever.
+ */
+export async function interviewStt(blob: Blob, timeoutMs = 25_000): Promise<string> {
+  const fd = new FormData();
+  // Filename here is for our own logs; OpenAI cares about the mimetype.
+  // .webm is Chrome's default MediaRecorder output.
+  const ext = blob.type.includes("mp4") ? "mp4"
+            : blob.type.includes("ogg") ? "ogg"
+            : blob.type.includes("wav") ? "wav"
+            : "webm";
+  fd.append("audio", blob, `answer.${ext}`);
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch("/api/interview/stt", { method: "POST", body: fd, signal: ctrl.signal });
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new Error("Transcription timed out. Type your answer below and click I'm done.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || `Transcription failed (HTTP ${res.status})`);
+  }
+  const data = await res.json();
+  return String(data.text || "");
+}
+
+export interface InterviewSessionRow {
+  id: number;
+  mode: "behavioral" | "technical";
+  status: "active" | "completed" | "abandoned";
+  started_at: string;
+  ended_at: string | null;
+  readiness_score: number | null;
+  metrics: InterviewMetrics | null;
+  job_id: number | null;
+  job_title: string | null;
+  company_name: string | null;
+}
+
+export async function interviewListSessions(): Promise<{ sessions: InterviewSessionRow[] }> {
+  const res = await fetch("/api/interview/sessions");
+  if (!res.ok) throw new Error("Could not list sessions");
+  return res.json();
+}
+
+export async function interviewAbandon(sessionId: number): Promise<void> {
+  await fetch(`/api/interview/sessions/${sessionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "abandoned" }),
+  });
+}
+
+export async function clearApplyAnswerCache(key?: string): Promise<{ ok: true }> {
+  const res = await fetch("/api/apply/answer-cache", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: key || "" }),
+  });
+  if (!res.ok) throw new Error("Could not clear answer cache");
+  return res.json();
+}

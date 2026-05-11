@@ -331,9 +331,9 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
       return;
     }
     try {
-      const openai = new OpenAILib.default({ apiKey, maxRetries: 2 });
+      const openai = new OpenAILib.default({ apiKey, baseURL: process.env.OPENAI_BASE_URL || undefined, maxRetries: 2 });
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         messages: [
           {
             role: "system",

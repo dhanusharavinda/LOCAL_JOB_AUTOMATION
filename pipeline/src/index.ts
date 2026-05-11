@@ -6,6 +6,7 @@ import { PipelineStats, LinkedInJob } from "./types";
 import { scrapeLinkedInJobs } from "./services/apify";
 import { filterByLocation } from "./services/location-filter";
 import { checkJobRelevance, customizeResume } from "./services/openai";
+import { expandKeywords } from "./services/keywordExpander";
 import { generateCoverLetter } from "./services/outreach-email";
 import { generatePdf, warmUpPdfBackend } from "./services/pdf-generator";
 import {
@@ -77,6 +78,36 @@ function detectJobCategory(title: string, description: string): string | null {
 /**
  * Extract a comma-separated skills string from the resume data for outreach emails.
  */
+/**
+ * Translate the LINKEDIN_EXPERIENCE codes the dashboard stores
+ * (LinkedIn's f_E values: 1=Intern, 2=Entry, 3=Associate, 4=Mid-Senior,
+ * 5=Director, 6=Executive) into a human phrase the AI relevance scorer
+ * can reason about. Returns undefined when no preference was set, in
+ * which case the scorer falls back to inferring level from the resume.
+ *
+ * Multi-select case: the config stores a CSV ("2,3") — we join the
+ * labels with " or " so the AI knows either is acceptable.
+ */
+function seniorityLabelFromConfig(raw: string | undefined): string | undefined {
+  if (!raw || !raw.trim()) return undefined;
+  const LABELS: Record<string, string> = {
+    "1": "Internship",
+    "2": "Entry-level (0-2 years)",
+    "3": "Associate (2-4 years)",
+    "4": "Mid-Senior (5-8 years)",
+    "5": "Director",
+    "6": "Executive",
+  };
+  const labels = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((code) => LABELS[code])
+    .filter(Boolean);
+  if (labels.length === 0) return undefined;
+  return labels.length === 1 ? labels[0] : labels.join(" or ");
+}
+
 function extractSkillsList(resumeData: any): string {
   const skills = resumeData?.resumeData?.skills;
   if (!skills || typeof skills !== "object") return "";
@@ -111,6 +142,33 @@ async function main() {
     skipped: 0,
     errors: 0,
   };
+
+  // ── Step 0: Expand role keywords semantically ──
+  // Job boards do substring matching, so typing "data engineer" misses
+  // "ETL Engineer" / "Analytics Engineer" listings even though they're
+  // the same job. One small LLM call here expands the user's literal
+  // input into the set of titles recruiters actually use, then mutates
+  // config.SEARCH_KEYWORDS so every downstream scraper (Indeed,
+  // Truefetch, LinkedIn URL builder, Naukri) picks up the broader set.
+  //
+  // Disabled by EXPAND_KEYWORDS=false for users who want strict literal
+  // matching. Falls back to the raw input on any LLM failure — never
+  // blocks the pipeline.
+  if (config.EXPAND_KEYWORDS) {
+    const rawSource = (config.SEARCH_KEYWORDS || config.TARGET_ROLE || "").trim();
+    if (rawSource) {
+      log.step("Expanding role keywords to catch synonymous titles...");
+      const expanded = await expandKeywords(rawSource);
+      if (expanded.length > 0) {
+        // Mutation is contained: pipeline is a short-lived subprocess
+        // per user run, config is module-scoped, and writing the
+        // expanded string here means every reader downstream sees the
+        // same broader set without threading a new arg through every
+        // scraper signature.
+        (config as any).SEARCH_KEYWORDS = expanded.join(", ");
+      }
+    }
+  }
 
   // ── Step 1: Scrape LinkedIn jobs via Apify ──
   // APIFY_JOB_COUNT is the user's TARGET for relevant jobs AFTER the AI
@@ -356,7 +414,12 @@ async function main() {
       // ── 4a: Check job relevance via OpenAI ──
       // Note: system prompt = framework + resume (cached across all calls);
       // user prompt = just the JD. Prefix caching billed at 50%.
-      const verdict = await checkJobRelevance(resumeText, job.descriptionText, config.TARGET_ROLE);
+      const verdict = await checkJobRelevance(
+        resumeText,
+        job.descriptionText,
+        config.TARGET_ROLE,
+        seniorityLabelFromConfig(config.LINKEDIN_EXPERIENCE),
+      );
 
       // Log completion order (not input order) — jobs finish out-of-order
       // due to concurrency, so we count completions and show `n/total`.

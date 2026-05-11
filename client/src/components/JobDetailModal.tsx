@@ -405,6 +405,27 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
 
         {/* Quick Links */}
         <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)] flex flex-wrap gap-2">
+          {/* Practice for this role - always available, prominent for interviewing rows. BETA. */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("go-candid8/practice-interview", { detail: { jobId: job.id } }))}
+            className={`inline-flex items-center gap-1.5 font-mono text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+              job.status === "interviewing"
+                ? "text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30"
+                : "text-amber-400/80 bg-amber-500/8 hover:bg-amber-500/15"
+            }`}
+            title="AI interview practice tailored to this role - BETA"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            Practice for this role
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-200 text-[9px] font-bold border border-amber-500/30">BETA</span>
+            {job.interview_readiness_score != null && (
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 text-[10px] font-bold">
+                {job.interview_readiness_score}
+              </span>
+            )}
+          </button>
           {job.job_link && (
             <a href={job.job_link} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-blue-400 bg-blue-500/8 hover:bg-blue-500/15 px-3 py-1.5 rounded-lg transition-colors">

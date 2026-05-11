@@ -8,7 +8,7 @@ import crypto from "crypto";
 
 // Generate a one-shot internal token for server↔pipeline M2M auth if the
 // operator hasn't set one explicitly. This lives only in memory, so a
-// fresh random token is created on every server restart — subprocesses
+// fresh random token is created on every server restart - subprocesses
 // spawned after boot pick it up from inherited env. For multi-host
 // deploys (k8s replicas etc.) the operator should set this explicitly
 // so both replicas agree.
@@ -35,6 +35,8 @@ import storyBankRouter from "./routes/story-bank";
 import targetCompaniesRouter from "./routes/target-companies";
 import coverLetterRouter from "./routes/cover-letter";
 import freeTailorRouter from "./routes/free-tailor";
+import applyRouter from "./routes/apply";
+import interviewRouter from "./routes/interview";
 import { generateLocalPdf } from "./pdf";
 import { requireAuth } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
@@ -46,11 +48,11 @@ const PORT = process.env.PORT || 3001;
 // Allow-list is CLIENT_URL (CSV of exact origins) plus any Vercel
 // preview that belongs to the same project. Vercel preview URLs look
 // like `<project>-git-<branch>-<team-slug>.vercel.app` and rotate on
-// every branch push — listing them individually is a maintenance
+// every branch push - listing them individually is a maintenance
 // nightmare, so we derive the project prefix from the production
 // URL and auto-admit preview siblings. Non-browser clients (curl, the
 // pipeline subprocess, health checks) send no Origin and are let
-// through — auth middleware still gates them.
+// through - auth middleware still gates them.
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim())
@@ -83,12 +85,41 @@ function isAllowedVercelPreview(origin: string): boolean {
   }
 }
 
+// Chrome extension origins. The browser extension's background service
+// worker is the single point that talks to our API (content scripts on
+// LinkedIn / Greenhouse / etc. send messages to the worker rather than
+// fetching directly), so the only extra origin we need to admit is
+// `chrome-extension://<id>`. Set EXTENSION_IDS to a CSV of approved IDs;
+// every other chrome-extension origin is rejected.
+const extensionIds = (process.env.EXTENSION_IDS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function isAllowedExtensionOrigin(origin: string): boolean {
+  if (!origin.startsWith("chrome-extension://") && !origin.startsWith("moz-extension://")) return false;
+  // If no IDs are configured, allow during local dev. In production
+  // operators MUST set EXTENSION_IDS to lock down which extension can
+  // call the API. The startup warning below makes this loud.
+  if (extensionIds.length === 0) return process.env.NODE_ENV !== "production";
+  try {
+    const id = new URL(origin).host;
+    return extensionIds.includes(id);
+  } catch {
+    return false;
+  }
+}
+if (extensionIds.length === 0 && process.env.NODE_ENV === "production") {
+  console.warn("[cors] EXTENSION_IDS is not set - the auto-apply extension will be rejected in production.");
+}
+
 app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
       if (isAllowedVercelPreview(origin)) return cb(null, true);
+      if (isAllowedExtensionOrigin(origin)) return cb(null, true);
       return cb(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
@@ -102,12 +133,12 @@ app.use(express.json({ limit: "1mb" }));
 
 // ── Rate limiting ───────────────────────────────────────────────────
 // Three tiers:
-//   1. `apiLimiter` — relaxed, applied to most /api/* routes. Protects
+//   1. `apiLimiter` - relaxed, applied to most /api/* routes. Protects
 //      against naive scraping / accidental runaway clients.
-//   2. `authLimiter` — tight, applied only to /api/auth/*. Stops
+//   2. `authLimiter` - tight, applied only to /api/auth/*. Stops
 //      brute-force / credential-stuffing attempts at the Express layer
 //      (Supabase itself also rate-limits but defense in depth is cheap).
-//   3. `llmLimiter` — tight, applied to routes that call OpenAI / any LLM.
+//   3. `llmLimiter` - tight, applied to routes that call OpenAI / any LLM.
 //      Each request can cost real money, so we cap these aggressively to
 //      prevent accidental loops or intentional cost abuse.
 // Counters are keyed by the IP address extracted from x-forwarded-for
@@ -115,7 +146,7 @@ app.use(express.json({ limit: "1mb" }));
 // socket IP. For multi-pod deploys use a shared store (Redis) here.
 const apiLimiter = rateLimit({
   windowMs: 60_000,        // 1 minute
-  limit: 120,              // 120 req/min/IP — enough for a busy dashboard
+  limit: 120,              // 120 req/min/IP - enough for a busy dashboard
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many requests. Slow down and try again in a minute." },
@@ -135,7 +166,7 @@ const llmLimiter = rateLimit({
   message: { error: "Too many AI requests. Please wait a minute before trying again." },
 });
 // Parse endpoints are authenticated but CPU-heavy (pdf-parse / mammoth) and
-// attractive targets for OOM attacks — keep the per-IP limit well below
+// attractive targets for OOM attacks - keep the per-IP limit well below
 // the general apiLimiter and cap body size locally on each route.
 const parseLimiter = rateLimit({
   windowMs: 60_000,
@@ -148,17 +179,17 @@ const parseBodyLimit = express.json({ limit: "3mb" });
 app.set("trust proxy", 1); // required when behind a reverse proxy (Vercel, Fly, Render, nginx)
 
 // NOTE: Resume PDFs used to be served from /resumes/<filename>.pdf off
-// the local filesystem. That's gone — all tailored PDFs now live in the
+// the local filesystem. That's gone - all tailored PDFs now live in the
 // Supabase Storage `resume-pdfs` bucket, and the pipeline + client both
 // use signed URLs that point directly at Supabase. No static file serving
 // on this server anymore.
 
-// Auth routes — the /me and /plan endpoints use requireAuth inline, so the
+// Auth routes - the /me and /plan endpoints use requireAuth inline, so the
 // router itself is mounted BEFORE the global requireAuth. Auth routes get
 // the tighter authLimiter since they're the most commonly brute-forced.
 app.use("/api/auth", authLimiter, authRouter);
 
-// File-parsing utilities — these used to be public for the landing-page
+// File-parsing utilities - these used to be public for the landing-page
 // FreeTailor demo, but unauthenticated + CPU-heavy + pdf-parse = DoS bait.
 // They now require auth, have a dedicated parseLimiter (10/min/IP) and a
 // local 3MB body cap (well below the 10MB original).
@@ -173,7 +204,7 @@ app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, async (req
     if (!base64 || typeof base64 !== "string") { res.status(400).json({ error: "Missing base64 PDF data" }); return; }
     const buffer = Buffer.from(base64, "base64");
     if (buffer.length === 0 || buffer.length > MAX_PARSE_BUFFER_BYTES) {
-      res.status(413).json({ error: "PDF too large — max 2MB" });
+      res.status(413).json({ error: "PDF too large - max 2MB" });
       return;
     }
     const data = await pdfParse(buffer, { max: 5 });
@@ -191,13 +222,13 @@ app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, async (re
     if (!base64 || typeof base64 !== "string") { res.status(400).json({ error: "Missing base64 DOCX data" }); return; }
     const buffer = Buffer.from(base64, "base64");
     if (buffer.length === 0 || buffer.length > MAX_PARSE_BUFFER_BYTES) {
-      res.status(413).json({ error: "DOCX too large — max 2MB" });
+      res.status(413).json({ error: "DOCX too large - max 2MB" });
       return;
     }
     // Quick magic-byte check: real .docx files are zip archives starting
     // with "PK". Legacy .doc binaries start with 0xD0CF11E0. Mammoth
     // silently produces empty / partial output for .doc, which then
-    // cascades into the schema-leak bug downstream — fail fast instead.
+    // cascades into the schema-leak bug downstream - fail fast instead.
     if (buffer.length >= 2 && (buffer[0] !== 0x50 || buffer[1] !== 0x4b)) {
       res.status(400).json({
         error: "This isn't a valid .docx (looks like a legacy .doc). Save as PDF or re-export as .docx and try again.",
@@ -243,13 +274,20 @@ app.use("/api/candidates", candidatesRouter);
 app.use("/api/story-bank", storyBankRouter);
 app.use("/api/target-companies", targetCompaniesRouter);
 app.use("/api/free-tailor", llmLimiter, freeTailorRouter);
+// Auto-apply endpoints. The router itself applies llmLimiter to the
+// AI-answer endpoint inline; profile/track/job-context don't need it.
+app.use("/api/apply", applyRouter);
+// Interview practice. The router applies its own rate limiter (30/min)
+// since every endpoint hits OpenAI. Body limit bumped to 5mb to fit
+// long manual JD/resume paste from users without a tracked job.
+app.use("/api/interview", express.json({ limit: "5mb" }), interviewRouter);
 
 // Local PDF generation endpoint (replaces external Render backend)
 app.post("/api/pdf/generate", async (req, res) => {
   try {
     const resumeData = req.body;
     if (!resumeData?.personalInfo) {
-      res.status(400).json({ error: "Invalid resume data — missing personalInfo" });
+      res.status(400).json({ error: "Invalid resume data - missing personalInfo" });
       return;
     }
     const pdfBuffer = await generateLocalPdf(resumeData);
@@ -260,6 +298,19 @@ app.post("/api/pdf/generate", async (req, res) => {
     console.error("[PDF Generate]", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
+});
+
+// Friendly root response. Hitting the bare API host in a browser used
+// to return a confusing "Route not found: GET /" envelope; this keeps
+// the same JSON shape but points the user at the dashboard.
+app.get("/", (_req, res) => {
+  res.json({
+    name: "GO CANDID8 API",
+    status: "ok",
+    docs: "This is the API server. The dashboard runs separately.",
+    dashboard_url: process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173",
+    health: "/health",
+  });
 });
 
 app.get("/health", (_req, res) => {
@@ -287,7 +338,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // ── Global error handler ────────────────────────────────────────────
-// Never leaks Postgres messages or stack traces to clients — those can
+// Never leaks Postgres messages or stack traces to clients - those can
 // expose schema details and exact library versions. Explicit CORS errors
 // still surface because they're actionable for the caller. Every other
 // unhandled error becomes a generic 500.

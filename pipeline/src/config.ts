@@ -30,6 +30,32 @@ export const config = {
   APIFY_ACTOR_ID: optional("APIFY_ACTOR_ID", "hKByXkMQaC5Qt9UMN"),          // LinkedIn
   APIFY_NAUKRI_ACTOR_ID: optional("APIFY_NAUKRI_ACTOR_ID", "muhammetakkurtt~naukri-job-scraper"),
   APIFY_INDEED_ACTOR_ID: optional("APIFY_INDEED_ACTOR_ID", "valig~indeed-jobs-scraper"),
+  // Truefetch best-job-listing — multi-source aggregator. Used to
+  // broaden the candidate pool the AI relevance filter scores against.
+  APIFY_TRUEFETCH_ACTOR_ID: optional("APIFY_TRUEFETCH_ACTOR_ID", "truefetch~best-job-listing"),
+  SCRAPE_TRUEFETCH: optional("SCRAPE_TRUEFETCH", "true") !== "false",
+  // Upwork freelance / contract gigs. Disabled by default because mixing
+  // contract gigs with full-time roles pollutes the AI relevance scoring
+  // for users hunting only full-time. Flip SCRAPE_UPWORK=true to enable.
+  APIFY_UPWORK_ACTOR_ID: optional("APIFY_UPWORK_ACTOR_ID", "upwork-vibe~upwork-job-scraper"),
+  SCRAPE_UPWORK: optional("SCRAPE_UPWORK", "false") !== "false",
+  // How many keywords each Apify scraper fans out over (Indeed/Naukri/
+  // Truefetch). Before this, all three scrapers used keywords[0] only,
+  // so a CSV like "ai engineer, ml engineer, data scientist" silently
+  // dropped 2/3 of the user's interest. With this set to 3, each
+  // scraper runs THREE parallel passes (one per keyword) and dedups
+  // by link. LinkedIn ignores this setting — it already joins all
+  // keywords with OR in a single URL.
+  MAX_KEYWORDS_PER_SCRAPER: parseInt(optional("MAX_KEYWORDS_PER_SCRAPER", "3"), 10),
+  // LLM-driven keyword expansion. When true, the pipeline runs one
+  // gpt-4o-mini call at startup to expand the user's role keywords
+  // into closely-related titles recruiters actually use (e.g.
+  // "data engineer" → "data engineer, etl engineer, analytics engineer,
+  // data platform engineer"). This catches listings where the company
+  // uses a synonymous title.
+  //
+  // Set false for strict literal matching (no expansion).
+  EXPAND_KEYWORDS: optional("EXPAND_KEYWORDS", "true") !== "false",
 
   // OpenAI
   OPENAI_API_KEY: required("OPENAI_API_KEY"),
@@ -61,6 +87,19 @@ export const config = {
   LINKEDIN_WORK_TYPE: optional("LINKEDIN_WORK_TYPE", ""),
   LINKEDIN_JOB_TYPE: optional("LINKEDIN_JOB_TYPE", ""),
   LINKEDIN_SORT: optional("LINKEDIN_SORT", "DD"),
+  // Whether to send LINKEDIN_EXPERIENCE as a HARD scrape-side filter
+  // (f_E param on LinkedIn) or treat it as a SOFT preference fed into
+  // the AI relevance prompt.
+  //
+  // Default OFF: scrape broadly + let the AI scorer's seniority_fit
+  // dimension penalise mismatches in scoring. Reason: LinkedIn's f_E
+  // is brittle (returns 0 results on slow markets, blocks "entry +
+  // associate" combos), and the user's complaint was "I pick entry
+  // and only see senior" — which happened because (a) LinkedIn had
+  // no entry roles that week and (b) the apify.ts auto-broadener
+  // dropped f_E silently, leaving the AI scorer with no signal that
+  // the user actually wanted entry-level.
+  STRICT_SENIORITY_FILTER: optional("STRICT_SENIORITY_FILTER", "false") === "true",
   // Built URL (or manual override)
   LINKEDIN_SEARCH_URL: process.env.LINKEDIN_SEARCH_URL || "",
 
@@ -263,15 +302,22 @@ export function buildLinkedInUrl(): string {
         merged.push(`f_TPR=${tpr}`);
       }
 
-      // Inject experience filter (f_E) from config when the URL doesn't
-      // specify one. The user's dashboard chips populate
-      // LINKEDIN_EXPERIENCE (e.g. "2" = entry-level only). LinkedIn URLs
-      // copied from the browser often don't capture the experience
-      // chip selection, so without this auto-merge a user who picked
-      // 'entry level' in the dashboard would get all levels (which is
-      // what the user just complained about — every result senior).
-      // Empty config value means 'all levels' and we skip the inject.
-      if (!url.searchParams.get("f_E") && config.LINKEDIN_EXPERIENCE && config.LINKEDIN_EXPERIENCE.trim()) {
+      // Inject experience filter (f_E) ONLY when STRICT_SENIORITY_FILTER
+      // is on. Otherwise we scrape broadly and let the AI relevance
+      // scorer's seniority_fit dimension penalise mismatches in scoring
+      // (the user's preference still reaches it via the prompt — see
+      // buildRelevanceSystemPrompt's preferredSeniority arg).
+      //
+      // Why default off: f_E="2" (entry only) frequently returns 0
+      // results in slow weeks, then apify.ts silently drops f_E on
+      // retry — so the user picked entry-level but the AI never knew,
+      // and the dashboard filled with senior roles with no explanation.
+      if (
+        config.STRICT_SENIORITY_FILTER &&
+        !url.searchParams.get("f_E") &&
+        config.LINKEDIN_EXPERIENCE &&
+        config.LINKEDIN_EXPERIENCE.trim()
+      ) {
         url.searchParams.set("f_E", config.LINKEDIN_EXPERIENCE);
         merged.push(`f_E=${config.LINKEDIN_EXPERIENCE}`);
       }

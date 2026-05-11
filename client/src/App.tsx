@@ -10,6 +10,9 @@ import SkillsTrendModal from "./components/SkillsTrendModal";
 import CareerEventsModal from "./components/CareerEventsModal";
 import SettingsModal from "./components/SettingsModal";
 import StoryBankModal from "./components/StoryBankModal";
+import ApplyProfileEditor from "./components/ApplyProfileEditor";
+import ExtensionAuthBridge from "./components/ExtensionAuthBridge";
+import InterviewSession from "./components/InterviewSession";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import PricingPage from "./components/PricingPage";
@@ -67,6 +70,29 @@ export default function App() {
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
   const [expiryChecking, setExpiryChecking] = useState(false);
   const [showStoryBank, setShowStoryBank] = useState(false);
+  const [showApplyProfile, setShowApplyProfile] = useState(false);
+  const [showInterview, setShowInterview] = useState(false);
+  const [interviewJobId, setInterviewJobId] = useState<number | null>(null);
+
+  // JobDetailModal emits this event when the user clicks "Practice for this role".
+  // Done via DOM event to avoid threading another prop through the modal hierarchy.
+  // Also closes the JobDetailModal so the InterviewSession isn't stacked under it.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ jobId: number }>;
+      if (typeof ce.detail?.jobId === "number") {
+        setSelectedJob(null);
+        setInterviewJobId(ce.detail.jobId);
+        setShowInterview(true);
+      } else {
+        // No jobId means "general practice" trigger from the landing page.
+        setInterviewJobId(null);
+        setShowInterview(true);
+      }
+    };
+    window.addEventListener("go-candid8/practice-interview", handler);
+    return () => window.removeEventListener("go-candid8/practice-interview", handler);
+  }, []);
   // Mobile: toggles the collapsed secondary header rows (filters + actions)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -665,6 +691,13 @@ export default function App() {
     }
   }, []);
 
+  // ── Extension auth bridge ──
+  // When the user lands here via the extension popup's "Sign in" CTA,
+  // skip the entire app and just hand off the Supabase session.
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("ext_auth") === "1") {
+    return <ExtensionAuthBridge />;
+  }
+
   // ── Intro Loader Screen ──
   if (showIntro) {
     return (
@@ -734,14 +767,28 @@ export default function App() {
 
   if (page === "landing") {
     return (
-      <LandingPage
-        currentUser={currentUser}
-        userLimits={userLimits}
-        onLogout={handleLogout}
-        onNavigateToDashboard={() => { setPage("dashboard"); }}
-        onNavigateToAuth={() => setPage("auth")}
-        onNavigateToPricing={() => setPage("pricing")}
-      />
+      <>
+        <LandingPage
+          currentUser={currentUser}
+          userLimits={userLimits}
+          onLogout={handleLogout}
+          onNavigateToDashboard={() => { setPage("dashboard"); }}
+          onNavigateToAuth={() => setPage("auth")}
+          onNavigateToPricing={() => setPage("pricing")}
+        />
+        {/* Interview practice can be triggered from the landing page too,
+           via the new "AI Interviewer" CTA. We mount the modal here so
+           it overlays the landing page when showInterview flips on. */}
+        {showInterview && currentUser && (
+          <InterviewSession
+            initialJobId={null}
+            initialJobTitle={null}
+            initialCompanyName={null}
+            jobOptions={[]}
+            onClose={() => { setShowInterview(false); setInterviewJobId(null); }}
+          />
+        )}
+      </>
     );
   }
 
@@ -1181,6 +1228,32 @@ export default function App() {
           Stories
         </button>
 
+        {/* Auto-Apply profile button (beta) */}
+        <button
+          onClick={() => setShowApplyProfile(true)}
+          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#ff5722] transition-all shrink-0"
+          title="Set up your auto-apply profile (used by the browser extension) - BETA"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Auto-Apply
+          <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">BETA</span>
+        </button>
+
+        {/* Interview practice button (beta, general entry; per-job button lives in JobDetailModal) */}
+        <button
+          onClick={() => { setInterviewJobId(null); setShowInterview(true); }}
+          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#c9a94e] transition-all shrink-0"
+          title="AI interview practice with voice. Pick a tracked job or paste a JD. - BETA"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+          Interview
+          <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">BETA</span>
+        </button>
+
         {/* Export CSV button — downloads the current filtered view */}
         <button
           onClick={handleExportCsv}
@@ -1365,6 +1438,25 @@ export default function App() {
       {/* Career Events Modal */}
       {showEvents && <CareerEventsModal onClose={() => setShowEvents(false)} />}
       {showStoryBank && <StoryBankModal onClose={() => setShowStoryBank(false)} />}
+
+      {/* Auto-Apply Profile Editor */}
+      {showApplyProfile && <ApplyProfileEditor onClose={() => setShowApplyProfile(false)} />}
+
+      {/* AI Interview Practice */}
+      {showInterview && (() => {
+        const j = interviewJobId ? jobs.find((x) => x.id === interviewJobId) : null;
+        return (
+          <InterviewSession
+            initialJobId={interviewJobId}
+            initialJobTitle={j?.job_title || null}
+            initialCompanyName={j?.company_name || null}
+            jobOptions={jobs
+              .filter((x) => ["saved", "applied", "interviewing"].includes(x.status))
+              .map((x) => ({ id: x.id, job_title: x.job_title, company_name: x.company_name }))}
+            onClose={() => { setShowInterview(false); setInterviewJobId(null); }}
+          />
+        );
+      })()}
 
       {/* Settings Modal */}
       {/* Settings moved to Landing Page */}

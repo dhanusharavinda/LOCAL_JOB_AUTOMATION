@@ -440,26 +440,39 @@ export default function SettingsModal({ onClose }: Props) {
                         setSaving(true);
                         try {
                           const defaultCompanies = [
+                            // IMPORTANT: For greenhouse/lever/ashby companies, the URL
+                            // must be the ATS-INTERNAL board URL (e.g.
+                            // boards.greenhouse.io/<slug>), not the company's marketing
+                            // careers page — the portal scanner extracts the slug from
+                            // the URL path and calls the public ATS API. Marketing URLs
+                            // give a wrong slug ("company" / "careers") and the API
+                            // returns 404 for every job. See portal-scanner.ts.
+                            // "custom" ATS rows cannot be portal-scraped (no public API);
+                            // they're kept so they show up in the LinkedIn "Focus company"
+                            // dropdown for narrowing LinkedIn scrapes.
                             { company_name: "Google", careers_url: "https://careers.google.com", ats_type: "custom" },
                             { company_name: "Microsoft", careers_url: "https://careers.microsoft.com", ats_type: "custom" },
                             { company_name: "Amazon", careers_url: "https://www.amazon.jobs", ats_type: "custom" },
                             { company_name: "Apple", careers_url: "https://jobs.apple.com", ats_type: "custom" },
                             { company_name: "Meta", careers_url: "https://www.metacareers.com", ats_type: "custom" },
-                            { company_name: "Netflix", careers_url: "https://jobs.netflix.com", ats_type: "lever" },
                             { company_name: "Stripe", careers_url: "https://stripe.com/jobs", ats_type: "custom" },
-                            { company_name: "Shopify", careers_url: "https://www.shopify.com/careers", ats_type: "greenhouse" },
-                            { company_name: "Airbnb", careers_url: "https://careers.airbnb.com", ats_type: "greenhouse" },
-                            { company_name: "Spotify", careers_url: "https://www.lifeatspotify.com/jobs", ats_type: "greenhouse" },
                             { company_name: "Salesforce", careers_url: "https://careers.salesforce.com", ats_type: "custom" },
                             { company_name: "Adobe", careers_url: "https://careers.adobe.com", ats_type: "custom" },
-                            { company_name: "Atlassian", careers_url: "https://www.atlassian.com/company/careers", ats_type: "greenhouse" },
-                            { company_name: "HubSpot", careers_url: "https://www.hubspot.com/careers", ats_type: "greenhouse" },
-                            { company_name: "Datadog", careers_url: "https://careers.datadoghq.com", ats_type: "greenhouse" },
-                            { company_name: "Cloudflare", careers_url: "https://www.cloudflare.com/careers", ats_type: "greenhouse" },
-                            { company_name: "Figma", careers_url: "https://www.figma.com/careers", ats_type: "greenhouse" },
-                            { company_name: "Notion", careers_url: "https://www.notion.so/careers", ats_type: "greenhouse" },
-                            { company_name: "Vercel", careers_url: "https://vercel.com/careers", ats_type: "greenhouse" },
-                            { company_name: "Linear", careers_url: "https://linear.app/careers", ats_type: "ashby" },
+                            // Lever
+                            { company_name: "Netflix", careers_url: "https://jobs.lever.co/netflix", ats_type: "lever" },
+                            // Ashby
+                            { company_name: "Linear", careers_url: "https://jobs.ashbyhq.com/linear", ats_type: "ashby" },
+                            // Greenhouse (slug = path[0] of the URL)
+                            { company_name: "Shopify", careers_url: "https://boards.greenhouse.io/shopify", ats_type: "greenhouse" },
+                            { company_name: "Airbnb", careers_url: "https://boards.greenhouse.io/airbnb", ats_type: "greenhouse" },
+                            { company_name: "Atlassian", careers_url: "https://boards.greenhouse.io/atlassian", ats_type: "greenhouse" },
+                            { company_name: "HubSpot", careers_url: "https://boards.greenhouse.io/hubspot", ats_type: "greenhouse" },
+                            { company_name: "Datadog", careers_url: "https://boards.greenhouse.io/datadog", ats_type: "greenhouse" },
+                            { company_name: "Cloudflare", careers_url: "https://boards.greenhouse.io/cloudflare", ats_type: "greenhouse" },
+                            { company_name: "Figma", careers_url: "https://boards.greenhouse.io/figma", ats_type: "greenhouse" },
+                            { company_name: "Notion", careers_url: "https://boards.greenhouse.io/notion", ats_type: "greenhouse" },
+                            { company_name: "Vercel", careers_url: "https://boards.greenhouse.io/vercel", ats_type: "greenhouse" },
+                            { company_name: "Spotify", careers_url: "https://boards.greenhouse.io/spotifyjobs", ats_type: "greenhouse" },
                           ];
                           await fetch("/api/target-companies/seed", {
                             method: "POST",
