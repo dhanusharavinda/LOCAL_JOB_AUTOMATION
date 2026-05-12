@@ -54,12 +54,20 @@ export async function batchDeleteJobs(ids: number[]): Promise<{ deleted: number 
 }
 
 export async function toggleJobFlag(id: number, flagged: boolean): Promise<Job> {
-  const res = await fetch(`${API_BASE}/${id}/flag`, {
+  // PATCH /api/jobs/:id (the generic editable-fields route) — there is no
+  // dedicated /:id/flag endpoint on the server. The old client URL hit a
+  // 404 silently, so flagging never persisted and the pipeline's
+  // duplicate check never excluded user-blocked jobs. The generic PATCH
+  // route whitelists `flagged` in EDITABLE_FIELDS so this just works.
+  const res = await fetch(`${API_BASE}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ flagged }),
   });
-  if (!res.ok) throw new Error("Failed to toggle flag");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to toggle flag" }));
+    throw new Error(err.error || `Failed to toggle flag (HTTP ${res.status})`);
+  }
   return res.json();
 }
 
@@ -146,6 +154,30 @@ export async function regenerateWhyFit(jobId: number): Promise<string> {
   }
   const data = await res.json();
   return data.hiring_message || "";
+}
+
+/**
+ * On-demand resume regeneration tailored to one tracked job. Same pattern
+ * as regenerateCoverLetter / regenerateWhyFit but produces a PDF instead
+ * of a text field. The server uploads the PDF to storage AND returns the
+ * base64 so the client can offer an immediate download without re-signing
+ * the storage URL.
+ */
+export async function regenerateTailoredResume(
+  jobId: number,
+  opts?: { intensity?: number }
+): Promise<{ resumeUrl: string; pdfBase64: string }> {
+  const res = await fetch(`${API_BASE}/${jobId}/tailor-resume`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts ? { intensity: opts.intensity } : {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to regenerate resume" }));
+    throw new Error(err.error || "Failed to regenerate resume");
+  }
+  const data = await res.json();
+  return { resumeUrl: data.resume_url || "", pdfBase64: data.pdfBase64 || "" };
 }
 
 // ─── Expiry Check ──────────────────────────────────────────────────────

@@ -2,7 +2,9 @@ import { Router, Request, Response } from "express";
 import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
-import { downloadResumeText } from "../storage";
+import { downloadResumeText, uploadResumePdf } from "../storage";
+import { generateLocalPdf } from "../pdf";
+import { buildTailorPrompt } from "./free-tailor";
 
 const router = Router();
 router.use(requireAuth);
@@ -268,6 +270,138 @@ router.post("/:id/why-fit", async (req: Request, res: Response) => {
     res.json({ hiring_message: hiringMessage });
   } catch (err: any) {
     console.error("[POST /api/jobs/:id/why-fit]", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+// ─── POST /api/jobs/:id/tailor-resume ──────────────────────────────
+//
+// On-demand resume tailoring for a tracked job. Mirrors the cover-letter
+// + why-fit endpoints: per-job, no daily quota (those endpoints don't
+// throttle either). Cost is ~$0.02 per tailor at gpt-4o-mini rates.
+//
+// Differences from the free-tailor endpoint:
+//   - Uses the job's stored description + the user's stored resume text;
+//     no client-supplied resume/JD.
+//   - Updates jobs.resume_url so the kanban card immediately points at
+//     the fresh PDF.
+//   - Returns the signed URL so the client can offer a download link.
+router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const id = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid job id" });
+    return;
+  }
+
+  // Optional intensity override (1-10). Defaults to 5 (balanced).
+  const requestedIntensity = parseInt(String((req.body || {}).intensity ?? "5"), 10);
+  const intensity = Number.isFinite(requestedIntensity)
+    ? Math.max(1, Math.min(10, requestedIntensity))
+    : 5;
+
+  try {
+    const result = await loadJobAndResume(userId, id);
+    if ("error" in result) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    const { job, resumeText } = result;
+
+    const MAX_INPUT_CHARS = 25000;
+    const totalInput = (resumeText?.length || 0) + (job.description?.length || 0);
+    if (totalInput > MAX_INPUT_CHARS) {
+      res.status(400).json({ error: "Input too large. Resume + job description must be under 25,000 characters combined." });
+      return;
+    }
+
+    const openai = getOpenAI();
+    if (!openai) {
+      res.status(503).json({ error: "OpenAI is not configured on the server" });
+      return;
+    }
+
+    // Mirror free-tailor's heuristics — these are loose hints the prompt
+    // uses to validate the model's output preserves the candidate's
+    // education + experience counts.
+    const expectedEducation = (resumeText.match(/\b(?:University|Institute|College|School|Academy|B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D|Bachelor|Master|Doctorate|B\.?Tech|M\.?Tech|MBA)\b/gi) || []).length;
+    const expectedExperience = (resumeText.match(/\b(?:Engineer|Developer|Manager|Analyst|Intern|Consultant|Designer|Scientist|Architect|Director|Lead|Specialist|Coordinator|Officer|Associate)\b/gi) || []).length;
+
+    const systemPrompt = buildTailorPrompt(resumeText, intensity, expectedEducation, expectedExperience);
+    const userPrompt = `Job description:\n\n${job.description}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
+
+    const completion = await openai.chat.completions.create({
+      model: CL_CHAT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.6,
+      max_tokens: 4000,
+    });
+
+    const raw = completion.choices[0]?.message?.content || "{}";
+    let resumeData: any;
+    try {
+      resumeData = JSON.parse(raw);
+    } catch {
+      res.status(500).json({ error: "AI returned invalid JSON. Please try again." });
+      return;
+    }
+    const inner = resumeData.resumeData || resumeData;
+    if (!inner.personalInfo) {
+      res.status(500).json({ error: "AI output is missing required resume fields." });
+      return;
+    }
+
+    // Schema-leak guard: the model occasionally echoes the prompt's JSON
+    // shape literals ("string", "string or null") when it can't parse the
+    // resume. Reject only on clear leak signals so an empty-name resume
+    // doesn't false-trigger.
+    const flat = JSON.stringify(inner).toLowerCase();
+    const placeholderHits = (flat.match(/"string(?:\s*or\s*null)?"/g) || []).length;
+    const rawName = typeof inner.personalInfo?.name === "string" ? inner.personalInfo.name.trim() : "";
+    const nameIsPlaceholder = /^string( or null)?$/i.test(rawName);
+    if (placeholderHits >= 5 || nameIsPlaceholder) {
+      console.warn("[tailor-resume] AI returned schema-shape placeholders, rejecting");
+      res.status(422).json({
+        error: "Our AI couldn't extract resume fields. Re-upload your resume in Settings and try again.",
+      });
+      return;
+    }
+
+    // Generate the PDF + upload to storage. Filename pairs the tailored
+    // PDF with the role + company so the user recognises it in their
+    // kanban downloads list.
+    const pdfBuffer = await generateLocalPdf(inner);
+    const safeTitle = (job.job_title || "role").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60);
+    const safeCompany = (job.company_name || "company").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 40);
+    const filename = `MODIFIED_${safeCompany}_${safeTitle}_${id}.pdf`;
+
+    let pdfUrl: string | null = null;
+    try {
+      const result = await uploadResumePdf(userId, filename, pdfBuffer);
+      pdfUrl = result.signedUrl;
+    } catch (err: any) {
+      console.error("[tailor-resume] PDF upload failed", err?.message || err);
+      res.status(500).json({ error: "PDF generated but storage upload failed. Try again." });
+      return;
+    }
+
+    await sql`
+      UPDATE jobs SET resume_url = ${pdfUrl}, updated_at = NOW()
+       WHERE id = ${id} AND user_id = ${userId}
+    `;
+
+    res.json({
+      resume_url: pdfUrl,
+      // Inline base64 so the client can offer an immediate download
+      // without re-fetching the signed URL.
+      pdfBase64: pdfBuffer.toString("base64"),
+    });
+  } catch (err: any) {
+    console.error("[POST /api/jobs/:id/tailor-resume]", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });

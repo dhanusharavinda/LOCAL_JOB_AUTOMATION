@@ -137,28 +137,71 @@ function withTimeout(ms: number): AbortSignal {
 }
 
 /**
- * Batch duplicate check — sends all links at once, returns the set of already-tracked links.
- * Returns null if tracker is unreachable.
+ * Result of a batch duplicate probe. Callers should treat a job as
+ * duplicate if EITHER its URL is in `links` OR its normalized
+ * (title|company) key is in `titleCompanyKeys`. The second matching
+ * surface catches re-published / re-tracked postings whose URL drifts
+ * between scrape runs (UTM params, board re-publish, etc.) — without
+ * it, applied/flagged jobs reappear with new URLs and the user sees
+ * them as fresh candidates.
  */
-export async function checkDuplicatesBatch(links: string[]): Promise<Set<string> | null> {
-  if (links.length === 0) return new Set();
+export interface DuplicateBatchResult {
+  links: Set<string>;
+  titleCompanyKeys: Set<string>;
+}
+
+function normForKey(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Batch duplicate check — sends URLs AND (title, company) pairs at
+ * once, returns sets covering both matching surfaces. Returns null if
+ * the tracker is unreachable so callers can decide whether to abort
+ * (we'd rather skip the run than risk dupes).
+ */
+export async function checkDuplicatesBatch(
+  jobs: Array<{ link: string; title: string; companyName: string }>,
+): Promise<DuplicateBatchResult | null> {
+  if (jobs.length === 0) return { links: new Set(), titleCompanyKeys: new Set() };
+  // Extract the two matching surfaces. Some scrapers return jobs with
+  // an empty link string; filter those out of the URL set but still
+  // include their (title, company) for the secondary match.
+  const links = jobs.map((j) => j.link).filter((l) => typeof l === "string" && l.length > 0);
+  const titleCompanyPairs = jobs
+    .filter((j) => j.title && j.companyName)
+    .map((j) => ({ title: j.title, company: j.companyName }));
+
   try {
     const res = await fetch(`${API_URL()}/exists-batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...internalAuthHeaders() },
       signal: withTimeout(15000), // slightly longer for batch
-      body: JSON.stringify({ links }),
+      body: JSON.stringify({ links, titleCompanyPairs }),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { duplicates: string[]; flagged?: string[] };
-    // Merge duplicates + flagged into one set — both should be excluded
-    const set = new Set(data.duplicates);
-    if (data.flagged) data.flagged.forEach((l) => set.add(l));
-    return set;
+    const data = (await res.json()) as {
+      duplicates: string[];
+      flagged?: string[];
+      duplicateTitleCompanyKeys?: string[];
+      flaggedTitleCompanyKeys?: string[];
+    };
+    // Merge duplicates + flagged into one URL set (both excluded).
+    const linkSet = new Set(data.duplicates);
+    if (data.flagged) data.flagged.forEach((l) => linkSet.add(l));
+    // Same for the title+company key set.
+    const tcKeySet = new Set(data.duplicateTitleCompanyKeys || []);
+    if (data.flaggedTitleCompanyKeys) data.flaggedTitleCompanyKeys.forEach((k) => tcKeySet.add(k));
+    return { links: linkSet, titleCompanyKeys: tcKeySet };
   } catch (err: any) {
     log.warn(`Batch duplicate check failed: ${err.message}`);
     return null;
   }
+}
+
+/** Build the same normalized (title|company) key the server returns. */
+export function titleCompanyKey(title: string, company: string): string {
+  return `${normForKey(title)}|${normForKey(company)}`;
 }
 
 /**

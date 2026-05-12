@@ -11,6 +11,7 @@ import { generateCoverLetter } from "./services/outreach-email";
 import { generatePdf, warmUpPdfBackend } from "./services/pdf-generator";
 import {
   checkDuplicatesBatch,
+  titleCompanyKey,
   postFilteredJob,
   attachJobAssets,
   fetchResumeProfiles,
@@ -245,19 +246,41 @@ async function main() {
   log.success(`Merged total: ${mergedJobs.length} fresh jobs (${mergedRaw.length} raw, ${staleDropped} older than ${MAX_AGE_DAYS} days dropped)`);
 
   // ── Step 1c.2: Batch duplicate check — remove jobs already in tracker ──
+  //
+  // Two matching surfaces:
+  //   1. URL match (job_link)
+  //   2. Normalized (title, company) match
+  //
+  // The second catches postings whose URL drifts between scrape runs
+  // (UTM tracking, re-publishes by the company, different scraper
+  // sources surfacing the same role with different links). Without it,
+  // a job moved to "applied" yesterday reappears as a fresh candidate
+  // today if its tracking URL changed by a single query param.
+  //
+  // Flagged jobs are included in the duplicate set so user-blocked
+  // postings stay out forever.
   log.step("Checking for duplicates against tracker...");
-  const allLinks = mergedJobs.filter((j) => j.link).map((j) => j.link);
-  const duplicateSet = await checkDuplicatesBatch(allLinks);
+  const probePayload = mergedJobs.map((j) => ({
+    link: j.link || "",
+    title: j.title || "",
+    companyName: j.companyName || "",
+  }));
+  const dupResult = await checkDuplicatesBatch(probePayload);
   let dedupedJobs: LinkedInJob[];
-  if (duplicateSet === null) {
+  if (dupResult === null) {
     log.warn("Tracker unreachable for batch dedup — skipping all jobs to prevent duplicates");
     log.summary(stats);
     return;
   }
-  const dupCount = duplicateSet.size;
-  dedupedJobs = mergedJobs.filter((j) => !j.link || !duplicateSet.has(j.link));
+  const { links: dupLinks, titleCompanyKeys: dupTcKeys } = dupResult;
+  dedupedJobs = mergedJobs.filter((j) => {
+    if (j.link && dupLinks.has(j.link)) return false;
+    if (j.title && j.companyName && dupTcKeys.has(titleCompanyKey(j.title, j.companyName))) return false;
+    return true;
+  });
+  const dupCount = mergedJobs.length - dedupedJobs.length;
   stats.skipped += dupCount;
-  log.success(`${dedupedJobs.length} new jobs (${dupCount} duplicates already in tracker)`);
+  log.success(`${dedupedJobs.length} new jobs (${dupCount} duplicates already in tracker — by URL or title+company)`);
 
   // ── Step 1d: Archive ALL scraped jobs for historical skills analysis ──
   try {
@@ -409,6 +432,14 @@ async function main() {
   let gateCappedCount = 0;
   let completedCount = 0;
 
+  // Phase 1a: score EVERY job in parallel. No budget cap inside this
+  // loop — that was the old bug. The previous code applied the cap
+  // inline, so the FIRST N jobs to finish in the concurrent pool got
+  // persisted while later (potentially higher-scoring) jobs were
+  // discarded as "Daily budget reached". With the loop completing in
+  // a non-deterministic order, the final 50 weren't the best 50 —
+  // they were the first 50 to win the race. Same OpenAI cost either
+  // way, so we now score everything, THEN sort + take the top N below.
   await mapConcurrent(locationFiltered, PHASE1_CONCURRENCY, async (job) => {
     try {
       // ── 4a: Check job relevance via OpenAI ──
@@ -436,44 +467,66 @@ async function main() {
         return;
       }
 
-      // Cap relevant jobs at the user's budget (APIFY_JOB_COUNT, already
-      // clamped to the remaining daily quota by the server). Without this,
-      // the 2.5× over-scrape could push 80+ relevant jobs to the tracker
-      // when the plan only allows 50/day.
-      if (stats.relevant >= targetRelevantJobs) {
-        log.skip(`Daily budget reached (${targetRelevantJobs} relevant jobs) — not posting to tracker`);
-        return;
-      }
-
-      const reachTag = verdict.is_reach ? " [REACH]" : "";
-      log.success(`Relevant (score: ${verdict.score}/10${reachTag}): ${verdict.reason}`);
-      stats.relevant++;
-
-      // ── 4b.1: Telegram alert for high-score jobs ──
-      if (verdict.score >= config.TELEGRAM_ALERT_THRESHOLD) {
-        sendTelegramAlert(job, verdict.score, verdict.reason).catch((err) => {
-          log.warn(`Telegram alert failed: ${err.message}`);
-        });
-      }
-
-      // ── 4c: Post ALL relevant jobs to tracker (so user sees everything) ──
+      // Just collect. We post + count + alert in the sort-and-take-top-N
+      // pass after this mapConcurrent completes.
       const jobCategory = detectJobCategory(job.title, job.descriptionText || "");
-      try {
-        await postFilteredJob(
-          job, verdict.score, verdict.reason, verdict.is_reach, jobCategory,
-          verdict.score_breakdown, verdict.detected_role_type
-        );
-        log.success("Posted to tracker (filtered)");
-      } catch (err: any) {
-        log.warn(`Job tracker post failed: ${err.message}`);
-      }
-
       scoredJobs.push({ job, verdict, jobCategory });
     } catch (err: any) {
       log.error(`Unexpected error scoring ${job.title} @ ${job.companyName}: ${err.message}`);
       stats.errors++;
     }
   });
+
+  // Phase 1b: rank by score DESC, then take the top N. This is the
+  // selection step the old in-loop budget check was supposed to do but
+  // got wrong. is_reach ties break by preferring NON-reach (so a 7/10
+  // solid match beats a 7/10 stretch).
+  scoredJobs.sort((a, b) => {
+    if (b.verdict.score !== a.verdict.score) return b.verdict.score - a.verdict.score;
+    // Tiebreak: prefer non-reach over reach when scores are equal.
+    if (a.verdict.is_reach && !b.verdict.is_reach) return 1;
+    if (!a.verdict.is_reach && b.verdict.is_reach) return -1;
+    return 0;
+  });
+  const overflowCount = Math.max(0, scoredJobs.length - targetRelevantJobs);
+  const topScored = scoredJobs.slice(0, targetRelevantJobs);
+  const droppedToBudget = scoredJobs.slice(targetRelevantJobs);
+  if (overflowCount > 0) {
+    const dropMin = droppedToBudget[0]?.verdict.score ?? 0;
+    const dropMax = droppedToBudget[droppedToBudget.length - 1]?.verdict.score ?? 0;
+    log.info(
+      `  ${overflowCount} relevant jobs exceeded the daily budget (${targetRelevantJobs}). ` +
+      `Kept the top ${topScored.length} by score; dropped ${overflowCount} scoring ${dropMax}-${dropMin}/10.`
+    );
+  }
+  // Replace scoredJobs with the topN so every downstream step (tailor,
+  // tracker post, stats) only sees the kept set.
+  scoredJobs.length = 0;
+  scoredJobs.push(...topScored);
+
+  // Phase 1c: persist the kept top-N to the tracker + fire telegram
+  // alerts. Sequential intentionally — the tracker endpoint serialises
+  // per-user inserts behind a unique-link constraint, so hammering it
+  // in parallel just generates lock contention.
+  for (const { job, verdict, jobCategory } of topScored) {
+    const reachTag = verdict.is_reach ? " [REACH]" : "";
+    log.success(`Relevant (score: ${verdict.score}/10${reachTag}): ${verdict.reason}`);
+    stats.relevant++;
+    if (verdict.score >= config.TELEGRAM_ALERT_THRESHOLD) {
+      sendTelegramAlert(job, verdict.score, verdict.reason).catch((err) => {
+        log.warn(`Telegram alert failed: ${err.message}`);
+      });
+    }
+    try {
+      await postFilteredJob(
+        job, verdict.score, verdict.reason, verdict.is_reach, jobCategory,
+        verdict.score_breakdown, verdict.detected_role_type,
+      );
+      log.success(`Posted: ${job.title} @ ${job.companyName}`);
+    } catch (err: any) {
+      log.warn(`Job tracker post failed for ${job.title}: ${err.message}`);
+    }
+  }
 
   // Quality-alert signal for the UI: if the filter yielded fewer relevant
   // jobs than the user's target, emit a structured warn line that the

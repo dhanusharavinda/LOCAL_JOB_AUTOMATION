@@ -154,6 +154,16 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 router.post("/exists-batch", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const links = req.body?.links;
+  // Optional second matching surface: (title_lc + company_lc) pairs.
+  // The pipeline now sends both so a job whose URL changed between
+  // scrape runs (UTM tracking, board re-publish, etc.) still dedups
+  // against the same posting we already have in the kanban. Without
+  // this, applied/flagged jobs reappear with new URLs and the user
+  // sees them as fresh candidates.
+  const titleCompanyPairs = Array.isArray(req.body?.titleCompanyPairs)
+    ? (req.body.titleCompanyPairs as Array<{ title?: string; company?: string }>)
+    : [];
+
   if (!Array.isArray(links)) {
     res.status(400).json({ error: "links must be an array of strings" });
     return;
@@ -164,23 +174,75 @@ router.post("/exists-batch", requireAuth, async (req: Request, res: Response) =>
   const cleanLinks = links
     .filter((l): l is string => typeof l === "string" && l.length > 0)
     .slice(0, 500);
-  if (cleanLinks.length === 0) {
-    res.json({ duplicates: [], flagged: [] });
+
+  // Normalize the title/company pairs the same way we'll compare them
+  // on the SQL side. Lowercase + trim + collapse whitespace so casing
+  // and accidental double-spaces don't break the match.
+  function norm(s: string): string {
+    return s.toLowerCase().replace(/\s+/g, " ").trim();
+  }
+  const normPairs = titleCompanyPairs
+    .filter((p) => p && typeof p.title === "string" && typeof p.company === "string")
+    .map((p) => ({ title: norm(p.title!), company: norm(p.company!) }))
+    .filter((p) => p.title && p.company)
+    .slice(0, 500);
+
+  if (cleanLinks.length === 0 && normPairs.length === 0) {
+    res.json({ duplicates: [], flagged: [], duplicateTitleCompanyKeys: [], flaggedTitleCompanyKeys: [] });
     return;
   }
+
   try {
-    const rows = await sql<{ job_link: string; flagged: boolean | null }[]>`
-      SELECT job_link, flagged
-        FROM jobs
-       WHERE user_id = ${userId}
-         AND job_link = ANY(${cleanLinks})
-    `;
-    const duplicates = rows.map((r) => r.job_link);
-    // `flagged` jobs are ones the user has explicitly told the pipeline to
-    // skip forever (e.g. "already rejected me"). The pipeline merges both
-    // sets client-side into a single exclusion set.
-    const flagged = rows.filter((r) => r.flagged).map((r) => r.job_link);
-    res.json({ duplicates, flagged });
+    // We run two queries and merge. Splitting beats a single big OR
+    // because Postgres can use the job_link index for the first and a
+    // sequential scan with the where for the second; mixing them in
+    // one query confuses the planner on small users.
+    const linkRows = cleanLinks.length > 0
+      ? await sql<{ job_link: string; flagged: boolean | null }[]>`
+          SELECT job_link, flagged
+            FROM jobs
+           WHERE user_id = ${userId}
+             AND job_link = ANY(${cleanLinks})
+        `
+      : [];
+
+    // Build the (title_lc, company_lc) tuples as separate arrays so
+    // postgres.js can bind them safely.
+    let pairRows: Array<{ title: string; company: string; flagged: boolean | null }> = [];
+    if (normPairs.length > 0) {
+      const titles = normPairs.map((p) => p.title);
+      const companies = normPairs.map((p) => p.company);
+      pairRows = await sql<{ title: string; company: string; flagged: boolean | null }[]>`
+        SELECT LOWER(REGEXP_REPLACE(job_title, '\\s+', ' ', 'g'))   AS title,
+               LOWER(REGEXP_REPLACE(company_name, '\\s+', ' ', 'g')) AS company,
+               flagged
+          FROM jobs
+         WHERE user_id = ${userId}
+           AND LOWER(REGEXP_REPLACE(job_title, '\\s+', ' ', 'g'))   = ANY(${titles})
+           AND LOWER(REGEXP_REPLACE(company_name, '\\s+', ' ', 'g')) = ANY(${companies})
+      `;
+      // Trim leading/trailing whitespace post-fetch since SQL's
+      // REGEXP_REPLACE doesn't strip edges.
+      pairRows = pairRows.map((r) => ({ ...r, title: r.title.trim(), company: r.company.trim() }));
+    }
+
+    const duplicates = linkRows.map((r) => r.job_link);
+    const flagged = linkRows.filter((r) => r.flagged).map((r) => r.job_link);
+
+    // Title+company keys use the pipe separator so a job with a "|"
+    // in its title doesn't collide with a different company. We don't
+    // expect "|" in real titles in practice, but it's a cheap guard.
+    const duplicateTitleCompanyKeys = pairRows.map((r) => `${r.title}|${r.company}`);
+    const flaggedTitleCompanyKeys = pairRows
+      .filter((r) => r.flagged)
+      .map((r) => `${r.title}|${r.company}`);
+
+    res.json({
+      duplicates,
+      flagged,
+      duplicateTitleCompanyKeys,
+      flaggedTitleCompanyKeys,
+    });
   } catch (err: any) {
     console.error("[POST /api/jobs/exists-batch]", err?.message || err);
     res.status(500).json({ error: "Database error" });

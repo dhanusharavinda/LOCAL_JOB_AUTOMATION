@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Job, JobStatus, COLUMNS, ScoreBreakdown } from "../types";
-import { updateJobNotes, deleteJob, updateJobStatus, toggleJobFlag, fetchJobTimeline, fetchInterviewPrep, regenerateInterviewPrep, regenerateCoverLetter, regenerateWhyFit, checkJobLink, StatusHistoryEntry, InterviewPrep } from "../api";
+import { updateJobNotes, deleteJob, updateJobStatus, toggleJobFlag, fetchJobTimeline, fetchInterviewPrep, regenerateInterviewPrep, regenerateCoverLetter, regenerateWhyFit, regenerateTailoredResume, checkJobLink, StatusHistoryEntry, InterviewPrep } from "../api";
 import ResumeCompareModal from "./ResumeCompareModal";
 
 interface Props {
@@ -31,6 +31,8 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
   const [clError, setClError] = useState<string | null>(null);
   const [fitLoading, setFitLoading] = useState(false);
   const [fitError, setFitError] = useState<string | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -150,6 +152,41 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
       setFitError(err.message || "Failed to generate");
     } finally {
       setFitLoading(false);
+    }
+  }
+
+  /**
+   * On-demand resume regeneration. Generates a fresh tailored PDF for
+   * this specific job, uploads it to storage (replacing the old URL on
+   * jobs.resume_url), and offers an immediate download via the inline
+   * base64 the server returned — so the user doesn't have to wait on
+   * a second round-trip to the signed-URL endpoint.
+   */
+  async function handleRegenerateResume() {
+    setResumeLoading(true);
+    setResumeError(null);
+    try {
+      const { resumeUrl, pdfBase64 } = await regenerateTailoredResume(job.id);
+      onUpdate({ ...job, resume_url: resumeUrl });
+      // Trigger immediate download. Base64-decoded into a Blob so the
+      // browser saves it as a real .pdf instead of a data: link the
+      // user has to right-click.
+      if (pdfBase64) {
+        const bytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = `tailored_${(job.company_name || "company").replace(/[^A-Za-z0-9]/g, "_")}_${(job.job_title || "role").replace(/[^A-Za-z0-9]/g, "_")}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      }
+    } catch (err: any) {
+      setResumeError(err.message || "Failed to regenerate resume");
+    } finally {
+      setResumeLoading(false);
     }
   }
 
@@ -460,6 +497,53 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
             </a>
           )}
         </div>
+
+        {/* Tailored Resume — on-demand regeneration tailored to this job's
+            description. Mirrors the cover-letter/why-fit pattern: row shows
+            current PDF download link when a resume exists, "Regenerate"
+            button always available. Triggers an immediate browser download
+            of the freshly generated PDF in addition to updating
+            jobs.resume_url for the kanban card. */}
+        {(() => {
+          const hasResume = !!job.resume_url;
+          return (
+            <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold text-emerald-400 uppercase tracking-wider">Tailored Resume</span>
+                  {hasResume && (
+                    <a
+                      href={job.resume_url!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-emerald-400/80 hover:text-emerald-300"
+                      title="Open the latest tailored PDF in a new tab"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      Open PDF
+                    </a>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {resumeError && <span className="text-red-400 text-[10px]">{resumeError}</span>}
+                  <button
+                    onClick={handleRegenerateResume}
+                    disabled={resumeLoading}
+                    className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/70 hover:text-emerald-400 disabled:opacity-50 transition-colors"
+                    title={hasResume ? "Regenerate — replaces current tailored PDF, also downloads it" : "Generate a resume tailored to this job"}
+                  >
+                    {resumeLoading ? "Tailoring..." : hasResume ? "Regenerate" : "Generate"}
+                  </button>
+                </div>
+              </div>
+              {!hasResume && !resumeLoading && (
+                <p className="text-[11px] text-gray-600 mt-1.5">Not generated yet. Click Generate to tailor your resume to this job.</p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Cover Letter — always renders; shows Generate button when empty.
             Only the `cover_letter` column counts toward "has generated" — the

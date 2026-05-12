@@ -413,7 +413,7 @@ router.post("/", async (req: Request, res: Response) => {
  * per request, and truncating a candidate's third degree is the fastest
  * way to lose their trust.
  */
-function buildTailorPrompt(
+export function buildTailorPrompt(
   resumeText: string,
   intensity: number,
   expectedEducation: number,

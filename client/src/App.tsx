@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Job, JobStatus, COLUMNS } from "./types";
 import { fetchJobs, updateJobStatus, batchDeleteJobs, gmailStatus, gmailAuth, gmailSync, gmailDisconnect, toggleJobFlag, checkExpiry, authMe, AuthUser, LimitsInfo } from "./api";
 import { supabase } from "./supabaseClient";
@@ -11,6 +11,7 @@ import CareerEventsModal from "./components/CareerEventsModal";
 import SettingsModal from "./components/SettingsModal";
 import StoryBankModal from "./components/StoryBankModal";
 import ApplyProfileEditor from "./components/ApplyProfileEditor";
+import ContactUsButton from "./components/ContactUsButton";
 import ExtensionAuthBridge from "./components/ExtensionAuthBridge";
 import InterviewSession from "./components/InterviewSession";
 import LandingPage from "./components/LandingPage";
@@ -162,6 +163,20 @@ export default function App() {
     };
   }, []);
 
+  // Map of job_id → the optimistic local row the user just produced
+  // (via drag, flag toggle, or any other inline mutation). loadJobs
+  // checks this before overwriting state so the 30s background poll
+  // can't snap a freshly-dragged card back to its server-side status.
+  //
+  // Without this guard the sequence was:
+  //   t+0ms   user drags card → setJobs optimistic update
+  //   t+10ms  handleDragEnd starts PATCH
+  //   t+100ms 30s poll's in-flight GET returns with OLD status
+  //   t+101ms setJobs(data) overrides → card snaps back
+  //   t+500ms PATCH response arrives → setJobs again → card snaps forward
+  // Net visible effect: 10s of "boomerang" lag the user complained about.
+  const pendingMutationsRef = useRef<Map<number, Job>>(new Map());
+
   const loadJobs = useCallback(async () => {
     try {
       const url = activeCandidateId
@@ -169,8 +184,14 @@ export default function App() {
         : "/api/jobs";
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setJobs(data);
+      const data: Job[] = await res.json();
+      // Merge: for any job currently mid-flight in an optimistic
+      // mutation, keep the local row instead of the server snapshot.
+      const pending = pendingMutationsRef.current;
+      const merged = pending.size === 0
+        ? data
+        : data.map((j) => (pending.has(j.id) ? pending.get(j.id)! : j));
+      setJobs(merged);
       setError(null);
     } catch {
       setError("Failed to load jobs. Is the server running on port 3001?");
@@ -417,26 +438,27 @@ export default function App() {
     // see it bounce back as the refetch arrives a few hundred ms later.
     const original = jobs.find((j) => j.id === jobId);
     const originalStatus = original?.status;
-    if (originalStatus === newStatus) return; // no-op
+    if (!original || originalStatus === newStatus) return; // no-op
 
-    // Optimistic update
-    setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
-    );
+    // Optimistic update + register as pending so an in-flight
+    // background poll can't override the local state on its way back.
+    const optimisticRow = { ...original, status: newStatus };
+    setJobs((prev) => prev.map((j) => (j.id === jobId ? optimisticRow : j)));
+    pendingMutationsRef.current.set(jobId, optimisticRow);
 
     try {
       const updated = await updateJobStatus(jobId, newStatus);
-      // Sync the full server row back. Catches cases where the server
-      // also touched updated_at or any other field as a side effect of
-      // the status change, so the local cache stays consistent with
-      // what the next 30-second poll would return.
+      // Server is now authoritative — replace local row, remove the
+      // pending marker so future polls overwrite normally.
       setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
+      pendingMutationsRef.current.delete(jobId);
     } catch (err: any) {
       // Revert just this card, keep all other optimistic state intact.
       // Use `!== undefined` rather than truthy — a valid status like
       // "filtered" is truthy, but if the job was removed from the list
       // in the middle of the drag `original` is undefined and we skip
       // the revert entirely, leaving the UI in its optimistic state.
+      pendingMutationsRef.current.delete(jobId);
       if (originalStatus !== undefined) {
         setJobs((prev) =>
           prev.map((j) => (j.id === jobId ? { ...j, status: originalStatus } : j))
@@ -528,12 +550,27 @@ export default function App() {
   }
 
   async function handleToggleFlag(id: number, flagged: boolean) {
-    // Optimistic update
-    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, flagged: flagged ? 1 : 0 } : j)));
+    const original = jobs.find((j) => j.id === id);
+    if (!original) return;
+
+    // Optimistic update + register as pending so an in-flight 30s
+    // background poll can't snap the chip back to its previous state.
+    // Same boomerang-prevention pattern as handleDragEnd.
+    const optimisticRow = { ...original, flagged: flagged ? 1 : 0 } as Job;
+    setJobs((prev) => prev.map((j) => (j.id === id ? optimisticRow : j)));
+    pendingMutationsRef.current.set(id, optimisticRow);
+
     try {
-      await toggleJobFlag(id, flagged);
-    } catch {
-      loadJobs(); // revert on failure
+      const updated = await toggleJobFlag(id, flagged);
+      setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
+      pendingMutationsRef.current.delete(id);
+    } catch (err: any) {
+      pendingMutationsRef.current.delete(id);
+      // Revert the single card only — loadJobs() would refetch the
+      // whole board and clobber any other in-flight optimistic state.
+      setJobs((prev) => prev.map((j) => (j.id === id ? original : j)));
+      console.error("[handleToggleFlag] toggle failed", err?.message || err);
+      setError(`Couldn't flag job: ${err?.message || "network error"}.`);
     }
   }
 
@@ -788,6 +825,9 @@ export default function App() {
             onClose={() => { setShowInterview(false); setInterviewJobId(null); }}
           />
         )}
+        {/* Floating contact button is visible on the landing page too
+            so casual visitors and signed-out users can report bugs. */}
+        <ContactUsButton />
       </>
     );
   }
@@ -1460,6 +1500,10 @@ export default function App() {
 
       {/* Settings Modal */}
       {/* Settings moved to Landing Page */}
+
+      {/* Floating Contact button — small dialog for bug reports and
+          feature suggestions, opens user's mail client via mailto: */}
+      <ContactUsButton />
     </div>
   );
 }

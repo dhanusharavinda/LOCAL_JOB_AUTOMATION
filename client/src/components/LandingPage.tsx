@@ -437,10 +437,15 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
-  // Auto-scroll logs
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+  // Auto-scroll on the pipeline log is intentionally OFF. Even the
+  // smart "stick to bottom only if the user is already at the bottom"
+  // version still pulled the page on the final "complete" log entry
+  // and on rapid log bursts that crossed the 80px threshold. Users
+  // can scroll the log manually; the log container is its own scroll
+  // viewport so the rest of the page stays put.
+  //
+  // (`logEndRef` is left mounted in the JSX as a no-op anchor in case
+  // we ever want to re-introduce a "Jump to bottom" button.)
 
   // Auto-clamp persisted config when the effective ceiling (plan × tier)
   // is tighter than what's stored. Fires on config load, plan switch,
