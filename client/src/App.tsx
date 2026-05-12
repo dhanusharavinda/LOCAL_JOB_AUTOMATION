@@ -412,7 +412,19 @@ export default function App() {
         if (/intern/.test(s)) return 1;
         return 0;
       };
-      const direction = sortBySeniority === "high" ? -1 : 1;
+      // Direction multiplier. Array.sort callbacks return NEGATIVE
+      // when `a` should come BEFORE `b`. For "high" (senior first),
+      // we want a's bigger rank to win, so `(rb - ra)` already gives
+      // a negative value when ra > rb — multiply by +1. For "low"
+      // (junior first), we invert with -1.
+      //
+      // The earlier version used the inverse multipliers, which made
+      // both states show the OPPOSITE order from their label: "high"
+      // surfaced interns first, "low" surfaced directors first. Users
+      // saw the button "always show senior to junior" because they
+      // stopped clicking on the "low" state (the one that looked
+      // right despite being mis-labeled).
+      const direction = sortBySeniority === "high" ? 1 : -1;
       return [...searched].sort((a, b) => {
         const ra = seniorityRank(a);
         const rb = seniorityRank(b);

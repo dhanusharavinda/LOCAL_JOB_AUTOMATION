@@ -337,6 +337,73 @@ async function fillNow(adapter: AtsAdapter): Promise<void> {
       el.tagName === "TEXTAREA" ||
       (el.tagName === "INPUT" &&
         ["text", "email", "url", "tel", "search", ""].includes((el as HTMLInputElement).type));
+
+    // 2a. Detect combobox / autocomplete inputs. These LOOK like text
+    //     inputs to the DOM but are paired with a popup option list
+    //     (React-Select, Material-UI Select, Workday's "Add" pickers,
+    //     etc.). Without this check, the engine falls through to the
+    //     AI-drafting branch below and writes a full sentence into a
+    //     slot meant for an option pick — the candidate sees "I have
+    //     5 years of experience with..." in a "Country" dropdown.
+    //
+    //     Detection signals (any one is enough):
+    //       - role="combobox" / "listbox" / "searchbox"
+    //       - aria-autocomplete ∈ {list, both, inline}
+    //       - aria-haspopup attribute present
+    //       - aria-controls / aria-owns pointing at a listbox-shaped id
+    //       - immediate sibling/parent has role="listbox" or
+    //         role="option" children
+    //
+    //     Per the user's explicit instruction: "if auto fill can
+    //     select option make it do or else dont fill out texts" — so
+    //     when we can't safely extract the option list, we SKIP the
+    //     field rather than draft a sentence. The user can fill it
+    //     manually post-fill.
+    const looksLikeCombobox = (() => {
+      const role = (el.getAttribute("role") || "").toLowerCase();
+      if (role === "combobox" || role === "listbox" || role === "searchbox") return true;
+      const autoc = (el.getAttribute("aria-autocomplete") || "").toLowerCase();
+      if (autoc === "list" || autoc === "both" || autoc === "inline") return true;
+      if (el.hasAttribute("aria-haspopup")) return true;
+      // aria-controls / aria-owns pointing at a listbox element.
+      for (const attr of ["aria-controls", "aria-owns"]) {
+        const refId = el.getAttribute(attr);
+        if (refId) {
+          const target = document.getElementById(refId);
+          if (target?.getAttribute("role") === "listbox") return true;
+        }
+      }
+      // Container hint: parent/grandparent contains a listbox role
+      // OR multiple [role="option"] children — common in custom
+      // dropdowns where the input doesn't expose ARIA but the popup
+      // does.
+      let p: HTMLElement | null = el.parentElement;
+      for (let i = 0; i < 3 && p; i++) {
+        if (p.querySelector('[role="listbox"]')) return true;
+        if (p.querySelectorAll('[role="option"]').length >= 2) return true;
+        p = p.parentElement;
+      }
+      // Label hint as a last resort. "Select your country" / "Choose
+      // a degree" labels on short inputs strongly imply option-pick.
+      // We keep this conservative (only fire when label contains an
+      // unambiguous select verb AND the input has no maxlength suggesting
+      // free text).
+      const lbl = (label || "").toLowerCase();
+      const hasSelectVerb = /\b(select|choose|pick)\b/.test(lbl);
+      const looksShort = !el.getAttribute("maxlength") || parseInt(el.getAttribute("maxlength") || "0", 10) <= 60;
+      if (hasSelectVerb && looksShort) return true;
+      return false;
+    })();
+
+    if (isTextish && looksLikeCombobox) {
+      // Combobox-shaped input. Don't drift the AI-drafting branch into
+      // writing a sentence here. We could attempt to extract options
+      // from aria-controls listboxes, but each ATS implements them
+      // differently — better to skip cleanly and let the user pick.
+      unfilled++;
+      continue;
+    }
+
     if (isTextish && label) {
       const cached = cache[normKey(label)];
       if (typeof cached === "string" && cached.trim().length > 0) {
