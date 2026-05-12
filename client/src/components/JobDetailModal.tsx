@@ -540,51 +540,48 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
         </div>
 
         {/* Tailored Resume — on-demand regeneration tailored to this job's
-            description. Mirrors the cover-letter/why-fit pattern: row shows
-            current PDF download link when a resume exists, "Regenerate"
-            button always available. Triggers an immediate browser download
-            of the freshly generated PDF in addition to updating
-            jobs.resume_url for the kanban card. */}
-        {(() => {
-          const hasResume = !!job.resume_url;
-          return (
-            <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-semibold text-emerald-400 uppercase tracking-wider">Tailored Resume</span>
-                  {hasResume && (
-                    <a
-                      href={job.resume_url!}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-emerald-400/80 hover:text-emerald-300"
-                      title="Open the latest tailored PDF in a new tab"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                      Open PDF
-                    </a>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {resumeError && <span className="text-red-400 text-[10px]">{resumeError}</span>}
-                  <button
-                    onClick={handleRegenerateResume}
-                    disabled={resumeLoading}
-                    className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/70 hover:text-emerald-400 disabled:opacity-50 transition-colors"
-                    title={hasResume ? "Regenerate — replaces current tailored PDF, also downloads it" : "Generate a resume tailored to this job"}
-                  >
-                    {resumeLoading ? "Tailoring..." : hasResume ? "Regenerate" : "Generate"}
-                  </button>
-                </div>
-              </div>
-              {!hasResume && !resumeLoading && (
-                <p className="text-[11px] text-gray-600 mt-1.5">Not generated yet. Click Generate to tailor your resume to this job.</p>
+            description. Distinct teal accent so it doesn't blend with the
+            emerald "Apply Now" quick-link button right above. Document
+            icon next to the label makes it obvious at a glance that this
+            section is about the resume, not generic apply links. */}
+        <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="font-mono text-xs font-semibold text-teal-400 uppercase tracking-wider">Tailored Resume</span>
+              {job.resume_url && (
+                <a
+                  href={job.resume_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-teal-400/80 hover:text-teal-300"
+                  title="Open the latest tailored PDF in a new tab"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Open PDF
+                </a>
               )}
             </div>
-          );
-        })()}
+            <div className="flex items-center gap-2">
+              {resumeError && <span className="text-red-400 text-[10px]">{resumeError}</span>}
+              <button
+                onClick={handleRegenerateResume}
+                disabled={resumeLoading}
+                className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 disabled:opacity-50 transition-colors"
+                title={job.resume_url ? "Regenerate — replaces current tailored PDF, also downloads it" : "Generate a resume tailored to this job"}
+              >
+                {resumeLoading ? "Tailoring…" : job.resume_url ? "Regenerate" : "Generate"}
+              </button>
+            </div>
+          </div>
+          {!job.resume_url && !resumeLoading && (
+            <p className="text-[11px] text-gray-500 mt-1.5">Not generated yet. Click Generate to tailor your resume to this job's description.</p>
+          )}
+        </div>
 
         {/* Cover Letter — always renders; shows Generate button when empty.
             Only the `cover_letter` column counts toward "has generated" — the
