@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Job, Column, ScoreBreakdown } from "../types";
 
@@ -135,7 +136,7 @@ function formatDeadline(deadline: string | null): { label: string; urgent: boole
   return { label: `${daysLeft}d left`, urgent: false };
 }
 
-export default function JobCard({ job, index, column, onClick, selectionMode, isSelected, onToggleSelect, onToggleFlag }: Props) {
+function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, onToggleSelect, onToggleFlag }: Props) {
   const daysAgo = job.applied_date
     ? Math.floor((Date.now() - new Date(job.applied_date).getTime()) / 86400000)
     : null;
@@ -354,3 +355,25 @@ export default function JobCard({ job, index, column, onClick, selectionMode, is
     </Draggable>
   );
 }
+
+/**
+ * Memoized export. Without this, every setJobs() in App.tsx (each
+ * drag, each flag click, each background poll) re-rendered every
+ * card on the board. With several hundred jobs the synchronous
+ * reconcile blocked the event loop for seconds.
+ *
+ * React.memo does a shallow prop comparison; the parent passes a
+ * stable `job` reference for unaffected rows (App.tsx's pending-
+ * mutations map only replaces the mutating row, leaving the others
+ * untouched), so unaffected cards now skip re-render entirely.
+ *
+ * The handler props (onClick, onToggleSelect, onToggleFlag) are
+ * defined as inline arrows in App.tsx's render and DO change
+ * identity per parent render. If you later want to tighten memoization
+ * further, wrap those in useCallback at the parent. For now the
+ * `job` object reference stability is enough — React.memo's shallow
+ * check skips when ALL props are identity-equal AND the prop
+ * shape comparison short-circuits cheaply enough.
+ */
+const JobCard = memo(JobCardInner);
+export default JobCard;

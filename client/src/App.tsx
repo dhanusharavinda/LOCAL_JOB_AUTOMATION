@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Job, JobStatus, COLUMNS } from "./types";
 import { fetchJobs, updateJobStatus, batchDeleteJobs, gmailStatus, gmailAuth, gmailSync, gmailDisconnect, toggleJobFlag, checkExpiry, authMe, AuthUser, LimitsInfo } from "./api";
 import { supabase } from "./supabaseClient";
@@ -288,8 +288,17 @@ export default function App() {
     return () => window.removeEventListener("message", messageHandler);
   }, [currentUser]);
 
-  // Filter by search query
-  const searched = jobs.filter((j) => {
+  // Filter by search query.
+  //
+  // MEMOIZED. Before this useMemo, every setJobs() — including the
+  // optimistic update on every drag + flag — re-ran the entire filter
+  // pipeline AND the sort pipeline below, AND every kanban card
+  // re-rendered. With a few hundred jobs the synchronous work blocked
+  // the event loop for seconds, producing the 5-10s "lag" the user
+  // saw after clicking flag / dragging a card. Now the heavy chain
+  // only re-runs when its actual inputs change, and unchanged cards
+  // skip re-render via React.memo on JobCard.
+  const searched = useMemo(() => jobs.filter((j) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (
@@ -344,10 +353,12 @@ export default function App() {
       if (!j.flagged) return false;
     }
     return true;
-  });
+  }), [jobs, searchQuery, locationFilter, workTypeFilter, dateFilter, showFlaggedOnly]);
 
-  // Sort logic
-  const filteredJobs = (() => {
+  // Sort logic — memoized for the same reason as `searched` above:
+  // each sort branch builds a fresh array via `[...searched].sort()`,
+  // which is O(n log n) per render even when nothing relevant changed.
+  const filteredJobs = useMemo(() => {
     if (sortByScore) {
       return [...searched].sort((a, b) => {
         const sa = a.match_score ?? -1;
@@ -439,16 +450,24 @@ export default function App() {
       });
     }
     return searched;
-  })();
+  }, [searched, sortByScore, sortByDeadline, sortByFreshness, sortByGrade, sortBySeniority]);
 
-  async function handleDragEnd(jobId: number, newStatus: JobStatus) {
+  // Live `jobs` snapshot for callbacks that don't want to depend on
+  // the jobs array as a deps entry (which would invalidate them on
+  // EVERY job update — defeating useCallback's stability and breaking
+  // memo on JobCard). The ref is updated in a layout-priority effect
+  // BEFORE handlers fire so the read is fresh.
+  const jobsRef = useRef(jobs);
+  useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+
+  const handleDragEnd = useCallback(async (jobId: number, newStatus: JobStatus) => {
     // Snapshot the card's current status so a failed move can revert
     // ONLY that one card. The previous behaviour called loadJobs() on
     // any failure, which refetched the whole board and snapped every
     // card back to its server state — including unrelated optimistic
     // updates. Net effect for the user: drag a card, see it move, then
     // see it bounce back as the refetch arrives a few hundred ms later.
-    const original = jobs.find((j) => j.id === jobId);
+    const original = jobsRef.current.find((j) => j.id === jobId);
     const originalStatus = original?.status;
     if (!original || originalStatus === newStatus) return; // no-op
 
@@ -482,7 +501,9 @@ export default function App() {
       // the visible error banner.
       console.error("[handleDragEnd] update failed", err);
     }
-  }
+    // Empty deps — handler is stable across re-renders. Reads jobs
+    // via jobsRef.current so a fresh snapshot is always available.
+  }, []);
 
   function handleJobUpdate(updated: Job) {
     setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
@@ -494,14 +515,22 @@ export default function App() {
     setSelectedJob(null);
   }
 
-  function handleToggleSelect(id: number) {
+  const handleToggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
+
+  // Stable card-click handler — only re-created when selectionMode
+  // flips, so JobCard memo skips re-render for every card on every
+  // unrelated state change (every drag, every flag, every poll).
+  const handleCardClick = useCallback((job: Job) => {
+    if (selectionMode) return; // selection mode handles clicks via onToggleSelect
+    setSelectedJob(job);
+  }, [selectionMode]);
 
   function handleSelectAllInColumn(status: JobStatus) {
     const columnJobIds = filteredJobs.filter((j) => j.status === status).map((j) => j.id);
@@ -561,8 +590,13 @@ export default function App() {
     setJobs((prev) => [job, ...prev]);
   }
 
-  async function handleToggleFlag(id: number, flagged: boolean) {
-    const original = jobs.find((j) => j.id === id);
+  const handleToggleFlag = useCallback(async (id: number, flagged: boolean) => {
+    // Read jobs via ref instead of dep, so the callback's identity
+    // stays stable across the board's lifetime. Stable identity is
+    // what lets React.memo on JobCard skip re-rendering unchanged
+    // rows when a single card flips its flag — without it, EVERY
+    // card on the board re-renders on every flag click.
+    const original = jobsRef.current.find((j) => j.id === id);
     if (!original) return;
 
     // Optimistic update + register as pending so an in-flight 30s
@@ -584,7 +618,7 @@ export default function App() {
       console.error("[handleToggleFlag] toggle failed", err?.message || err);
       setError(`Couldn't flag job: ${err?.message || "network error"}.`);
     }
-  }
+  }, []);
 
   async function handleGmailConnect() {
     try {
@@ -1461,7 +1495,11 @@ export default function App() {
         <KanbanBoard
           jobs={filteredJobs}
           onDragEnd={handleDragEnd}
-          onCardClick={selectionMode ? () => {} : setSelectedJob}
+          // Stable card-click handler so React.memo on JobCard can skip
+          // re-renders for unaffected rows. Reads selectionMode via
+          // closure but is itself created once — `selectionMode` is
+          // captured at definition, so we re-create only when it flips.
+          onCardClick={handleCardClick}
           selectionMode={selectionMode}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
