@@ -4,14 +4,21 @@ import { log } from "../../logger";
 import { deduplicateJobs } from "../deduplicator";
 import { scrapeNaukriViaApify, scrapeIndeedViaApify, scrapeTruefetchViaApify, scrapeUpworkViaApify } from "../apify";
 
-/** Source display names for logging and UI labels */
+/**
+ * Source display names for logging and UI labels. Kept deliberately
+ * generic — we don't mention the underlying scraper provider (Apify
+ * actor names like "valig~indeed-jobs-scraper" or "truefetch~best-
+ * job-listing"). The user-facing pipeline log shows recognizable job-
+ * board brands the candidate would care about, not implementation
+ * detail.
+ */
 export const SOURCE_LABELS: Record<string, string> = {
   linkedin: "LinkedIn",
   naukri: "Naukri",
   indeed: "Indeed",
-  truefetch: "Truefetch",
+  truefetch: "Aggregator",
   upwork: "Upwork",
-  company_portal: "Portal",
+  company_portal: "Company Careers",
 };
 
 /**
@@ -74,7 +81,7 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
   const targetCountries = config.TARGET_COUNTRIES.split(",").map((c: string) => c.trim().toLowerCase()).filter(Boolean);
   const wantsIndia = targetCountries.includes("india");
 
-  log.step(`Scraping Indeed${wantsIndia ? " + Naukri" : ""} via Apify for keywords: ${keywords.slice(0, 5).join(", ")}...`);
+  log.step(`Scraping Indeed${wantsIndia ? " + Naukri" : ""} for keywords: ${keywords.slice(0, 5).join(", ")}...`);
   log.info(`  Target countries: ${targetCountries.join(", ") || "(none)"}`);
 
   // Split the raw-scrape budget evenly across active Apify sources so the
@@ -103,10 +110,10 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
   // the right Indeed domain (IE, GB, NL, IN) based on TARGET_COUNTRIES.
   scraperTasks.push(withLog("Indeed", scrapeIndeedViaApify(perSource)));
 
-  // Truefetch multi-source aggregator. Disabled if SCRAPE_TRUEFETCH=false.
+  // Aggregator (multi-source). Disabled if SCRAPE_TRUEFETCH=false.
   if (config.SCRAPE_TRUEFETCH) {
-    scraperTasks.push(withLog("Truefetch", scrapeTruefetchViaApify(perSource)));
-    log.info("  Truefetch enabled (multi-source aggregator)");
+    scraperTasks.push(withLog("Aggregator", scrapeTruefetchViaApify(perSource)));
+    log.info("  Aggregator enabled (multi-source)");
   }
 
   // Upwork freelance / contract gigs. Disabled by default — flip
@@ -144,6 +151,6 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
 
   const deduped = deduplicateJobs(allJobs as any) as LinkedInJob[];
 
-  log.success(`Apify scrapers: ${allJobs.length} raw → ${deduped.length} unique jobs`);
+  log.success(`Other-board scrapers: ${allJobs.length} raw → ${deduped.length} unique jobs`);
   return deduped;
 }

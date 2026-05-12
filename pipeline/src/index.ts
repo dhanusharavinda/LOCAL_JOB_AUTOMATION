@@ -22,7 +22,7 @@ import {
   uploadTailoredPdf,
   ResumeProfile,
 } from "./services/job-tracker";
-import { scrapeAllFreeSources } from "./services/scrapers/orchestrator";
+import { scrapeAllFreeSources, SOURCE_LABELS } from "./services/scrapers/orchestrator";
 import { mergeWithLinkedIn, computePriority } from "./services/deduplicator";
 import { sendTelegramAlert } from "./services/telegram";
 import { scrapeGradIrelandEvents } from "./services/scrapers/grad-ireland";
@@ -178,31 +178,35 @@ async function main() {
   const OVERSCRAPE_MULTIPLIER = 2.5;
   const targetRelevantJobs = config.APIFY_JOB_COUNT;
   const effectiveScrapeCount = Math.ceil(targetRelevantJobs * OVERSCRAPE_MULTIPLIER);
-  log.step(`Scraping LinkedIn jobs via Apify (target ${targetRelevantJobs} relevant → requesting ${effectiveScrapeCount} raw, ${OVERSCRAPE_MULTIPLIER}× over-scrape)...`);
+  // User-facing log lines deliberately avoid mentioning "Apify" or
+  // specific actor identifiers — those are implementation details the
+  // job seeker doesn't need to think about. They see recognizable
+  // job-board brands instead (LinkedIn / Indeed / Aggregator / etc.).
+  log.step(`Scraping LinkedIn (target ${targetRelevantJobs} relevant → requesting ${effectiveScrapeCount} raw, ${OVERSCRAPE_MULTIPLIER}× over-scrape)...`);
   let allJobs;
   try {
     allJobs = await scrapeLinkedInJobs(effectiveScrapeCount);
     stats.scraped = allJobs.length;
-    log.success(`Scraped ${allJobs.length} jobs from LinkedIn`);
+    log.success(`LinkedIn: ${allJobs.length} jobs`);
   } catch (err: any) {
     log.error(`Scraping failed: ${err.message}`);
     process.exit(1);
   }
 
-  // ── Step 1b: Scrape Indeed + Naukri (if India) via Apify ──
+  // ── Step 1b: Scrape other boards (Indeed + Aggregator + Naukri if India + Upwork if enabled) ──
   // Same 3× over-scrape factor as LinkedIn so the AI relevance filter
   // (Phase 1) has enough candidates from every source to hit the target.
-  log.step("Scraping Indeed + Naukri (if India selected) via Apify...");
+  log.step("Scraping other job boards...");
   let freeJobs: LinkedInJob[] = [];
   try {
     freeJobs = await scrapeAllFreeSources(effectiveScrapeCount);
-    log.success(`Apify scrapers (Indeed/Naukri): ${freeJobs.length} unique jobs`);
+    log.success(`Other boards: ${freeJobs.length} unique jobs (post-dedup within source group)`);
   } catch (err: any) {
-    log.warn(`Indeed/Naukri scrapers failed: ${err.message} — continuing with LinkedIn only`);
+    log.warn(`Other job boards failed: ${err.message} — continuing with LinkedIn only`);
   }
 
   // ── Step 1b.2: Scan target company portals (Feature 4) ──
-  log.step("Scanning target company careers portals...");
+  log.step("Scanning company careers portals...");
   let portalJobs: LinkedInJob[] = [];
   try {
     const scrapedPortals = await scanTargetCompanyPortals();
@@ -224,10 +228,35 @@ async function main() {
       sources: ["company_portal"],
       tags: j.tags,
     }));
-    log.success(`Portal scanner: ${portalJobs.length} jobs from company careers pages`);
+    log.success(`Company Careers: ${portalJobs.length} jobs`);
   } catch (err: any) {
-    log.warn(`Portal scanner failed: ${err.message} — continuing without portal jobs`);
+    log.warn(`Company portals failed: ${err.message} — continuing without portal jobs`);
   }
+
+  // ── Step 1b.3: Per-source summary ──
+  // One-glance recap of where the raw pool came from, so the user can
+  // tell at a glance whether (e.g.) Indeed pulled its weight or
+  // LinkedIn was carrying the run. We tally by `source` field which
+  // every scraper stamps on its output rows.
+  const allScraped = [...allJobs, ...freeJobs, ...portalJobs];
+  const bySource: Record<string, number> = {};
+  for (const j of allScraped) {
+    const src = (j.source || "unknown");
+    bySource[src] = (bySource[src] || 0) + 1;
+  }
+  // Stable order: anything in SOURCE_LABELS first (in its declared
+  // order), then everything else alphabetically.
+  const knownOrder = Object.keys(SOURCE_LABELS);
+  const orderedSources = [
+    ...knownOrder.filter((k) => bySource[k] != null),
+    ...Object.keys(bySource).filter((k) => !knownOrder.includes(k)).sort(),
+  ];
+  log.info("Scrape source breakdown:");
+  for (const src of orderedSources) {
+    const label = SOURCE_LABELS[src] || src;
+    log.info(`  ${label.padEnd(18)} ${bySource[src]} jobs`);
+  }
+  log.info(`  ${"Total raw".padEnd(18)} ${allScraped.length} jobs (before dedup across sources)`);
 
   // ── Step 1c: Merge LinkedIn + free sources + portal jobs (deduped) ──
   const mergedRaw = mergeWithLinkedIn(allJobs, [...freeJobs, ...portalJobs]);
@@ -259,7 +288,7 @@ async function main() {
   //
   // Flagged jobs are included in the duplicate set so user-blocked
   // postings stay out forever.
-  log.step("Checking for duplicates against tracker...");
+  log.step("Checking for duplicates against tracker (kanban dashboard)...");
   const probePayload = mergedJobs.map((j) => ({
     link: j.link || "",
     title: j.title || "",
@@ -273,14 +302,53 @@ async function main() {
     return;
   }
   const { links: dupLinks, titleCompanyKeys: dupTcKeys } = dupResult;
+
+  // Two matching surfaces:
+  //  - URL match (job_link exact)
+  //  - normalized (title|company) match — handles re-published or
+  //    cross-source dupes where the URL differs but it's clearly
+  //    the same posting (e.g. user applied via the company's careers
+  //    page yesterday, today the same role surfaces on Indeed).
+  //
+  // SAFETY: the title+company match is on the JOINED key
+  // `${title}|${company}`, NOT on title OR company alone. So
+  //   "Software Engineer" @ Google  vs  "Software Engineer" @ Stripe
+  // never collide — they produce different keys ("software engineer|
+  // google" vs "software engineer|stripe"). The server's SQL returns
+  // the (title, company) PAIRS for each stored row, and the pipeline
+  // checks `dupTcKeys.has(joinedKey)` on the SCRAPED job — so even
+  // if the server query is over-permissive across rows (it ANDs two
+  // ANY() arrays for index-friendliness), the client-side filter is
+  // strict per-pair. Same role at different companies stays through.
+  //
+  // We log each filtered duplicate inline so the user can verify in
+  // the run log exactly which "new" candidates got blocked by which
+  // matching surface — the most-asked debugging question last week.
+  const filteredOut: Array<{ job: LinkedInJob; reason: "url" | "title_company" }> = [];
   dedupedJobs = mergedJobs.filter((j) => {
-    if (j.link && dupLinks.has(j.link)) return false;
-    if (j.title && j.companyName && dupTcKeys.has(titleCompanyKey(j.title, j.companyName))) return false;
+    if (j.link && dupLinks.has(j.link)) {
+      filteredOut.push({ job: j, reason: "url" });
+      return false;
+    }
+    if (j.title && j.companyName && dupTcKeys.has(titleCompanyKey(j.title, j.companyName))) {
+      filteredOut.push({ job: j, reason: "title_company" });
+      return false;
+    }
     return true;
   });
-  const dupCount = mergedJobs.length - dedupedJobs.length;
+  const dupCount = filteredOut.length;
   stats.skipped += dupCount;
-  log.success(`${dedupedJobs.length} new jobs (${dupCount} duplicates already in tracker — by URL or title+company)`);
+  if (dupCount > 0) {
+    // Sample log the first ~6 so a 50-dupe run doesn't flood the log.
+    const sample = filteredOut.slice(0, 6);
+    for (const { job, reason } of sample) {
+      log.skip(`  ↩ "${job.title}" @ ${job.companyName} (already in kanban, matched by ${reason})`);
+    }
+    if (filteredOut.length > sample.length) {
+      log.info(`  …and ${filteredOut.length - sample.length} more dedup'd. See kanban for the matching rows.`);
+    }
+  }
+  log.success(`${dedupedJobs.length} new jobs (${dupCount} duplicates filtered against kanban before AI scoring)`);
 
   // ── Step 1d: Archive ALL scraped jobs for historical skills analysis ──
   try {

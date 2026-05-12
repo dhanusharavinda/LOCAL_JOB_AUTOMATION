@@ -262,7 +262,11 @@ router.post("/", async (req: Request, res: Response) => {
     const expectedEducation = (resume.match(/\b(?:University|Institute|College|School|Academy|B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D|Bachelor|Master|Doctorate|B\.?Tech|M\.?Tech|MBA)\b/gi) || []).length;
     const expectedExperience = (resume.match(/\b(?:Engineer|Developer|Manager|Analyst|Intern|Consultant|Designer|Scientist|Architect|Director|Lead|Specialist|Coordinator|Officer|Associate)\b/gi) || []).length;
 
-    const systemPrompt = buildTailorPrompt(resume, intensity, expectedEducation, expectedExperience);
+    // Pull the user's project bank so the LLM can propose swaps. Empty
+    // bank → swap section is omitted entirely, preserving the prompt
+    // cache for users who haven't filled it in.
+    const bankProjects = await fetchBankProjectsForPrompt(userId);
+    const systemPrompt = buildTailorPrompt(resume, intensity, expectedEducation, expectedExperience, bankProjects);
     const userPrompt = `Job description:\n\n${jd}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
 
     const completion = await openai.chat.completions.create({
@@ -373,10 +377,21 @@ router.post("/", async (req: Request, res: Response) => {
     // Usage row was already inserted under the advisory lock above; no
     // second insert here. Report the post-reservation count to the client.
     const newUsed = used + 1;
+    // Surface the AI's swap proposals (if any). The model writes them
+    // as a top-level key in the JSON response; resumeData strips them
+    // out via the .resumeData unwrap above, so we pull from BOTH the
+    // wrapped and unwrapped forms defensively.
+    const projectSwaps = Array.isArray((inner as any).projectSwaps)
+      ? (inner as any).projectSwaps
+      : Array.isArray((resumeData as any).projectSwaps)
+        ? (resumeData as any).projectSwaps
+        : [];
+
     res.json({
       pdfBase64: pdfBuffer.toString("base64"),
       pdfUrl,
       resumeData: inner,
+      projectSwaps,
       plan,
       quota,
       used: newUsed,
@@ -413,11 +428,75 @@ router.post("/", async (req: Request, res: Response) => {
  * per request, and truncating a candidate's third degree is the fastest
  * way to lose their trust.
  */
+/**
+ * One row of the user's project_bank. Pruned to the fields the LLM
+ * actually uses for swap suggestions — passing the whole row wastes
+ * tokens on created_at / updated_at / id.
+ */
+export interface BankProjectForPrompt {
+  title: string;
+  summary?: string | null;
+  bullet_points?: string[] | null;
+  tags?: string[] | null;
+}
+
+/**
+ * Format a bank-projects block for the system prompt. Returns an empty
+ * string when the bank is empty so existing callers without project
+ * swap support produce identical prompts (preserves the prompt cache).
+ */
+export function buildBankProjectsBlock(bank: BankProjectForPrompt[] | undefined | null): string {
+  if (!bank || bank.length === 0) return "";
+  // Cap at 10 to keep the prompt size sane; the bank can grow unbounded
+  // and a 50-project user would otherwise blow past the model's budget.
+  const slice = bank.slice(0, 10);
+  const lines: string[] = [];
+  lines.push("\n\n=== CANDIDATE PROJECT BANK ===");
+  lines.push(
+    "Below is the candidate's BANK of backup projects. These are NOT currently on the resume. " +
+    "You may propose SWAPS: replace a weak project on the resume with a stronger bank project " +
+    "when the bank project has materially better keyword/tech overlap with the JD."
+  );
+  for (let i = 0; i < slice.length; i++) {
+    const p = slice[i];
+    lines.push(`\nBANK ${i + 1}: ${p.title}`);
+    if (p.summary) lines.push(`  summary: ${p.summary.slice(0, 300)}`);
+    if (Array.isArray(p.bullet_points) && p.bullet_points.length > 0) {
+      const bullets = p.bullet_points.slice(0, 6).map((b) => `  - ${b.slice(0, 220)}`);
+      lines.push(...bullets);
+    }
+    if (Array.isArray(p.tags) && p.tags.length > 0) {
+      lines.push(`  tags: ${p.tags.slice(0, 10).join(", ")}`);
+    }
+  }
+  lines.push("\nSWAP RULES:");
+  lines.push("- Only swap when the bank project's keyword/tech overlap with the JD is materially better than the resume project's. Don't swap on marginal differences.");
+  lines.push("- Never swap a project from a real employer with a hobby/personal one.");
+  lines.push("- Never invent details about bank projects: use ONLY the title/summary/bullets/tags given.");
+  lines.push("- Cap proposals at 2 swaps per resume — more than that signals the candidate's whole experience is mismatched, which a swap won't fix.");
+  lines.push("- If no swap is genuinely better, leave projectSwaps empty. Don't force suggestions.");
+  lines.push("\nADD TO YOUR JSON OUTPUT a top-level field:");
+  lines.push("  \"projectSwaps\": [");
+  lines.push("    {");
+  lines.push("      \"removeProject\": \"<exact title of the resume project to remove>\",");
+  lines.push("      \"addProject\": {");
+  lines.push("        \"title\": \"<exact bank title>\",");
+  lines.push("        \"summary\": \"<bank summary, or a tightened version>\",");
+  lines.push("        \"bullets\": [\"...\", \"...\"],");
+  lines.push("        \"reason\": \"<one short sentence: why this swap raises JD fit>\"");
+  lines.push("      }");
+  lines.push("    }");
+  lines.push("  ]");
+  lines.push("If you propose swaps, ALSO apply them to the tailored resume's projects section in the same output (so the user sees both the rationale and the integrated result).");
+  return lines.join("\n");
+}
+
 export function buildTailorPrompt(
   resumeText: string,
   intensity: number,
   expectedEducation: number,
-  expectedExperience: number
+  expectedExperience: number,
+  bankProjects?: BankProjectForPrompt[],
 ): string {
   let intensityRules: string;
   if (intensity <= 3) {
@@ -580,7 +659,41 @@ Sound human. Vary sentence length. Be specific about tools and outcomes.
 4. For every bullet, is "original" the verbatim resume text? If not, fix it.
 5. Re-read the ORIGINAL summary. If it contained a work-authorization, visa, sponsorship, security-clearance, driving-license, or availability statement, that sentence MUST appear unchanged at the end of your rewritten summary. Verify character-for-character. If you paraphrased or dropped it, restore the original phrasing now.
 
-Return ONLY the JSON object. No markdown, no backticks, no prose.`;
+Return ONLY the JSON object. No markdown, no backticks, no prose.${buildBankProjectsBlock(bankProjects)}`;
+}
+
+/**
+ * Fetch a user's project bank, pruned to the prompt-relevant fields.
+ * Used by tailor + analyze routes to inject swap candidates. Returns
+ * an empty array when the bank is empty or the table doesn't exist
+ * (older deploys); never throws.
+ */
+export async function fetchBankProjectsForPrompt(
+  userId: string,
+): Promise<BankProjectForPrompt[]> {
+  try {
+    const rows = await sql<{
+      title: string;
+      summary: string | null;
+      bullet_points: string[] | null;
+      tags: string[] | null;
+    }[]>`
+      SELECT title, summary, bullet_points, tags
+        FROM project_bank
+       WHERE user_id = ${userId}
+       ORDER BY updated_at DESC
+       LIMIT 20
+    `;
+    return rows.map((r) => ({
+      title: r.title,
+      summary: r.summary,
+      bullet_points: r.bullet_points,
+      tags: r.tags,
+    }));
+  } catch (err: any) {
+    console.warn("[fetchBankProjectsForPrompt]", err?.message || err);
+    return [];
+  }
 }
 
 export default router;

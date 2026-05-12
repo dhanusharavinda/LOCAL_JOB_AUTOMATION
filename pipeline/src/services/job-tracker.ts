@@ -150,8 +150,33 @@ export interface DuplicateBatchResult {
   titleCompanyKeys: Set<string>;
 }
 
+/**
+ * Aggressive normalization for the title+company dedup key.
+ *
+ * Catches more near-duplicates than a simple lowercase+trim. Reasons:
+ *
+ *  - Job boards inconsistently append " (Galway)", "[Hybrid]", or
+ *    "- Remote" to titles. The same role from two scrape sources
+ *    looks different.
+ *  - "Graduate Engineer-1" vs "Graduate Engineer 1" — punctuation
+ *    drift between sources.
+ *  - Trailing whitespace, em-dashes, special hyphens.
+ *
+ * After this normalizer, "Graduate Engineer-1 (Galway)" and
+ * "Graduate Engineer 1" both collapse to "graduate engineer 1".
+ *
+ * IMPORTANT: keep this function in sync with the server's SQL
+ * normalization in /api/jobs/exists-batch — drift between the two
+ * silently breaks dedup.
+ */
 function normForKey(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim();
+  return s
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")    // strip "(parens)" — "(Galway)", "(Remote)", etc.
+    .replace(/\[[^\]]*\]/g, " ")   // strip "[brackets]" — "[Hybrid]", "[Full-time]", etc.
+    .replace(/[^a-z0-9 ]/g, " ")   // collapse all punctuation (hyphens, em-dashes, slashes) to space
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**

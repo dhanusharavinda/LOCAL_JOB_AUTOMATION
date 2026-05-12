@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { downloadResumeText } from "../storage";
+import { fetchBankProjectsForPrompt } from "./free-tailor";
 
 /**
  * Resume analyze + apply (ReWrite flow).
@@ -105,6 +106,35 @@ router.post("/:id/analyze-resume", async (req: Request, res: Response) => {
     const resumeForPrompt = resumeText.slice(0, 5000);
     const jdForPrompt = jobDescription.slice(0, 3000);
 
+    // Pull the user's project bank for swap proposals. The prompt only
+    // appends the bank section when this is non-empty, so users without
+    // a bank get the same prompt as before (no behaviour change).
+    const bankProjects = await fetchBankProjectsForPrompt(userId);
+    const bankBlock = bankProjects.length === 0
+      ? ""
+      : (() => {
+          const lines: string[] = [];
+          lines.push("\n=== CANDIDATE PROJECT BANK ===");
+          lines.push("Backup projects the candidate keeps off-resume. Propose SWAPS via the projectSwaps field when a bank project has materially better JD alignment than a current resume project.");
+          for (let i = 0; i < Math.min(10, bankProjects.length); i++) {
+            const p = bankProjects[i];
+            lines.push(`\nBANK ${i + 1}: ${p.title}`);
+            if (p.summary) lines.push(`  summary: ${p.summary.slice(0, 300)}`);
+            if (Array.isArray(p.bullet_points) && p.bullet_points.length > 0) {
+              p.bullet_points.slice(0, 6).forEach((b) => lines.push(`  - ${b.slice(0, 220)}`));
+            }
+            if (Array.isArray(p.tags) && p.tags.length > 0) {
+              lines.push(`  tags: ${p.tags.slice(0, 10).join(", ")}`);
+            }
+          }
+          lines.push("\nSWAP RULES:");
+          lines.push("- Only swap when keyword/tech overlap with the JD is materially better. No marginal swaps.");
+          lines.push("- Never swap an employer project for a personal project of obviously different scope.");
+          lines.push("- Cap at 2 swaps. If no swap is genuinely better, return projectSwaps: [].");
+          lines.push("- Never invent details about bank projects beyond what's listed above.");
+          return lines.join("\n");
+        })();
+
     const prompt = `You are an ATS (Applicant Tracking System) expert and resume coach. Compare the candidate's resume against the job description and return ONE structured JSON analysis.
 
 === JOB ===
@@ -144,7 +174,18 @@ ${resumeForPrompt}
     }
   ],
   "summaryOriginal": "candidate's existing summary verbatim",
-  "summaryImproved": "rewritten 2-4 sentence summary aligned to the JD, preserving every visa / clearance / availability statement verbatim"
+  "summaryImproved": "rewritten 2-4 sentence summary aligned to the JD, preserving every visa / clearance / availability statement verbatim",
+  "projectSwaps": [
+    {
+      "removeProject": "exact title of the resume project to remove (empty array if no swap is genuinely better)",
+      "addProject": {
+        "title": "exact bank title",
+        "summary": "bank summary or tightened version",
+        "bullets": ["bank bullet 1", "bank bullet 2"],
+        "reason": "one short sentence: why this swap raises JD fit"
+      }
+    }
+  ]
 }
 
 === RULES ===
@@ -155,7 +196,7 @@ ${resumeForPrompt}
 - Banned words in any rewrite: leveraged, spearheaded, orchestrated, pioneered, cutting-edge, innovative, dynamic, passionate, results-driven, synergy, transformative, delve, foster, showcase, pivotal, crucial.
 - Banned punctuation: em dashes (—). Use commas/periods/parens.
 
-Return ONLY the JSON. No markdown. No prose.`;
+Return ONLY the JSON. No markdown. No prose.${bankBlock}`;
 
     const completion = await openai.chat.completions.create({
       model: RA_CHAT_MODEL,
@@ -208,6 +249,28 @@ Return ONLY the JSON. No markdown. No prose.`;
        WHERE id = ${id} AND user_id = ${userId}
     `;
 
+    // Normalize projectSwaps from the AI output. The shape the client
+    // expects ([{ removeProject, addProject: { title, summary, bullets,
+    // reason } }]) is enforced here so malformed model responses don't
+    // crash the ResumeCompareModal render.
+    const safeProjectSwaps = Array.isArray(analysis.projectSwaps)
+      ? analysis.projectSwaps
+          .map((s: any) => ({
+            removeProject: typeof s?.removeProject === "string" ? s.removeProject : "",
+            addProject: {
+              title:   typeof s?.addProject?.title === "string" ? s.addProject.title : "",
+              summary: typeof s?.addProject?.summary === "string" ? s.addProject.summary : "",
+              bullets: Array.isArray(s?.addProject?.bullets)
+                ? s.addProject.bullets.filter((b: any) => typeof b === "string")
+                : [],
+              reason:  typeof s?.addProject?.reason === "string" ? s.addProject.reason : "",
+            },
+          }))
+          // Drop empty proposals where the model returned the shape
+          // but no content — keeps the UI clean.
+          .filter((s: any) => s.removeProject && s.addProject.title)
+      : [];
+
     res.json({
       jobId: id,
       jobTitle: job.job_title,
@@ -216,6 +279,7 @@ Return ONLY the JSON. No markdown. No prose.`;
       atsScore,
       analysis: safeAnalysis,
       optimizations: safeOptimizations,
+      projectSwaps: safeProjectSwaps,
       summaryOriginal: typeof analysis.summaryOriginal === "string" ? analysis.summaryOriginal : "",
       summaryImproved: typeof analysis.summaryImproved === "string" ? analysis.summaryImproved : "",
     });

@@ -627,12 +627,35 @@ function installSubmitWatcher(adapter: AtsAdapter) {
       }
     } catch { /* never let learning errors block tracking */ }
 
-    // Track only when this page is bound to a tracked-job row. On
-    // untracked custom pages there's no kanban card to update, so we
-    // just confirm the learn ran.
+    // Tracked-job path: PATCH the existing kanban row to applied.
+    // Untracked-page path: CREATE a new kanban row in one shot via
+    // the /track-untracked endpoint with best-effort metadata. The
+    // user can rename / re-categorize from the dashboard but no
+    // longer needs to manually re-type everything.
     const jobId = STATE.ctx.job?.id;
     if (!jobId) {
-      STATE.overlay?.showInfo("Answers saved to your profile bank. (Page not tracked - open dashboard to add it.)");
+      try {
+        const guess = guessUntrackedJobMetadata();
+        const result = await callBackground("/api/apply/track-untracked", {
+          method: "POST",
+          body: {
+            job_title: guess.title,
+            company_name: guess.company,
+            job_link: guess.url,
+            location: guess.location,
+            method: `extension_${adapter.atsName}_untracked`,
+            apply_url: guess.url,
+          },
+        });
+        const existed = (result as any)?.existed === true;
+        STATE.overlay?.showInfo(
+          existed
+            ? "Found this in your kanban already, moved to Applied. Answers saved to your profile bank."
+            : "Added to your kanban as Applied. Edit the title/company from the dashboard if needed."
+        );
+      } catch (err: any) {
+        STATE.overlay?.showInfo("Answers saved to your profile bank. (Couldn't add to kanban: " + (err?.message || "network error") + ")");
+      }
       return;
     }
     try {
@@ -652,6 +675,81 @@ function installSubmitWatcher(adapter: AtsAdapter) {
     }
   };
   document.addEventListener("click", handler, true);
+}
+
+/**
+ * Best-effort job metadata extraction for the untracked one-click flow.
+ * Heuristics, in order of preference:
+ *
+ *   title:    og:title meta, then h1.textContent, then document.title
+ *             (stripped of " - Company" / " | Company" suffixes when
+ *             we can detect them).
+ *   company:  og:site_name, then trailing part of document.title after
+ *             " at " / " | " / " - ", then the hostname's branded part.
+ *   location: page text near the title that matches "City, Country"
+ *             shapes, otherwise empty (user can fill on the card).
+ *   url:      window.location.href (cleaned of fragment + UTM-ish
+ *             query params so the duplicate-check matches across
+ *             visits to the same posting).
+ */
+function guessUntrackedJobMetadata(): { title: string; company: string; location: string; url: string } {
+  const docTitle = (document.title || "").trim();
+  // ── title ──
+  const ogTitle = document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.content?.trim() || "";
+  const h1 = document.querySelector("h1")?.textContent?.trim() || "";
+  let title = (ogTitle || h1 || docTitle).slice(0, 200);
+  // Strip a trailing " - Company" / " | Company" if it looks like one.
+  // We won't be perfect; the user can edit the card.
+  title = title.replace(/\s+[|\-–—]\s+[^|\-–—]{2,80}$/, "").trim();
+
+  // ── company ──
+  let company =
+    document.querySelector<HTMLMetaElement>('meta[property="og:site_name"]')?.content?.trim() ||
+    "";
+  if (!company && docTitle) {
+    // Try " at Company" / " | Company" / " - Company" patterns.
+    const m = docTitle.match(/\s+at\s+([^|\-–—]{2,80})\s*$/i)
+      || docTitle.match(/\s+[|\-–—]\s+([^|\-–—]{2,80})\s*$/);
+    if (m) company = m[1].trim();
+  }
+  if (!company) {
+    // Fallback: capitalize the bare host (boards.greenhouse.io/atlassian
+    // → "Atlassian" via path; apply.workable.com/foo → "Foo").
+    try {
+      const url = new URL(window.location.href);
+      const parts = url.pathname.split("/").filter(Boolean);
+      const guessFromPath = parts[0] || "";
+      const host = url.hostname.replace(/^www\./, "");
+      company = (guessFromPath || host.split(".")[0] || "Unknown").replace(/[-_]+/g, " ");
+      company = company.charAt(0).toUpperCase() + company.slice(1);
+    } catch {
+      company = "Unknown";
+    }
+  }
+  company = company.slice(0, 200);
+
+  // ── location (best effort) ──
+  let location = "";
+  const bodyText = document.body?.innerText?.slice(0, 4000) || "";
+  // City, Country / Country / "Remote" / "Hybrid" — pick the first match
+  // near the top of the page.
+  const locMatch = bodyText.match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?),\s*(?:[A-Z][a-zA-Z]+|[A-Z]{2,3})\b/);
+  if (locMatch) location = locMatch[0].slice(0, 120);
+  else if (/\bRemote\b/i.test(bodyText.slice(0, 1500))) location = "Remote";
+
+  // ── url (strip tracking params + hash) ──
+  let cleanUrl = window.location.href;
+  try {
+    const u = new URL(cleanUrl);
+    u.hash = "";
+    // Drop common tracking params so the same posting visited twice
+    // dedups against the same kanban row.
+    const TRACKING = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gh_src", "gh_jid", "ref", "fbclid", "gclid"];
+    TRACKING.forEach((p) => u.searchParams.delete(p));
+    cleanUrl = u.toString();
+  } catch { /* keep raw */ }
+
+  return { title, company, location, url: cleanUrl };
 }
 
 /**

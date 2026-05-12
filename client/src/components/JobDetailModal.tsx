@@ -215,19 +215,60 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           </button>
 
           <div className="flex items-start gap-3">
-            {job.match_score != null && (
-              <div className={`flex flex-col items-center justify-center w-14 px-2 py-2 rounded-xl border shrink-0 ${
-                job.match_score >= 8
+            {/* Letter grade only. The numeric "X/10 AI Score" panel was
+                removed per UX request — the grade is the canonical
+                relevance signal on the kanban card AND here. We parse
+                the breakdown directly so legacy rows without a grade
+                (created before the 10-dimension scorer landed) still
+                fall back to the numeric, but every modern row shows
+                just the letter. */}
+            {(() => {
+              const breakdown = (() => {
+                try {
+                  return job.score_breakdown
+                    ? (typeof job.score_breakdown === "string"
+                        ? JSON.parse(job.score_breakdown)
+                        : job.score_breakdown)
+                    : null;
+                } catch {
+                  return null;
+                }
+              })();
+              const grade: string | undefined = breakdown?.letter_grade;
+              const tone = grade === "A"
+                ? "bg-[#c9a94e]/10 text-[#c9a94e] border-[#c9a94e]/20"
+                : grade === "B"
+                ? "bg-[#6775a0]/10 text-[#6775a0] border-[#6775a0]/20"
+                : grade === "C"
+                ? "bg-[#8b8fa3]/10 text-[#8b8fa3] border-[#8b8fa3]/20"
+                : grade === "D" || grade === "F"
+                ? "bg-[#c45252]/10 text-[#c45252] border-[#c45252]/20"
+                : job.match_score != null && job.match_score >= 8
                   ? "bg-[#c9a94e]/10 text-[#c9a94e] border-[#c9a94e]/20"
-                  : job.match_score >= 6
+                  : job.match_score != null && job.match_score >= 6
                   ? "bg-[#6775a0]/10 text-[#6775a0] border-[#6775a0]/20"
-                  : "bg-[#c45252]/10 text-[#c45252] border-[#c45252]/20"
-              }`}>
-                <span className="font-display text-xl font-bold leading-none">{job.match_score}</span>
-                <span className="text-[9px] opacity-60 font-normal leading-none mt-0.5">/10</span>
-                <span className="text-[9px] opacity-50 leading-none mt-1">AI Score</span>
-              </div>
-            )}
+                  : "bg-[#c45252]/10 text-[#c45252] border-[#c45252]/20";
+
+              if (!grade && job.match_score == null) return null;
+              return (
+                <div
+                  className={`flex flex-col items-center justify-center w-14 px-2 py-2 rounded-xl border shrink-0 ${tone}`}
+                  title={breakdown
+                    ? `Grade ${grade} (${Number(breakdown.weighted_score || 0).toFixed(1)}/5)`
+                    : `Score ${job.match_score}/10`}
+                >
+                  {grade ? (
+                    <span className="font-display text-2xl font-bold leading-none">{grade}</span>
+                  ) : (
+                    <>
+                      <span className="font-display text-xl font-bold leading-none">{job.match_score}</span>
+                      <span className="text-[9px] opacity-60 font-normal leading-none mt-0.5">/10</span>
+                    </>
+                  )}
+                  <span className="text-[9px] opacity-50 leading-none mt-1">{grade ? "Grade" : "Score"}</span>
+                </div>
+              );
+            })()}
             <div className="min-w-0">
               <h2 className="font-display text-2xl font-bold text-gray-50 leading-tight">{job.job_title}</h2>
               <p className="font-mono text-sm text-[#6775a0] uppercase tracking-wider mt-1">{job.company_name}</p>

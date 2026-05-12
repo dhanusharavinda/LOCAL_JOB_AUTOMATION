@@ -54,17 +54,27 @@ function ScoreBadge({ score, breakdown }: { score: number; breakdown: ScoreBreak
   const grade = breakdown?.letter_grade;
   const gradeStyle = grade ? (GRADE_COLORS[grade] || GRADE_COLORS.C) : "";
 
+  // Grade-only display. The numeric "X/10" line was removed per UX
+  // request — the letter grade is the only relevance signal kept on
+  // the card. We keep `score` in the tooltip so power users can still
+  // see the raw number on hover, and the function signature is
+  // unchanged so the existing call sites + sort-by-grade logic in
+  // App.tsx keep working without a refactor.
   return (
     <div
-      className={`flex flex-col items-center justify-center shrink-0 rounded-lg border px-2 py-1 min-w-[32px] ${gradeStyle || "border-[rgba(255,255,255,0.1)]"}`}
-      title={`Score: ${score}/10${breakdown ? ` | Grade ${grade} (${breakdown.weighted_score.toFixed(1)}/5)` : ""}`}
+      className={`flex items-center justify-center shrink-0 rounded-lg border px-2 py-1 min-w-[32px] ${gradeStyle || "border-[rgba(255,255,255,0.1)]"}`}
+      title={breakdown ? `Grade ${grade} (${breakdown.weighted_score.toFixed(1)}/5)` : `Score ${score}/10`}
     >
-      {grade && (
+      {grade ? (
         <span className="font-display font-bold text-sm leading-none">{grade}</span>
+      ) : (
+        // No breakdown / grade available (legacy rows from before the
+        // 10-dimension scorer landed). Fall back to the numeric so the
+        // card still has a relevance signal.
+        <span className="font-mono text-[10px] opacity-60 leading-none">
+          {score}/10
+        </span>
       )}
-      <span className="font-mono text-[10px] opacity-60 leading-none mt-0.5">
-        {score}/10
-      </span>
     </div>
   );
 }

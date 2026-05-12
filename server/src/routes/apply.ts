@@ -466,6 +466,124 @@ router.post("/track", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/apply/track-untracked ────────────────────────────────────
+//
+// One-click "add this to my kanban as applied" for jobs the user
+// reached via the extension on a page NOT already tracked in the
+// dashboard. Before this route the extension said "Page not tracked —
+// open dashboard to add it." and the user had to manually re-type the
+// position title, company, location, etc. via "Add Custom Application".
+//
+// Body:
+//   {
+//     job_title: string (required),
+//     company_name: string (required),
+//     job_link: string  (required, used for dedup against existing jobs),
+//     location?: string,
+//     job_type?: string,
+//     method?: string  (e.g. "extension_greenhouse"),
+//     apply_url?: string,
+//   }
+//
+// Behaviour:
+//   - If a job with this user + job_link already exists, PROMOTE it to
+//     "applied" status via the existing rank logic; do NOT create a
+//     duplicate. Returns the existing row's id + `{ existed: true }`.
+//   - Otherwise INSERT a new row with status="applied" + applied_date=NOW
+//     and return its id + `{ existed: false }`.
+router.post("/track-untracked", async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const {
+    job_title,
+    company_name,
+    job_link,
+    location,
+    job_type,
+    method,
+    apply_url,
+  } = (req.body || {}) as Record<string, string | undefined>;
+
+  if (!job_title || !company_name || !job_link) {
+    res.status(400).json({ error: "job_title, company_name, and job_link are required" });
+    return;
+  }
+
+  try {
+    // Dedup against existing jobs by URL. If we find a match, just
+    // promote it — saves the user a manual delete-and-readd if they
+    // tracked the job earlier in the day.
+    const existing = await sql<{ id: number; status: string }[]>`
+      SELECT id, status FROM jobs
+       WHERE user_id = ${userId} AND job_link = ${job_link}
+       LIMIT 1
+    `;
+
+    const applyMethod = String(method || "extension_untracked").slice(0, 80);
+
+    if (existing[0]) {
+      // Mirrors the rank logic in /track so we never downgrade.
+      const rank: Record<string, number> = {
+        filtered: 0, saved: 1, applied: 2, interviewing: 3, offer: 4, rejected: 1,
+      };
+      const curRank = rank[existing[0].status] ?? 0;
+      if (curRank < (rank.applied ?? 2)) {
+        await sql`
+          UPDATE jobs
+             SET status = 'applied',
+                 applied_date = COALESCE(applied_date, NOW()),
+                 apply_method = ${applyMethod},
+                 apply_attempted_at = NOW(),
+                 apply_errors = NULL,
+                 updated_at = NOW()
+           WHERE id = ${existing[0].id} AND user_id = ${userId}
+        `;
+      } else {
+        // Already at or past applied — just stamp the method + attempt.
+        await sql`
+          UPDATE jobs
+             SET apply_method = ${applyMethod},
+                 apply_attempted_at = NOW(),
+                 apply_errors = NULL,
+                 updated_at = NOW()
+           WHERE id = ${existing[0].id} AND user_id = ${userId}
+        `;
+      }
+      res.json({ ok: true, id: existing[0].id, existed: true });
+      return;
+    }
+
+    // Fresh insert. Length-clip every text field defensively so a
+    // pathological page title can't blow up the row.
+    const inserted = await sql<{ id: number }[]>`
+      INSERT INTO jobs (
+        user_id, job_title, company_name, job_link, apply_url, location,
+        seniority_level, status, applied_date,
+        apply_method, apply_attempted_at, source, sources
+      )
+      VALUES (
+        ${userId},
+        ${String(job_title).slice(0, 200)},
+        ${String(company_name).slice(0, 200)},
+        ${String(job_link).slice(0, 1000)},
+        ${apply_url ? String(apply_url).slice(0, 1000) : null},
+        ${location ? String(location).slice(0, 200) : null},
+        ${job_type ? String(job_type).slice(0, 80) : null},
+        'applied',
+        NOW(),
+        ${applyMethod},
+        NOW(),
+        'extension',
+        ${sql.json(['extension'])}
+      )
+      RETURNING id
+    `;
+    res.json({ ok: true, id: inserted[0].id, existed: false });
+  } catch (err: any) {
+    console.error("[POST /api/apply/track-untracked]", err?.message || err);
+    res.status(500).json({ error: err?.message || "Could not track this application" });
+  }
+});
+
 // ─── POST /api/apply/ats-submit/:jobId ──────────────────────────────────
 //
 // Server-side direct submission using a public ATS API. Works for

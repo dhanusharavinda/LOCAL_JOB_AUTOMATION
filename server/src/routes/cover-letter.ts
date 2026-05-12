@@ -4,7 +4,7 @@ import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { downloadResumeText, uploadResumePdf } from "../storage";
 import { generateLocalPdf } from "../pdf";
-import { buildTailorPrompt } from "./free-tailor";
+import { buildTailorPrompt, fetchBankProjectsForPrompt } from "./free-tailor";
 
 const router = Router();
 router.use(requireAuth);
@@ -327,7 +327,8 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
     const expectedEducation = (resumeText.match(/\b(?:University|Institute|College|School|Academy|B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D|Bachelor|Master|Doctorate|B\.?Tech|M\.?Tech|MBA)\b/gi) || []).length;
     const expectedExperience = (resumeText.match(/\b(?:Engineer|Developer|Manager|Analyst|Intern|Consultant|Designer|Scientist|Architect|Director|Lead|Specialist|Coordinator|Officer|Associate)\b/gi) || []).length;
 
-    const systemPrompt = buildTailorPrompt(resumeText, intensity, expectedEducation, expectedExperience);
+    const bankProjects = await fetchBankProjectsForPrompt(userId);
+    const systemPrompt = buildTailorPrompt(resumeText, intensity, expectedEducation, expectedExperience, bankProjects);
     const userPrompt = `Job description:\n\n${job.description}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
 
     const completion = await openai.chat.completions.create({
@@ -394,11 +395,21 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
        WHERE id = ${id} AND user_id = ${userId}
     `;
 
+    // Pull projectSwaps out of the AI's response. The unwrap above
+    // (`resumeData.resumeData || resumeData`) means the field could be
+    // on either level; check both defensively.
+    const projectSwaps = Array.isArray((inner as any).projectSwaps)
+      ? (inner as any).projectSwaps
+      : Array.isArray((resumeData as any).projectSwaps)
+        ? (resumeData as any).projectSwaps
+        : [];
+
     res.json({
       resume_url: pdfUrl,
       // Inline base64 so the client can offer an immediate download
       // without re-fetching the signed URL.
       pdfBase64: pdfBuffer.toString("base64"),
+      projectSwaps,
     });
   } catch (err: any) {
     console.error("[POST /api/jobs/:id/tailor-resume]", err);

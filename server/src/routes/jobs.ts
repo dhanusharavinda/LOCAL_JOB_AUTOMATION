@@ -175,11 +175,24 @@ router.post("/exists-batch", requireAuth, async (req: Request, res: Response) =>
     .filter((l): l is string => typeof l === "string" && l.length > 0)
     .slice(0, 500);
 
-  // Normalize the title/company pairs the same way we'll compare them
-  // on the SQL side. Lowercase + trim + collapse whitespace so casing
-  // and accidental double-spaces don't break the match.
+  // Normalize the title/company pairs aggressively so near-duplicates
+  // collapse: "Graduate Engineer-1 (Galway)" and "Graduate Engineer 1"
+  // both become "graduate engineer 1". The SQL below applies the
+  // SAME transformations to the stored job_title / company_name so
+  // both sides compare apples to apples.
+  //
+  // Stages: lowercase → strip "(parens)" → strip "[brackets]" →
+  //         strip all non-alphanumerics to space → collapse whitespace.
+  //
+  // KEEP IN SYNC with `normForKey` in pipeline/src/services/job-tracker.ts.
   function norm(s: string): string {
-    return s.toLowerCase().replace(/\s+/g, " ").trim();
+    return s
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
   const normPairs = titleCompanyPairs
     .filter((p) => p && typeof p.title === "string" && typeof p.company === "string")
@@ -206,20 +219,61 @@ router.post("/exists-batch", requireAuth, async (req: Request, res: Response) =>
         `
       : [];
 
-    // Build the (title_lc, company_lc) tuples as separate arrays so
-    // postgres.js can bind them safely.
+    // Build the (title_norm, company_norm) tuples as separate arrays
+    // so postgres.js can bind them safely. The SQL applies the SAME
+    // four normalization passes the client `norm()` above does:
+    //   1. strip "(parens)"
+    //   2. strip "[brackets]"
+    //   3. collapse all non-alphanumerics to space
+    //   4. collapse whitespace, then lowercase
+    //
+    // The over-permissive ANY(titles) AND ANY(companies) match (rather
+    // than a true PAIR match) is OK because the SELECT returns the
+    // STORED row's normalized key, and the pipeline filters by exact
+    // key match on the client side — no false dedup positives can
+    // sneak through.
     let pairRows: Array<{ title: string; company: string; flagged: boolean | null }> = [];
     if (normPairs.length > 0) {
       const titles = normPairs.map((p) => p.title);
       const companies = normPairs.map((p) => p.company);
+      // Note: backslashes are doubled (e.g. "\\(") so the JS template
+      // produces a single "\(" the Postgres regex engine sees as a
+      // literal paren. With a single "\(" in source, JS would drop the
+      // backslash and Postgres would see "(" as a regex group-start —
+      // silently corrupting the normalization.
       pairRows = await sql<{ title: string; company: string; flagged: boolean | null }[]>`
-        SELECT LOWER(REGEXP_REPLACE(job_title, '\\s+', ' ', 'g'))   AS title,
-               LOWER(REGEXP_REPLACE(company_name, '\\s+', ' ', 'g')) AS company,
-               flagged
-          FROM jobs
-         WHERE user_id = ${userId}
-           AND LOWER(REGEXP_REPLACE(job_title, '\\s+', ' ', 'g'))   = ANY(${titles})
-           AND LOWER(REGEXP_REPLACE(company_name, '\\s+', ' ', 'g')) = ANY(${companies})
+        SELECT
+          LOWER(REGEXP_REPLACE(
+            REGEXP_REPLACE(
+              REGEXP_REPLACE(
+                REGEXP_REPLACE(job_title, '\\([^)]*\\)', ' ', 'g'),
+                '\\[[^\\]]*\\]', ' ', 'g'),
+              '[^a-zA-Z0-9 ]', ' ', 'g'),
+            '\\s+', ' ', 'g')) AS title,
+          LOWER(REGEXP_REPLACE(
+            REGEXP_REPLACE(
+              REGEXP_REPLACE(
+                REGEXP_REPLACE(company_name, '\\([^)]*\\)', ' ', 'g'),
+                '\\[[^\\]]*\\]', ' ', 'g'),
+              '[^a-zA-Z0-9 ]', ' ', 'g'),
+            '\\s+', ' ', 'g')) AS company,
+          flagged
+        FROM jobs
+        WHERE user_id = ${userId}
+          AND LOWER(REGEXP_REPLACE(
+                REGEXP_REPLACE(
+                  REGEXP_REPLACE(
+                    REGEXP_REPLACE(job_title, '\\([^)]*\\)', ' ', 'g'),
+                    '\\[[^\\]]*\\]', ' ', 'g'),
+                  '[^a-zA-Z0-9 ]', ' ', 'g'),
+                '\\s+', ' ', 'g')) = ANY(${titles})
+          AND LOWER(REGEXP_REPLACE(
+                REGEXP_REPLACE(
+                  REGEXP_REPLACE(
+                    REGEXP_REPLACE(company_name, '\\([^)]*\\)', ' ', 'g'),
+                    '\\[[^\\]]*\\]', ' ', 'g'),
+                  '[^a-zA-Z0-9 ]', ' ', 'g'),
+                '\\s+', ' ', 'g')) = ANY(${companies})
       `;
       // Trim leading/trailing whitespace post-fetch since SQL's
       // REGEXP_REPLACE doesn't strip edges.
