@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Job, JobStatus, COLUMNS, ScoreBreakdown } from "../types";
-import { updateJobNotes, deleteJob, updateJobStatus, toggleJobFlag, fetchJobTimeline, fetchInterviewPrep, regenerateInterviewPrep, regenerateCoverLetter, regenerateWhyFit, regenerateTailoredResume, checkJobLink, StatusHistoryEntry, InterviewPrep } from "../api";
+import { updateJobNotes, deleteJob, updateJobStatus, toggleJobFlag, fetchJobTimeline, fetchInterviewPrep, regenerateInterviewPrep, regenerateCoverLetter, regenerateWhyFit, regenerateRecruiterFollowup, regenerateTailoredResume, checkJobLink, StatusHistoryEntry, InterviewPrep } from "../api";
 import ResumeCompareModal from "./ResumeCompareModal";
 
 interface Props {
@@ -33,6 +33,10 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
   const [fitError, setFitError] = useState<string | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [followupLoading, setFollowupLoading] = useState(false);
+  const [followupError, setFollowupError] = useState<string | null>(null);
+  const [showFollowup, setShowFollowup] = useState(false);
+  const [copiedFollowup, setCopiedFollowup] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -152,6 +156,20 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
       setFitError(err.message || "Failed to generate");
     } finally {
       setFitLoading(false);
+    }
+  }
+
+  async function handleGenerateRecruiterFollowup() {
+    setFollowupLoading(true);
+    setFollowupError(null);
+    try {
+      const text = await regenerateRecruiterFollowup(job.id);
+      onUpdate({ ...job, recruiter_followup: text });
+      setShowFollowup(true);
+    } catch (err: any) {
+      setFollowupError(err.message || "Failed to generate");
+    } finally {
+      setFollowupLoading(false);
     }
   }
 
@@ -692,6 +710,68 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               )}
               {!hasFit && !fitLoading && (
                 <p className="text-[11px] text-gray-600 mt-1.5">Not generated yet. Click Generate to draft a short fit summary.</p>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Recruiter Follow-up — sent AFTER the application. Tldr-style
+            opener + short formal letter body. Mirrors the cover-letter
+            and why-fit sections in shape; uses a distinct rose accent
+            so the three "drafted asset" rows are visually separable
+            at a glance. */}
+        {(() => {
+          const hasFollowup = !!job.recruiter_followup;
+          return (
+            <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">
+              <div className="flex items-center justify-between w-full">
+                <button
+                  onClick={() => hasFollowup && setShowFollowup(!showFollowup)}
+                  className={`flex items-center gap-2 text-left rounded-md px-1 -ml-1 py-0.5 ${hasFollowup ? "hover:bg-white/5 cursor-pointer" : "cursor-default"}`}
+                  disabled={!hasFollowup}
+                  title={hasFollowup ? (showFollowup ? "Click to collapse" : "Click to reveal the follow-up email") : undefined}
+                >
+                  <span className="font-mono text-xs font-semibold text-rose-300 uppercase tracking-wider">Recruiter Follow-Up</span>
+                  {hasFollowup && (
+                    <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-rose-300/80">
+                      <svg className={`w-3 h-3 transition-transform ${showFollowup ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      {showFollowup ? "Hide" : "Click to view"}
+                    </span>
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  {followupError && <span className="text-red-400 text-[10px]">{followupError}</span>}
+                  <button
+                    onClick={handleGenerateRecruiterFollowup}
+                    disabled={followupLoading}
+                    className="text-[10px] font-mono uppercase tracking-wider text-rose-300/70 hover:text-rose-300 disabled:opacity-50 transition-colors"
+                    title={hasFollowup ? "Regenerate — replaces current follow-up email" : "Draft a short follow-up email to send AFTER applying"}
+                  >
+                    {followupLoading ? "Drafting..." : hasFollowup ? "Regenerate" : "Generate"}
+                  </button>
+                </div>
+              </div>
+              {hasFollowup && showFollowup && (
+                <div className="mt-3 relative">
+                  <div className="p-4 bg-[#12151c] rounded-xl font-body text-sm text-gray-300 whitespace-pre-wrap max-h-80 overflow-y-auto leading-relaxed border border-[rgba(255,255,255,0.06)]">
+                    {job.recruiter_followup}
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(job.recruiter_followup || "");
+                      setCopiedFollowup(true);
+                      setTimeout(() => setCopiedFollowup(false), 2000);
+                    }}
+                    className="absolute top-2 right-2 text-[10px] font-medium bg-gray-700/80 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded-md transition-colors"
+                  >
+                    {copiedFollowup ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              )}
+              {!hasFollowup && !followupLoading && (
+                <p className="text-[11px] text-gray-600 mt-1.5">Send AFTER you've applied. Short Tldr-style email to the hiring manager that mentions your application is already in.</p>
               )}
             </div>
           );

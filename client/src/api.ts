@@ -157,6 +157,22 @@ export async function regenerateWhyFit(jobId: number): Promise<string> {
 }
 
 /**
+ * On-demand recruiter follow-up email. Sent AFTER the application
+ * has been submitted; the AI prompt explicitly acknowledges that the
+ * application is already in. Tldr-style opening + a short formal
+ * letter body. No em-dashes, no AI-slop filler.
+ */
+export async function regenerateRecruiterFollowup(jobId: number): Promise<string> {
+  const res = await fetch(`${API_BASE}/${jobId}/recruiter-followup`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to generate follow-up" }));
+    throw new Error(err.error || "Failed to generate follow-up");
+  }
+  const data = await res.json();
+  return data.recruiter_followup || "";
+}
+
+/**
  * On-demand resume regeneration tailored to one tracked job. Same pattern
  * as regenerateCoverLetter / regenerateWhyFit but produces a PDF instead
  * of a text field. The server uploads the PDF to storage AND returns the
@@ -669,6 +685,10 @@ export interface FreeTailorResult {
   pdfBase64: string;
   pdfUrl: string | null;
   resumeData: any;
+  // Optional cover-letter text. Populated only when the request set
+  // `generateCoverLetter: true`. null when the flag was off, or when
+  // the cover-letter call failed (the resume PDF still ships).
+  coverLetter: string | null;
   plan: "free" | "pro" | "enterprise";
   quota: number;
   used: number;
@@ -694,12 +714,16 @@ export async function freeTailorResume(
   resumeText: string,
   jobDescription: string,
   intensity = 5,
-  originalFilename?: string
+  originalFilename?: string,
+  // Set true to ALSO generate a cover letter alongside the tailored
+  // resume. Off by default so the OpenAI cost stays at 1 call per
+  // tailor for users who only want the resume.
+  generateCoverLetter = false,
 ): Promise<FreeTailorResult> {
   const res = await fetch("/api/free-tailor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ resumeText, jobDescription, intensity, originalFilename }),
+    body: JSON.stringify({ resumeText, jobDescription, intensity, originalFilename, generateCoverLetter }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Tailoring failed" }));

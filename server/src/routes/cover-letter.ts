@@ -274,6 +274,134 @@ router.post("/:id/why-fit", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/jobs/:id/recruiter-followup ──────────────────────────
+//
+// On-demand recruiter follow-up email. Generated AFTER the user has
+// applied to a role (extension auto-apply, manual apply on the
+// company site, etc.) and wants to send a short, attention-grabbing
+// note to the hiring manager / recruiter. Distinct from the cover
+// letter (which goes WITH the application) and the why-fit pitch
+// (which is a short fit summary).
+//
+// Voice: Tldr-style informal opening + a brief Dear-Hiring-Manager
+// body that explicitly references the already-submitted application.
+// No em-dashes. No AI-slop filler. Grounded in actual resume skills.
+router.post("/:id/recruiter-followup", async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const id = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid job id" });
+    return;
+  }
+
+  try {
+    const result = await loadJobAndResume(userId, id);
+    if ("error" in result) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    const { job, resumeText } = result;
+
+    const MAX_INPUT_CHARS = 25000;
+    const totalInput = (resumeText?.length || 0) + (job.description?.length || 0);
+    if (totalInput > MAX_INPUT_CHARS) {
+      res.status(400).json({ error: "Input too large. Resume + job description must be under 25,000 characters combined." });
+      return;
+    }
+
+    const openai = getOpenAI();
+    if (!openai) {
+      res.status(503).json({ error: "OpenAI is not configured on the server" });
+      return;
+    }
+
+    // Trim the resume for the prompt — we only need the candidate's
+    // skills + projects to ground the body, not the whole document.
+    const candidateSkills = resumeText.slice(0, 2000);
+    const jd = (job.description || "").length > 4000
+      ? job.description!.slice(0, 4000) + "..."
+      : job.description || "";
+
+    const prompt = `Write a short, personal recruiter follow-up email. Output valid JSON only. No backticks, no markdown.
+
+Return this exact JSON:
+{ "recruiterFollowup": "the email text here" }
+
+=== CONTEXT ===
+This email is sent AFTER the candidate has already submitted their application for the ${job.job_title} role at ${job.company_name}. It's a follow-up nudge to the hiring manager / recruiter — NOT a fresh application. The opening MUST acknowledge this fact (e.g. "I recently applied for X" or "I submitted my application for...").
+
+=== STRUCTURE (REQUIRED) ===
+The email has TWO parts separated by a blank line:
+
+PART 1 — "Tldr;" opening (2-4 short sentences):
+- Starts literally with: "Tldr;"
+- Express genuine enthusiasm about the SPECIFIC company / what they're building (use the JD to pick something concrete to admire).
+- Drop a vulnerable personal admission about why the candidate is wired for this work. The sample tone: "I'm not athletic, can't sing or dance, and don't drink. But building, solving real problems with tech, is the one thing I know I'm good at." This is informal, self-aware, attention-grabbing.
+- End with one line about wanting to chase the mission with the team.
+
+PART 2 — formal letter body (3 short paragraphs, ~120 words total):
+- Open with "Dear Hiring Manager,"
+- Para 1: confirm the application is already submitted, name the role + company, mention one concrete thing from the JD.
+- Para 2: connect ACTUAL CANDIDATE SKILLS (from the brief below) to the JD's needs. Concrete examples like "I built X that did Y", grounded in the skills list.
+- Para 3: one sentence on why this role specifically interests you, then "Thank you for your time. Sincerely,"
+
+=== ANTI-AI-SLOP RULES (NON-NEGOTIABLE) ===
+BANNED WORDS / PHRASES: "I am writing to express my interest", "I am confident", "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "delve", "foster", "showcase", "pivotal", "crucial", "cutting-edge", "innovative solutions", "synergy", "dynamic environment", "commitment to excellence", "I am eager to contribute", "I would be a valuable addition".
+
+ZERO em-dashes (—). Use commas, periods, or parens. The em-dash is the loudest tell of AI writing.
+
+NO curly quotes, NO bolding, NO markdown. Plain text only.
+
+=== TRUTHFULNESS RULES ===
+- NEVER name a tool, framework, technology, or experience that does NOT appear in CANDIDATE SKILLS below.
+- NEVER fabricate metrics, dates, employer names, or projects.
+- If the JD asks for X and X isn't in the skills list, write about a different requirement that IS.
+- NEVER say "I haven't done X" — you don't know what the candidate hasn't done.
+
+=== STYLE ===
+- Vary sentence length. Some short and punchy. Some longer that breathe.
+- Use "I" naturally.
+- Sound like a real candidate who genuinely read this specific JD, not a template.
+- Tight. Every sentence earns its place.
+
+=== CANDIDATE SKILLS ===
+${candidateSkills}
+
+=== JOB DESCRIPTION ===
+${jd}
+
+Return the JSON now.`;
+
+    const completion = await openai.chat.completions.create({
+      model: CL_CHAT_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.75, // slightly hotter than cover letter — we want personality
+      max_tokens: 900,
+    });
+
+    const parsed = JSON.parse(completion.choices[0].message.content || "{}");
+    const recruiterFollowup = typeof parsed.recruiterFollowup === "string"
+      ? parsed.recruiterFollowup.trim()
+      : "";
+
+    if (!recruiterFollowup) {
+      res.status(502).json({ error: "AI returned an empty follow-up. Please try again." });
+      return;
+    }
+
+    await sql`
+      UPDATE jobs SET recruiter_followup = ${recruiterFollowup}, updated_at = NOW()
+       WHERE id = ${id} AND user_id = ${userId}
+    `;
+
+    res.json({ recruiter_followup: recruiterFollowup });
+  } catch (err: any) {
+    console.error("[POST /api/jobs/:id/recruiter-followup]", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
 // ─── POST /api/jobs/:id/tailor-resume ──────────────────────────────
 //
 // On-demand resume tailoring for a tracked job. Mirrors the cover-letter

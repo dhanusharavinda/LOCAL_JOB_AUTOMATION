@@ -13,6 +13,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [intensity, setIntensity] = useState(5);
+  // Optional cover-letter generation. Off by default — only flipped on
+  // when the user explicitly checks the box. Server treats this as
+  // opt-in too so the OpenAI cost stays flat for users who only want
+  // a tailored resume.
+  const [alsoCoverLetter, setAlsoCoverLetter] = useState(false);
+  const [copiedCoverLetter, setCopiedCoverLetter] = useState(false);
   const [phase, setPhase] = useState<Phase>("input");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FreeTailorResult | null>(null);
@@ -128,7 +134,13 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setPhase("tailoring");
 
     try {
-      const res = await freeTailorResume(resumeText, jobDescription, intensity, uploadedFileName || undefined);
+      const res = await freeTailorResume(
+        resumeText,
+        jobDescription,
+        intensity,
+        uploadedFileName || undefined,
+        alsoCoverLetter,
+      );
       setResult(res);
       setPhase("result");
     } catch (err: any) {
@@ -417,6 +429,29 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               )}
             </div>
 
+            {/* Cover letter add-on. One extra OpenAI call per tailor run,
+                so it's opt-in. When checked, the response includes
+                `coverLetter` and the result panel renders it below
+                the tailored resume. */}
+            <div className="px-6 pb-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={alsoCoverLetter}
+                  onChange={(e) => setAlsoCoverLetter(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-[var(--border-subtle)] bg-[var(--bg-surface)] accent-[var(--accent)] cursor-pointer"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                    Also draft a cover letter
+                  </div>
+                  <div className="text-[11px] text-[var(--text-ghost)] mt-0.5">
+                    Adds 3-paragraph cover letter alongside the tailored PDF. Grounded only in skills the AI sees in your resume, no fabricated details.
+                  </div>
+                </div>
+              </label>
+            </div>
+
             {/* Error + CTA */}
             <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
               {error && (
@@ -534,6 +569,53 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                 </div>
               </div>
             </div>
+
+            {/* Cover letter — only when the user opted in AND the
+                server actually produced one. Shows copy button +
+                inline preview. The card mirrors the kanban
+                JobDetailModal's cover-letter section for visual
+                consistency across the two surfaces. */}
+            {result.coverLetter && (
+              <div className="bg-[var(--bg-raised)] border border-blue-500/20 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-display text-lg font-bold text-[var(--text-primary)]">Cover letter drafted</h3>
+                      <p className="text-xs text-[var(--text-secondary)]">Grounded in your resume — no fabricated tools or roles.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!result.coverLetter) return;
+                      navigator.clipboard.writeText(result.coverLetter);
+                      setCopiedCoverLetter(true);
+                      setTimeout(() => setCopiedCoverLetter(false), 2000);
+                    }}
+                    className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-4 py-2 rounded-xl transition-colors"
+                  >
+                    {copiedCoverLetter ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <div className="px-6 py-5">
+                  <pre className="font-body text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{result.coverLetter}</pre>
+                </div>
+              </div>
+            )}
+
+            {/* If the user opted in but the AI failed (or returned
+                an empty answer), surface a soft hint instead of
+                silently dropping the request. The resume PDF still
+                shipped; this is just an explainer. */}
+            {alsoCoverLetter && !result.coverLetter && (
+              <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                We couldn't generate the cover letter this time. Try again with a longer / clearer job description.
+              </div>
+            )}
 
             {/* Quota + Upsell Card — copy adapts to plan and remaining runs */}
             {(() => {

@@ -66,7 +66,7 @@ const EDITABLE_FIELDS = [
   "source", "sources", "source_count", "content_hash",
   "posted_at", "freshness_score", "tags", "flagged",
   // Pipeline-generated asset fields (added for the SaaS migration)
-  "cover_letter", "hiring_message", "score_breakdown", "detected_role_type",
+  "cover_letter", "hiring_message", "recruiter_followup", "score_breakdown", "detected_role_type",
   "resume_profile_id", "keyword_match_rate", "interview_prep",
 ] as const;
 

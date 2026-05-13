@@ -506,6 +506,13 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
 
         if (data.step && data.type === "step") {
           setCurrentStep(data.step);
+          // Step transition events drive the progress tracker only — they
+          // carry no message body and must NOT be appended to the log
+          // panel. The corresponding visible log line (also type "step"
+          // but with a message and no `step` field) is broadcast just
+          // before this one and renders normally. Without this early
+          // return the panel rendered every phase header twice.
+          return;
         }
 
         // Live-update usage counters from log messages

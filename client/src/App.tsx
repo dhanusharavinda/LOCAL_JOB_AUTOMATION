@@ -45,7 +45,11 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [sortByScore, setSortByScore] = useState(false);
+  // sortByScore + its UI button were removed (numeric score isn't
+  // displayed on the kanban card anymore — only the letter grade —
+  // so a numeric sort was redundant with Grade sort and confusing).
+  // The raw match_score still drives the final tiebreak inside Grade
+  // and Seniority sorts.
   const [sortByDeadline, setSortByDeadline] = useState(true);
   const [sortByFreshness, setSortByFreshness] = useState(false);
   const [sortByGrade, setSortByGrade] = useState(false);
@@ -359,13 +363,6 @@ export default function App() {
   // each sort branch builds a fresh array via `[...searched].sort()`,
   // which is O(n log n) per render even when nothing relevant changed.
   const filteredJobs = useMemo(() => {
-    if (sortByScore) {
-      return [...searched].sort((a, b) => {
-        const sa = a.match_score ?? -1;
-        const sb = b.match_score ?? -1;
-        return sb - sa;
-      });
-    }
     if (sortByDeadline) {
       return [...searched].sort((a, b) => {
         // both have deadline — closest first
@@ -386,8 +383,13 @@ export default function App() {
         return pb - pa; // newest posted first
       });
     }
-    if (sortByGrade) {
-      // A=0 .. F=4, unknown last. score_breakdown is JSON; parse defensively.
+    // Grade + Seniority can BE COMBINED. When both are on, sort first
+    // by grade (A → F), then within each grade band by seniority
+    // direction. That gives the user "best fits within my preferred
+    // seniority" — e.g. all the A-grade entry-level roles first, then
+    // A-grade associate, then B-grade entry, etc. Either dimension
+    // alone keeps its previous behavior.
+    if (sortByGrade || sortBySeniority !== "off") {
       const gradeRank = (j: Job): number => {
         if (!j.score_breakdown) return 99;
         try {
@@ -398,20 +400,8 @@ export default function App() {
           return 99;
         }
       };
-      return [...searched].sort((a, b) => {
-        const ra = gradeRank(a);
-        const rb = gradeRank(b);
-        if (ra !== rb) return ra - rb;
-        // Tie-break by raw score so A-grades order by their numeric score.
-        return (b.match_score ?? -1) - (a.match_score ?? -1);
-      });
-    }
-    if (sortBySeniority !== "off") {
-      // Map LinkedIn-style seniority strings to a 1-6 scale matching
-      // LinkedIn's f_E filter:
-      //   1=Intern, 2=Entry, 3=Associate, 4=Mid-Senior, 5=Director, 6=Executive
-      // Anything we can't parse drops to 0 so it sinks to the bottom of
-      // BOTH high and low sorts (truly unranked).
+      // 1=Intern, 2=Entry, 3=Associate, 4=Mid-Senior, 5=Director,
+      // 6=Executive, 0=unknown (sinks to bottom for both directions).
       const seniorityRank = (j: Job): number => {
         const s = (j.seniority_level || "").toLowerCase();
         if (!s) return 0;
@@ -423,34 +413,32 @@ export default function App() {
         if (/intern/.test(s)) return 1;
         return 0;
       };
-      // Direction multiplier. Array.sort callbacks return NEGATIVE
-      // when `a` should come BEFORE `b`. For "high" (senior first),
-      // we want a's bigger rank to win, so `(rb - ra)` already gives
-      // a negative value when ra > rb — multiply by +1. For "low"
-      // (junior first), we invert with -1.
-      //
-      // The earlier version used the inverse multipliers, which made
-      // both states show the OPPOSITE order from their label: "high"
-      // surfaced interns first, "low" surfaced directors first. Users
-      // saw the button "always show senior to junior" because they
-      // stopped clicking on the "low" state (the one that looked
-      // right despite being mis-labeled).
-      const direction = sortBySeniority === "high" ? 1 : -1;
+      // direction: +1 for "high" (senior-first), -1 for "low"
+      // (junior-first). See seniority-fix comment above for the math.
+      const senDir = sortBySeniority === "high" ? 1 : sortBySeniority === "low" ? -1 : 0;
+
       return [...searched].sort((a, b) => {
-        const ra = seniorityRank(a);
-        const rb = seniorityRank(b);
-        // Unknowns (rank 0) always go to the bottom regardless of
-        // direction — they're not a valid 'lowest' answer either.
-        if (ra === 0 && rb !== 0) return 1;
-        if (rb === 0 && ra !== 0) return -1;
-        if (ra !== rb) return (rb - ra) * direction;
-        // Tie-break by match_score so within the same level the
-        // best-fitting jobs surface first.
+        // Outer key: grade (when active).
+        if (sortByGrade) {
+          const ga = gradeRank(a);
+          const gb = gradeRank(b);
+          if (ga !== gb) return ga - gb; // A (0) before F (4), unknown (99) last
+        }
+        // Inner key: seniority (when active). Unknowns to bottom.
+        if (senDir !== 0) {
+          const sa = seniorityRank(a);
+          const sb = seniorityRank(b);
+          if (sa === 0 && sb !== 0) return 1;
+          if (sb === 0 && sa !== 0) return -1;
+          if (sa !== sb) return (sb - sa) * senDir;
+        }
+        // Final tiebreak: raw match_score so the "best of the rest"
+        // surfaces first within a (grade, seniority) bucket.
         return (b.match_score ?? -1) - (a.match_score ?? -1);
       });
     }
     return searched;
-  }, [searched, sortByScore, sortByDeadline, sortByFreshness, sortByGrade, sortBySeniority]);
+  }, [searched, sortByDeadline, sortByFreshness, sortByGrade, sortBySeniority]);
 
   // Live `jobs` snapshot for callbacks that don't want to depend on
   // the jobs array as a deps entry (which would invalidate them on
@@ -1088,9 +1076,11 @@ export default function App() {
       {/* Second row — sorts & filters (Deadline / Score / Newest / date / locations / sources / flagged) */}
       <div className="px-3 md:px-6 py-2 flex items-center gap-2 overflow-x-auto border-t border-[rgba(255,255,255,0.03)]">
 
-        {/* Sort by deadline */}
+        {/* Sort by deadline. Single-key — clears Grade + Seniority
+            because deadline ordering can't meaningfully combine with
+            grade or seniority bands. */}
         <button
-          onClick={() => { setSortByDeadline((v) => !v); setSortByScore(false); setSortByFreshness(false); setSortByGrade(false); setSortBySeniority("off"); }}
+          onClick={() => { setSortByDeadline((v) => !v); setSortByFreshness(false); setSortByGrade(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByDeadline
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
@@ -1103,30 +1093,27 @@ export default function App() {
           Deadline
         </button>
 
-        {/* Sort by score */}
-        <button
-          onClick={() => { setSortByScore((v) => !v); setSortByDeadline(false); setSortByFreshness(false); setSortByGrade(false); setSortBySeniority("off"); }}
-          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
-            sortByScore
-              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
-              : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
-          </svg>
-          Score
-        </button>
+        {/* Score sort removed — the kanban card and detail modal now
+            show only the letter grade, so a numeric "Score" sort would
+            be redundant with Grade and confusing alongside it. The
+            underlying match_score is still used as a tiebreak inside
+            Grade sort. */}
 
-        {/* Sort by grade (A → F, ties broken by raw score) */}
+        {/* Sort by grade. Now COMBINABLE with Seniority below: when
+            both are active, the array is sorted by Grade first
+            (A → F), and within each grade band by Seniority direction.
+            That gives "best fits within my preferred seniority" with
+            one click each. */}
         <button
-          onClick={() => { setSortByGrade((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByFreshness(false); setSortBySeniority("off"); }}
+          onClick={() => { setSortByGrade((v) => !v); setSortByDeadline(false); setSortByFreshness(false); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByGrade
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
-          title="Sort by letter grade — A first, then B, C, D, F"
+          title={sortBySeniority !== "off"
+            ? "Grade sort active. Combined with Seniority below — grade first, seniority breaks ties."
+            : "Sort by letter grade — A first, then B, C, D, F"}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 19l7-14 7 14M8 14h8" />
@@ -1135,15 +1122,16 @@ export default function App() {
         </button>
 
         {/* Sort by seniority (tri-state: off → high → low → off).
-            'high' means most senior first (Director / Executive at top);
-            'low' means most junior first (Internship / Entry at top). */}
+            COMBINABLE with Grade: when both are active, Grade is the
+            outer sort and Seniority breaks ties within each grade
+            band. Clicking this no longer clears Grade. The OTHER sorts
+            (Deadline, Freshness) still clear because they're
+            single-key sorts that can't meaningfully combine. */}
         <button
           onClick={() => {
             setSortBySeniority((cur) => cur === "off" ? "high" : cur === "high" ? "low" : "off");
-            setSortByScore(false);
             setSortByDeadline(false);
             setSortByFreshness(false);
-            setSortByGrade(false);
           }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortBySeniority !== "off"
@@ -1175,7 +1163,7 @@ export default function App() {
 
         {/* Sort by freshness (newest posted first) */}
         <button
-          onClick={() => { setSortByFreshness((v) => !v); setSortByScore(false); setSortByDeadline(false); setSortByGrade(false); setSortBySeniority("off"); }}
+          onClick={() => { setSortByFreshness((v) => !v); setSortByDeadline(false); setSortByGrade(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByFreshness
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"

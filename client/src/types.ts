@@ -46,6 +46,10 @@ export interface Job {
   tags: string | null;      // JSON array stored as string
   cover_letter: string | null;
   hiring_message: string | null;
+  // On-demand recruiter follow-up email. Sent AFTER the user applied;
+  // distinct from cover_letter (which goes WITH the application).
+  // Tldr-style opening, short, personal, no em-dashes.
+  recruiter_followup: string | null;
   flagged: number;
   interview_prep: string | null;
   expired: number;

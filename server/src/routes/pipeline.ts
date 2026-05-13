@@ -40,7 +40,11 @@ const router = Router();
 interface PipelineLog {
   time: string;
   type: string;
-  message: string;
+  // Optional because step-transition events broadcast `step` only, with no
+  // message body — the corresponding visible log line was already emitted
+  // just before. Keeping this required caused the panel to render every
+  // phase header twice.
+  message?: string;
   step?: string;
 }
 
@@ -89,6 +93,36 @@ function redactSensitive(s: string): string {
     .replace(/Scraping free job sources/gi, "Scraping secondary sources")
     .replace(/\bvia Apify\b/gi, "via source")
     .replace(SCRAPER_NAME_RE, "source");
+}
+
+/**
+ * Map a log line's leading marker character back to the corresponding
+ * type. The pipeline's `log.success(...)` / `log.warn(...)` etc. write
+ * ANSI-colored output to stdout, but ANSI codes are stripped before we
+ * forward to the client SSE channel. Without this re-classification
+ * EVERY line got broadcast as type: "info" (gray), so the dashboard
+ * lost the green/amber/red color signal.
+ *
+ * Marker characters per the pipeline logger:
+ *   ✓ → success (relevant jobs, posted-to-tracker confirmations)
+ *   ⚠ → warn
+ *   ✗ → error
+ *   ○ → skip (irrelevant / duplicate / quota-bound)
+ *   >>> → step (phase header)
+ *
+ * Falls back to "info" when no marker matches, which is correct for
+ * plain narrative lines like "Resume loaded (12345 chars)".
+ */
+function detectLogType(line: string): "step" | "success" | "warn" | "error" | "skip" | "info" {
+  // The pipeline emits lines as `HH:MM:SS   <marker> <message>`.
+  // We test for the marker after the timestamp + whitespace prefix.
+  // The early-bail `includes()` keeps this O(N) across the dispatch.
+  if (line.includes(" ✓ ")) return "success";
+  if (line.includes(" ⚠ ")) return "warn";
+  if (line.includes(" ✗ ")) return "error";
+  if (line.includes(" ○ ")) return "skip";
+  if (line.includes(" >>> ")) return "step";
+  return "info";
 }
 
 function detectStep(line: string): string | null {
@@ -386,13 +420,25 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
       const trimmed = stripAnsi(raw).trim();
       if (!trimmed) continue;
       const now = new Date().toISOString();
-      broadcast(userId, { time: now, type: "info", message: trimmed });
+      // Classify by marker so the client renderer can apply the right
+      // color (green for ✓ relevant-job confirmations, amber for ⚠
+      // warnings, red for ✗ errors, dimmed for ○ skips). Without this
+      // every line was tagged "info" and rendered gray, hiding the
+      // green relevant-job signal the user wanted to see at a glance.
+      const detectedType = detectLogType(trimmed);
+      broadcast(userId, { time: now, type: detectedType, message: trimmed });
 
       // Also emit a structured step event if this line marks a step
       // transition, so the client's progress tracker advances past "init".
+      //
+      // IMPORTANT: do NOT include `message` on this second broadcast — the
+      // first broadcast above already carried the full text. Sending it
+      // again caused every `>>> Phase X ...` line to render twice in the
+      // log panel (once with the normal step style, once with the step-
+      // tracker prefix). The progress tracker only needs `step`.
       const stepId = detectStep(trimmed);
       if (stepId) {
-        broadcast(userId, { time: now, type: "step", step: stepId, message: trimmed });
+        broadcast(userId, { time: now, type: "step", step: stepId });
       }
     }
   });

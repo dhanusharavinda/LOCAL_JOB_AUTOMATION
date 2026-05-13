@@ -397,11 +397,37 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
       continue;
     }
 
-    // Step 4: Nothing matched → drop
-    droppedCount++;
-    if (droppedCount <= 15) {
-      log.info(`  [dropped] "${job.title}" @ "${job.companyName}" — no country match: "${raw.location}"`);
+    // Step 4: Empty / missing / vague location.
+    //
+    // Old behavior dropped these as "no country match". Two reasons
+    // that was wrong:
+    //   - The scrape side is already filtered by location (LinkedIn
+    //     geoId, Indeed country code, Naukri ?location=, etc.). A job
+    //     surfacing in a country-scoped scrape with no location string
+    //     is far more likely to BE in that country than to be in a
+    //     different one — the scraper would have rejected the latter.
+    //   - Many legit postings genuinely don't include a location field
+    //     (company portals, recruitment-agency listings, etc.). Dropping
+    //     them lost real opportunities the user would have wanted.
+    //
+    // New behavior: KEEP these. The AI relevance scorer downstream
+    // has a `geographic_fit` dimension that will catch the rare case
+    // where a stripped-location job is actually off-region. Better to
+    // let the AI judge than to silently lose jobs that scraped through
+    // a country filter.
+    const locTrimmed = (raw.location || "").trim();
+    if (locTrimmed.length < 3) {
+      // Empty or near-empty (whitespace, "-", "n/a") — pass through.
+      passed.push(job);
+      continue;
     }
+
+    // Location string is non-trivial but didn't match any of our
+    // country/city patterns AND doesn't name another country. Could
+    // be a region we don't recognize ("EMEA", "APAC", "Europe",
+    // "Hybrid Office"). Trust the upstream scrape's country filter
+    // and keep it — same reasoning as above.
+    passed.push(job);
   }
 
   if (droppedCount > 0) {

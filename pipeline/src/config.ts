@@ -144,6 +144,43 @@ export const config = {
 
   // Max age for scraped jobs in days
   MAX_AGE_DAYS: parseInt(optional("MAX_AGE_DAYS", "14"), 10),
+  // Cap how many jobs the portal scanner accepts from a SINGLE target
+  // company in one run. Without this, a big employer like Vercel
+  // (~80 open Greenhouse postings) can flood the AI relevance pass
+  // and outweigh every other source in the kanban. 15 is enough to
+  // surface the company's most relevant + freshest openings without
+  // letting them dominate the run.
+  MAX_JOBS_PER_PORTAL_COMPANY: parseInt(optional("MAX_JOBS_PER_PORTAL_COMPANY", "15"), 10),
+
+  // Companies the portal scanner must skip entirely, regardless of whether
+  // they're active in target_companies. Comma-separated, case-insensitive.
+  // Use when a company keeps flooding the AI pool with off-target postings
+  // (e.g. Cloudflare's worldwide sales/account-exec roles dominating a
+  // Dublin engineering search).
+  BANNED_PORTAL_COMPANIES: optional("BANNED_PORTAL_COMPANIES", ""),
+
+  // Title substrings that always disqualify a portal-scanner job, applied
+  // BEFORE the per-company title_keywords filter. Used to drop obvious
+  // non-engineering roles (sales, marketing, account executives) at scrape
+  // time so the AI relevance pass never sees them and can't hallucinate
+  // them as "strong fit". Case-insensitive substring match.
+  GLOBAL_PORTAL_NEGATIVE_KEYWORDS: optional(
+    "GLOBAL_PORTAL_NEGATIVE_KEYWORDS",
+    "account executive,account exec,sales manager,sales director,sales engineer," +
+    "sales development,sdr,bdr,gtm,go-to-market,partner strategy,partner manager," +
+    "channel manager,customer success,marketing manager,marketing director," +
+    "product marketing,brand marketing,community marketing,recruiter,talent acquisition," +
+    "field solutions,solutions architect,solutions engineer,solutions consultant," +
+    "named account,majors account,territory account,enterprise sales," +
+    "commercial account,strategic account,front desk,executive assistant"
+  ),
+
+  // If true, the portal scanner only keeps jobs whose location string names
+  // one of TARGET_COUNTRIES (or is empty/remote). When false, all jobs the
+  // company portal returns are kept and the downstream location-filter
+  // decides. Default true because foreign-office sales roles from companies
+  // with a tiny Ireland office (Cloudflare, Datadog) were flooding the pool.
+  PORTAL_STRICT_LOCATION: optional("PORTAL_STRICT_LOCATION", "true") !== "false",
 
   // Location regions — comma-separated: ireland,uk,eu (default), us,canada, all, or custom:city1,city2
   LOCATION_REGIONS: optional("LOCATION_REGIONS", "ireland,uk,eu"),

@@ -695,30 +695,58 @@ function installSubmitWatcher(adapter: AtsAdapter) {
     } catch { /* never let learning errors block tracking */ }
 
     // Tracked-job path: PATCH the existing kanban row to applied.
-    // Untracked-page path: CREATE a new kanban row in one shot via
-    // the /track-untracked endpoint with best-effort metadata. The
-    // user can rename / re-categorize from the dashboard but no
-    // longer needs to manually re-type everything.
+    // Untracked-page path: surface a CONFIRMATION CARD with pre-
+    // filled fields so the user explicitly chooses to add this to
+    // their kanban (or skips). This replaces the prior fire-and-
+    // forget auto-create: heuristic extraction is sometimes wrong
+    // (LinkedIn job titles drift, company-on-careers-page is
+    // ambiguous, etc.), and silently adding a wrong-looking row
+    // was more annoying than helpful.
     const jobId = STATE.ctx.job?.id;
     if (!jobId) {
+      if (!STATE.overlay?.showKanbanPrompt) {
+        // Older overlay build without the prompt method. Fall back
+        // to the silent message so we don't crash.
+        STATE.overlay?.showInfo("Answers saved to your profile bank. (Open the dashboard to add this to your kanban.)");
+        return;
+      }
+      const guess = guessUntrackedJobMetadata();
+      let confirmed: { title: string; company: string; location: string; job_type: string; url: string } | null = null;
       try {
-        const guess = guessUntrackedJobMetadata();
+        confirmed = await STATE.overlay.showKanbanPrompt({
+          title: guess.title,
+          company: guess.company,
+          location: guess.location,
+          url: guess.url,
+        });
+      } catch {
+        // Prompt errored out (shouldn't happen) — fall back to
+        // skipping the kanban add. Answers are already saved.
+        STATE.overlay?.showInfo("Answers saved to your profile bank.");
+        return;
+      }
+      if (!confirmed) {
+        STATE.overlay?.showInfo("Answers saved to your profile bank. Application not added to kanban.");
+        return;
+      }
+      try {
         const result = await callBackground("/api/apply/track-untracked", {
           method: "POST",
           body: {
-            job_title: guess.title,
-            company_name: guess.company,
-            job_link: guess.url,
-            location: guess.location,
+            job_title: confirmed.title,
+            company_name: confirmed.company,
+            job_link: confirmed.url,
+            location: confirmed.location,
+            job_type: confirmed.job_type,
             method: `extension_${adapter.atsName}_untracked`,
-            apply_url: guess.url,
+            apply_url: confirmed.url,
           },
         });
         const existed = (result as any)?.existed === true;
         STATE.overlay?.showInfo(
           existed
-            ? "Found this in your kanban already, moved to Applied. Answers saved to your profile bank."
-            : "Added to your kanban as Applied. Edit the title/company from the dashboard if needed."
+            ? "Found this in your kanban already, moved to Applied. Good luck."
+            : "Added to your kanban as Applied. Good luck."
         );
       } catch (err: any) {
         STATE.overlay?.showInfo("Answers saved to your profile bank. (Couldn't add to kanban: " + (err?.message || "network error") + ")");

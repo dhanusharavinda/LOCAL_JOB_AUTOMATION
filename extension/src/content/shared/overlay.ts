@@ -21,6 +21,21 @@ export interface OverlayApi {
   setBankCount(n: number): void;
   showError(msg: string): void;
   showInfo(msg: string): void;
+  /**
+   * Show a "Save this application to your kanban?" prompt after the
+   * user submits on an untracked page. Pre-fills the four core fields
+   * (title, company, location, job_type) with the engine's best-effort
+   * heuristic extraction so the user can review-and-confirm rather
+   * than re-type everything. Returns the resolved row data when the
+   * user clicks Save, or null when they click Skip.
+   */
+  showKanbanPrompt(prefill: {
+    title: string;
+    company: string;
+    location: string;
+    job_type?: string;
+    url: string;
+  }): Promise<{ title: string; company: string; location: string; job_type: string; url: string } | null>;
   destroy(): void;
 }
 
@@ -63,6 +78,7 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
         <button class="primary" data-fill>Fill form</button>
         <div class="opt-section" data-opt></div>
         <div class="ai-section" data-ai></div>
+        <div class="kanban-prompt" data-kanban-prompt></div>
         <div class="info" data-info></div>
         <div class="error" data-error></div>
         <div class="footer">
@@ -79,6 +95,7 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
   const fillBtn = shadow.querySelector("[data-fill]") as HTMLButtonElement;
   const aiSection = shadow.querySelector("[data-ai]") as HTMLElement;
   const optSection = shadow.querySelector("[data-opt]") as HTMLElement;
+  const kanbanPrompt = shadow.querySelector("[data-kanban-prompt]") as HTMLElement;
   const errorEl = shadow.querySelector("[data-error]") as HTMLElement;
   const infoEl = shadow.querySelector("[data-info]") as HTMLElement;
   const closeBtn = shadow.querySelector(".close") as HTMLButtonElement;
@@ -265,6 +282,79 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
     },
     showError(msg) { errorEl.textContent = msg; infoEl.textContent = ""; },
     showInfo(msg)  { infoEl.textContent  = msg; errorEl.textContent = ""; },
+    showKanbanPrompt(prefill) {
+      // Build the prompt card. Renders four editable fields preset
+      // from the engine's heuristic extraction. Resolves with the
+      // user's confirmed/edited values when they click Save, or null
+      // when they click Skip. The promise is one-shot: clicking either
+      // button removes the card so we never resolve twice.
+      kanbanPrompt.innerHTML = "";
+      return new Promise<{ title: string; company: string; location: string; job_type: string; url: string } | null>((resolve) => {
+        const card = document.createElement("div");
+        card.className = "kanban-card";
+        card.innerHTML = `
+          <div class="kanban-head">Add this application to your kanban?</div>
+          <div class="kanban-sub">Review the auto-detected fields, then Save. Edit anything that's wrong.</div>
+          <div class="kanban-grid">
+            <label>
+              <span>Position title</span>
+              <input type="text" data-k-title value="${escapeHtmlAttr(prefill.title || "")}" />
+            </label>
+            <label>
+              <span>Company</span>
+              <input type="text" data-k-company value="${escapeHtmlAttr(prefill.company || "")}" />
+            </label>
+            <label>
+              <span>Location</span>
+              <input type="text" data-k-location value="${escapeHtmlAttr(prefill.location || "")}" />
+            </label>
+            <label>
+              <span>Job type</span>
+              <input type="text" data-k-jobtype value="${escapeHtmlAttr(prefill.job_type || "")}" placeholder="Full-time / Internship / Contract" />
+            </label>
+          </div>
+          <div class="kanban-actions">
+            <button type="button" class="kanban-skip">Skip</button>
+            <button type="button" class="kanban-save">Save to kanban</button>
+          </div>
+        `;
+        const titleEl    = card.querySelector("[data-k-title]")    as HTMLInputElement;
+        const companyEl  = card.querySelector("[data-k-company]")  as HTMLInputElement;
+        const locationEl = card.querySelector("[data-k-location]") as HTMLInputElement;
+        const jobTypeEl  = card.querySelector("[data-k-jobtype]")  as HTMLInputElement;
+        const saveBtn    = card.querySelector(".kanban-save")      as HTMLButtonElement;
+        const skipBtn    = card.querySelector(".kanban-skip")      as HTMLButtonElement;
+
+        const finish = (out: { title: string; company: string; location: string; job_type: string; url: string } | null) => {
+          // Remove the prompt so a second click can't double-fire.
+          kanbanPrompt.innerHTML = "";
+          resolve(out);
+        };
+
+        saveBtn.addEventListener("click", () => {
+          const title = titleEl.value.trim();
+          const company = companyEl.value.trim();
+          if (!title || !company) {
+            // Required fields. Surface an inline message rather than
+            // a noisy alert(). Don't resolve — let the user fix it.
+            saveBtn.textContent = "Title + company required";
+            saveBtn.disabled = true;
+            setTimeout(() => { saveBtn.textContent = "Save to kanban"; saveBtn.disabled = false; }, 1800);
+            return;
+          }
+          finish({
+            title,
+            company,
+            location: locationEl.value.trim(),
+            job_type: jobTypeEl.value.trim(),
+            url: prefill.url,
+          });
+        });
+        skipBtn.addEventListener("click", () => finish(null));
+
+        kanbanPrompt.appendChild(card);
+      });
+    },
     destroy() { host.remove(); },
   };
 }
@@ -292,6 +382,11 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;")
     .replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** Stricter variant safe for use inside an `attribute="..."` slot. */
+function escapeHtmlAttr(s: string): string {
+  return escapeHtml(s);
 }
 
 function overlayCss(): string {
@@ -384,6 +479,49 @@ function overlayCss(): string {
 
     .info  { color: #2e7d32; font-size: 12px; margin-top: 8px; }
     .error { color: #c62828; font-size: 12px; margin-top: 8px; }
+
+    /* Kanban confirmation card. Mirrors the dashboard's "Add Custom
+       Application" modal styling so the user recognises the shape.
+       Sits in its own section below the AI questions so it doesn't
+       collide with the per-field UI. */
+    .kanban-prompt { margin-top: 14px; }
+    .kanban-card {
+      border: 1px solid #d4d4d4; border-radius: 10px; padding: 12px;
+      background: #fafafa;
+    }
+    .kanban-head { font-weight: 700; font-size: 13px; margin-bottom: 2px; color: #1a1a1a; }
+    .kanban-sub { font-size: 11px; color: #666; margin-bottom: 10px; }
+    .kanban-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px;
+    }
+    .kanban-grid label {
+      display: flex; flex-direction: column; gap: 3px;
+      font-size: 11px; color: #444;
+    }
+    .kanban-grid label > span { font-weight: 600; }
+    .kanban-grid input {
+      padding: 6px 8px; border-radius: 6px;
+      border: 1px solid #d4d4d4; background: #fff;
+      font: inherit; font-size: 12px; color: #1a1a1a;
+      outline: none;
+    }
+    .kanban-grid input:focus { border-color: #ff5722; }
+    .kanban-actions {
+      display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px;
+    }
+    .kanban-actions button {
+      padding: 6px 12px; border-radius: 8px; border: 0;
+      font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .kanban-skip {
+      background: transparent; color: #666; border: 1px solid #d4d4d4 !important;
+    }
+    .kanban-skip:hover { color: #1a1a1a; }
+    .kanban-save {
+      background: #1a1a1a; color: #fff;
+    }
+    .kanban-save:hover { background: #333; }
+    .kanban-save:disabled { background: #d4d4d4; color: #fff; cursor: not-allowed; }
 
     .footer {
       margin-top: 12px; padding-top: 10px; border-top: 1px solid #f0f0f0;

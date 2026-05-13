@@ -142,7 +142,11 @@ router.post("/", async (req: Request, res: Response) => {
   const email = req.user!.email;
   const userIsAdmin = isAdmin(email);
   const quota = quotaFor(plan, email);
-  const { resumeText, jobDescription } = req.body;
+  const { resumeText, jobDescription, generateCoverLetter } = req.body;
+  // On-demand cover letter alongside the tailored resume. Off by
+  // default — only generated when the client explicitly asks for it
+  // so we don't pay for an extra OpenAI call every tailor run.
+  const wantsCoverLetter = generateCoverLetter === true;
 
   if (!resumeText || resumeText.length < 50) {
     res.status(400).json({ error: "Resume text must be at least 50 characters." });
@@ -387,11 +391,79 @@ router.post("/", async (req: Request, res: Response) => {
         ? (resumeData as any).projectSwaps
         : [];
 
+    // On-demand cover letter. Best-effort: failures are logged but
+    // don't break the tailor response — the user still gets their
+    // resume PDF. Skipped entirely unless the client opted in via
+    // `generateCoverLetter: true`.
+    let coverLetter: string | null = null;
+    if (wantsCoverLetter) {
+      try {
+        // Try to pull a job title + company from the JD's first ~200
+        // chars. If the model can't infer them, the cover letter falls
+        // back to generic phrasing ("the role").
+        const jdSnippet = jd.slice(0, 200);
+        const titleGuess = (jdSnippet.match(/(?:position|role|hiring)[\s:]+([A-Z][^\.\n]{3,60})/i)?.[1] || "").trim();
+        const companyGuess = (jdSnippet.match(/(?:at|for|with|@)\s+([A-Z][A-Za-z0-9& ]{2,40})/)?.[1] || "").trim();
+        const targetRole = titleGuess || "the role";
+        const targetCompany = companyGuess || "the company";
+
+        // Skills bullet — what the candidate brings, mined from the
+        // resume's top-level skills section if present, otherwise the
+        // first 1500 chars. Used as ground-truth so the model doesn't
+        // invent tools the candidate hasn't used.
+        const candidateSkills = resume.slice(0, 1500);
+
+        // Tight, no-AI-slop cover letter prompt. Mirrors the
+        // /api/jobs/:id/cover-letter route's style guard so the
+        // landing-page output reads consistently with the dashboard's.
+        const clPrompt = `Write a cover letter for a job application. Output valid JSON only. No backticks, no markdown.
+
+Return: { "coverLetter": "the cover letter text here" }
+
+BANNED WORDS: "I am writing to express my interest", "I am confident", "Thank you for your time and consideration", "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "delve", "foster", "showcase", "pivotal", "cutting-edge", "synergy", "dynamic". NEVER use em-dashes.
+
+RULES:
+- 3 short paragraphs, under 150 words total.
+- Start with "Dear Hiring Team,".
+- Para 1 (1-2 sentences): mention the ${targetRole} role at ${targetCompany} + something concrete from the JD.
+- Para 2 (2-3 sentences): connect candidate skills to job needs using CONCRETE examples ("I built X that did Y"). Stay grounded in CANDIDATE SKILLS below.
+- Para 3 (1-2 sentences): one specific thing about this role that interests you + sign off.
+
+NEVER reference tools/frameworks not in CANDIDATE SKILLS.
+
+CANDIDATE SKILLS:
+${candidateSkills}
+
+JOB DESCRIPTION:
+${jd}
+
+Return the JSON now.`;
+
+        const clCompletion = await openai.chat.completions.create({
+          model: TAILOR_CHAT_MODEL,
+          messages: [{ role: "user", content: clPrompt }],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          max_tokens: 600,
+        });
+        const clParsed = JSON.parse(clCompletion.choices[0]?.message?.content || "{}");
+        coverLetter = typeof clParsed.coverLetter === "string" && clParsed.coverLetter.trim().length > 0
+          ? clParsed.coverLetter.trim()
+          : null;
+      } catch (err: any) {
+        // Don't block the tailor response on cover-letter failures.
+        // The client gets the resume; coverLetter just stays null and
+        // the UI shows a "couldn't generate" state.
+        console.warn("[free-tailor] cover letter generation failed", err?.message || err);
+      }
+    }
+
     res.json({
       pdfBase64: pdfBuffer.toString("base64"),
       pdfUrl,
       resumeData: inner,
       projectSwaps,
+      coverLetter,
       plan,
       quota,
       used: newUsed,
