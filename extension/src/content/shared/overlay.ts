@@ -22,12 +22,13 @@ export interface OverlayApi {
   showError(msg: string): void;
   showInfo(msg: string): void;
   /**
-   * Show a "Save this application to your kanban?" prompt after the
-   * user submits on an untracked page. Pre-fills the four core fields
-   * (title, company, location, job_type) with the engine's best-effort
-   * heuristic extraction so the user can review-and-confirm rather
-   * than re-type everything. Returns the resolved row data when the
-   * user clicks Save, or null when they click Skip.
+   * Show a "Review this application before it lands in your kanban"
+   * prompt after the user submits on an untracked page. Pre-fills the
+   * four core fields (title, company, location, job_type) with the
+   * engine's best-effort heuristic extraction so the user can review-
+   * and-correct rather than re-type. Save is the only action — every
+   * manual submission must end up on the kanban, so there is no skip
+   * path. Returns the confirmed row data when the user clicks Save.
    */
   showKanbanPrompt(prefill: {
     title: string;
@@ -35,7 +36,7 @@ export interface OverlayApi {
     location: string;
     job_type?: string;
     url: string;
-  }): Promise<{ title: string; company: string; location: string; job_type: string; url: string } | null>;
+  }): Promise<{ title: string; company: string; location: string; job_type: string; url: string }>;
   destroy(): void;
 }
 
@@ -284,17 +285,17 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
     showInfo(msg)  { infoEl.textContent  = msg; errorEl.textContent = ""; },
     showKanbanPrompt(prefill) {
       // Build the prompt card. Renders four editable fields preset
-      // from the engine's heuristic extraction. Resolves with the
-      // user's confirmed/edited values when they click Save, or null
-      // when they click Skip. The promise is one-shot: clicking either
-      // button removes the card so we never resolve twice.
+      // from the engine's heuristic extraction. Save is the only
+      // action — every manual application must end up on the kanban,
+      // so we deliberately don't expose a skip path. The promise is
+      // one-shot: clicking Save removes the card and resolves.
       kanbanPrompt.innerHTML = "";
-      return new Promise<{ title: string; company: string; location: string; job_type: string; url: string } | null>((resolve) => {
+      return new Promise<{ title: string; company: string; location: string; job_type: string; url: string }>((resolve) => {
         const card = document.createElement("div");
         card.className = "kanban-card";
         card.innerHTML = `
-          <div class="kanban-head">Add this application to your kanban?</div>
-          <div class="kanban-sub">Review the auto-detected fields, then Save. Edit anything that's wrong.</div>
+          <div class="kanban-head">Adding this application to your kanban</div>
+          <div class="kanban-sub">Review the auto-detected fields, fix anything that's wrong, then Save. Every manual application is tracked.</div>
           <div class="kanban-grid">
             <label>
               <span>Position title</span>
@@ -314,7 +315,6 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
             </label>
           </div>
           <div class="kanban-actions">
-            <button type="button" class="kanban-skip">Skip</button>
             <button type="button" class="kanban-save">Save to kanban</button>
           </div>
         `;
@@ -323,13 +323,6 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
         const locationEl = card.querySelector("[data-k-location]") as HTMLInputElement;
         const jobTypeEl  = card.querySelector("[data-k-jobtype]")  as HTMLInputElement;
         const saveBtn    = card.querySelector(".kanban-save")      as HTMLButtonElement;
-        const skipBtn    = card.querySelector(".kanban-skip")      as HTMLButtonElement;
-
-        const finish = (out: { title: string; company: string; location: string; job_type: string; url: string } | null) => {
-          // Remove the prompt so a second click can't double-fire.
-          kanbanPrompt.innerHTML = "";
-          resolve(out);
-        };
 
         saveBtn.addEventListener("click", () => {
           const title = titleEl.value.trim();
@@ -342,7 +335,9 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
             setTimeout(() => { saveBtn.textContent = "Save to kanban"; saveBtn.disabled = false; }, 1800);
             return;
           }
-          finish({
+          // Remove the prompt so a second click can't double-fire.
+          kanbanPrompt.innerHTML = "";
+          resolve({
             title,
             company,
             location: locationEl.value.trim(),
@@ -350,7 +345,6 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
             url: prefill.url,
           });
         });
-        skipBtn.addEventListener("click", () => finish(null));
 
         kanbanPrompt.appendChild(card);
       });

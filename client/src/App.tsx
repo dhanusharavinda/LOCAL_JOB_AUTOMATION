@@ -304,12 +304,17 @@ export default function App() {
   // skip re-render via React.memo on JobCard.
   const searched = useMemo(() => jobs.filter((j) => {
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (
-        !j.job_title.toLowerCase().includes(q) &&
-        !j.company_name.toLowerCase().includes(q) &&
-        !(j.location || "").toLowerCase().includes(q)
-      ) return false;
+      // Trim whitespace + guard every field. Manually-tracked rows from
+      // the extension can land in the DB with null/empty title or
+      // company; an unguarded .toLowerCase() throws and the entire
+      // memoized filter aborts, leaving the board blank.
+      const q = searchQuery.trim().toLowerCase();
+      if (q) {
+        const title = (j.job_title || "").toLowerCase();
+        const company = (j.company_name || "").toLowerCase();
+        const location = (j.location || "").toLowerCase();
+        if (!title.includes(q) && !company.includes(q) && !location.includes(q)) return false;
+      }
     }
     // Country filter — the five markets supported end-to-end (pipeline,
     // events, skills). Each option matches the country plus its major

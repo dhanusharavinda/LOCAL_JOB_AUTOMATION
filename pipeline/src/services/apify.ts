@@ -321,7 +321,71 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
     }
   }
 
-  return validJobs as LinkedInJob[];
+  // ── Title-keyword pre-filter ─────────────────────────────────────
+  //
+  // LinkedIn's "keywords" param is a full-text search across title +
+  // description, so a query for "ai engineer OR python developer"
+  // happily returns "Trainee Optical Assistant" or "ESL Teacher" when
+  // their JDs happen to mention python/data once. The AI scorer
+  // catches them, but each one burns ~$0.001 in tokens and clutters
+  // the run logs.
+  //
+  // Filter rule: the job title must contain at least one TECH token
+  // from the user's keyword list. Generic seniority modifiers
+  // (graduate / junior / intern / entry / etc.) are stripped out
+  // because they match anything ("Graduate Veterinary Nurse"). If
+  // strong tokens can't be extracted (user's keywords are all
+  // seniority words), we skip the filter — better to over-include
+  // than to silently zero-out the run.
+  const filtered = applyTitleKeywordFilter(validJobs);
+  return filtered as LinkedInJob[];
+}
+
+/** Seniority / generic modifiers that should NOT count as tech tokens
+ *  (they match too many non-tech roles). Lowercase, alphanumeric only. */
+const TITLE_FILTER_STOPWORDS = new Set([
+  "graduate", "junior", "jr", "intern", "internship", "entry", "level",
+  "mid", "senior", "sr", "principal", "lead", "staff", "associate",
+  "year", "years", "fresher", "trainee", "apprentice", "i", "ii", "iii",
+  "and", "or", "the", "a", "an", "of", "for", "to", "in", "with",
+]);
+
+function applyTitleKeywordFilter(jobs: any[]): any[] {
+  const source = (config.SEARCH_KEYWORDS || config.LINKEDIN_KEYWORDS || config.TARGET_ROLE || "")
+    .toLowerCase();
+  if (!source.trim()) return jobs;
+
+  const strongTokens = new Set<string>();
+  for (const phrase of source.split(",")) {
+    for (const tok of phrase.trim().split(/\s+/)) {
+      const cleaned = tok.replace(/[^a-z0-9]/g, "");
+      if (cleaned.length >= 2 && !TITLE_FILTER_STOPWORDS.has(cleaned)) {
+        strongTokens.add(cleaned);
+      }
+    }
+  }
+  if (strongTokens.size === 0) return jobs;
+
+  // Word-boundary regex per token so "ai" doesn't match "said" and
+  // "ml" doesn't match "html". Escaped because tokens like "c++" or
+  // ".net" would otherwise blow up the RegExp constructor.
+  const patterns = Array.from(strongTokens).map(
+    (t) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")
+  );
+  const before = jobs.length;
+  const kept = jobs.filter((j) => {
+    const title = String((j as any).title || "");
+    return patterns.some((re) => re.test(title));
+  });
+  const dropped = before - kept.length;
+  if (dropped > 0) {
+    const sample = Array.from(strongTokens).slice(0, 8).join(", ");
+    const more = strongTokens.size > 8 ? `, +${strongTokens.size - 8} more` : "";
+    log.info(
+      `  Title-keyword filter: dropped ${dropped}/${before} jobs whose titles didn't match any tech keyword (${sample}${more}).`
+    );
+  }
+  return kept;
 }
 
 // ──────────────────────────────────────────────────────────────────────

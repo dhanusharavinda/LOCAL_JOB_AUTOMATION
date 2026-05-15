@@ -1038,4 +1038,344 @@ router.delete("/answer-cache", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/apply/assistant-text ─────────────────────────────────────
+//
+// Personalised text generator for the extension's in-popup AI assistant.
+// The user has a resume and apply_profile already on file, so each call
+// stays compact: the caller sends an action type plus pasted context
+// (JD, LinkedIn post, recipient profile) and gets back a short, voice-
+// matched draft without re-uploading anything.
+//
+// Action types:
+//   - "followup"            recruiter / hiring-manager follow-up email
+//   - "linkedin_connect"    short note attached to a LinkedIn connect request
+//   - "linkedin_comment"    insightful comment on someone's post
+//   - "referral_request"    asking a connection for a genuine referral
+//   - "cold_outreach"       cold message to a hiring manager / engineer
+//   - "thank_you"           post-interview thank-you note
+//   - "custom"              caller supplies a freeform instruction
+//
+// Style contract (enforced via prompt):
+//   - short, precise, personalised
+//   - no em-dashes (the user has a hard rule against them)
+//   - no AI-slop openers ("I am writing to", "I hope this finds you well")
+//   - no "leverage", "synergy", "circle back", "delve"
+//   - first-person, warm but professional
+const ASSISTANT_ACTION_TYPES = new Set([
+  "followup", "linkedin_connect", "linkedin_comment",
+  "referral_request", "cold_outreach", "thank_you", "custom",
+]);
+
+router.post("/assistant-text", answerLimiter, async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const {
+    actionType,
+    context,
+    recipientName,
+    recipientRole,
+    customInstruction,
+    targetCompany,
+    targetRole,
+  } = req.body || {};
+
+  const action = String(actionType || "").trim();
+  if (!ASSISTANT_ACTION_TYPES.has(action)) {
+    res.status(400).json({ error: "Unknown actionType" });
+    return;
+  }
+  const ctxText = String(context || "").trim();
+  if (action !== "custom" && !ctxText && action !== "followup") {
+    res.status(400).json({ error: "Paste the JD / post / profile so the assistant has something to ground the reply in." });
+    return;
+  }
+  if (ctxText.length > 6000) {
+    res.status(400).json({ error: "Context too long (max 6000 chars). Trim it down to the relevant bits." });
+    return;
+  }
+  if (action === "custom" && !String(customInstruction || "").trim()) {
+    res.status(400).json({ error: "Custom action needs a customInstruction telling it what to write." });
+    return;
+  }
+
+  try {
+    const profileRows = await sql<any[]>`
+      SELECT * FROM apply_profiles WHERE user_id = ${userId} LIMIT 1
+    `;
+    const profile = profileRows[0];
+
+    // Resume text is optional. If the user hasn't uploaded one yet the
+    // assistant still works on profile fields alone, just with less
+    // grounding. We hard-cap to a budget to keep the prompt cheap.
+    let resumeText = "";
+    try {
+      const r = await downloadResumeText(userId);
+      resumeText = (r || "").slice(0, 4000);
+    } catch { /* missing resume is fine; profile fields fill the gap */ }
+
+    const profileBrief = profile
+      ? [
+          profile.full_name && `Name: ${profile.full_name}`,
+          profile.years_experience != null && `Years experience: ${profile.years_experience}`,
+          profile.highest_degree && `Degree: ${profile.highest_degree}`,
+          profile.university && `University: ${profile.university}`,
+          profile.why_interested && `Career motivation: ${profile.why_interested}`,
+          profile.greatest_achievement && `Top achievement: ${profile.greatest_achievement}`,
+          profile.problem_solved && `Sample problem solved: ${profile.problem_solved}`,
+          profile.unique_strength && `Differentiator: ${profile.unique_strength}`,
+        ].filter(Boolean).join("\n")
+      : "";
+
+    if (!profileBrief && !resumeText) {
+      res.status(400).json({
+        error: "Set up your apply profile (or upload a resume) first so the assistant has something to personalise from.",
+        needsProfile: true,
+      });
+      return;
+    }
+
+    const openai = getOpenAI();
+    if (!openai) {
+      res.status(500).json({ error: "AI is not configured on the server" });
+      return;
+    }
+
+    const actionRule = buildAssistantActionRule(action, {
+      recipientName: String(recipientName || "").trim(),
+      recipientRole: String(recipientRole || "").trim(),
+      targetCompany: String(targetCompany || "").trim(),
+      targetRole: String(targetRole || "").trim(),
+      customInstruction: String(customInstruction || "").trim(),
+    });
+
+    // System prompt is built from the humanizer SKILL.md ban list (Wikipedia's
+    // "Signs of AI writing") so that the model knows the exact patterns to
+    // avoid. The previous version produced obvious AI-isms like "hands-on,
+    // data-driven decision-making" — the new prompt names those tells
+    // explicitly so the model recognises them as forbidden, not just
+    // unfashionable.
+    const system = [
+      "You are the candidate's personal writing assistant.",
+      "Your only job: produce SHORT, SPECIFIC, HUMAN-SOUNDING messages in the candidate's voice.",
+      "",
+      "## Hard style contract (break any of these and the output is wrong)",
+      "",
+      "1. NO em-dashes (—) anywhere. Use a comma, period, colon, or split sentences. None of: en-dash (–), two hyphens (--).",
+      "2. NO curly quotes. Use straight quotes only.",
+      "3. NO AI-slop openers. Banned: 'I am writing to', 'I am reaching out', 'I wanted to reach out', 'I hope this finds you well', 'I came across your profile', 'Hope you are well', 'Great question', 'Hope you don't mind'.",
+      "4. NO sycophantic / servile praise. Banned: 'huge fan', 'absolutely love', 'truly impressive', 'incredible work', 'amazing post', 'great insights', 'this resonates'.",
+      "5. NO generic positive conclusions. Banned: 'exciting times ahead', 'looking forward to the journey', 'eager to contribute'.",
+      "6. NO AI vocabulary. Banned (case-insensitive, applies to all forms): leverage, synergy, circle back, delve, holistic, ecosystem, navigate, foster, embark, journey, robust, cutting-edge, paradigm, hands-on, data-driven decision-making, results-driven, results-oriented, passionate about, deeply committed, proven track record, dynamic, vibrant, seamless, intuitive, transformative, groundbreaking, pivotal, intricate, intricacies, tapestry, testament, underscore, underscoring, highlight (as a verb), align with, alignment, additionally, furthermore, moreover, in today's fast-paced world.",
+      "7. NO superficial -ing analyses. Banned tails: 'highlighting...', 'underscoring...', 'reflecting...', 'symbolizing...', 'contributing to...', 'fostering...', 'showcasing...', 'emphasizing...', 'ensuring...'.",
+      "8. NO copula avoidance. Use 'is' / 'are' / 'has'. Banned substitutes: 'serves as', 'stands as', 'functions as', 'represents a', 'marks a', 'boasts'.",
+      "9. NO negative parallelism. Banned: 'It's not just X, it's Y', 'Not only... but also...'.",
+      "10. NO rule-of-three slogans. Banned: triplets like 'precise, scalable, and impactful' or 'innovation, inspiration, and insight'.",
+      "11. NO elegant variation. If you mean 'the team', say 'the team' the next time too. Don't cycle 'the team / the group / the squad / the org'.",
+      "12. NO weasel attributions. Don't write 'industry experts agree', 'studies show', 'many believe'.",
+      "13. NO filler. 'In order to' → 'to'. 'At this point in time' → 'now'. 'Due to the fact that' → 'because'. 'Has the ability to' → 'can'.",
+      "14. NO hedging stacks. Banned: 'could potentially possibly', 'might be able to maybe'.",
+      "15. NO knowledge-cutoff disclaimers. Banned: 'as of my last update', 'while specific details are limited'.",
+      "16. NO emojis, NO bold, NO headers, NO bullet lists unless the medium absolutely requires it (it usually doesn't).",
+      "17. NO meta-talk. Don't write 'Here is the draft', 'Let me know if you want me to adjust'. Output only the message.",
+      "",
+      "## Voice contract (positive rules)",
+      "",
+      "- First person, warm, plain English. Sound like the candidate would actually talk over coffee.",
+      "- Use everyday vocabulary by default. Reach for a technical term ONLY when it carries real weight — and then use ONE precise term, not three near-synonyms.",
+      "- Be specific. Name one concrete detail from the pasted context AND one concrete detail from the candidate's resume / profile. Generic praise is worse than no praise.",
+      "- Vary sentence length. Mix short punchy ones with one slightly longer one. Not every sentence the same shape.",
+      "- Acknowledge real things. If something is uncertain, say so plainly. Don't pad with confidence theatre.",
+      "- One idea per sentence. No long buildups. Get to the point.",
+      "- Show a hint of a real person: an opinion, a small specific reaction, a concrete reason. Not a press release.",
+      "- Stay within the length budget of the action. Better to be 2 sentences short than 2 sentences long.",
+      "",
+      "## Final self-check (silent, before output)",
+      "",
+      "Before you output, audit your draft against this list:",
+      "- Does it contain ANY banned word or phrase above? If yes, rewrite that line in plain English.",
+      "- Does any sentence start with 'I am writing' or 'I hope' or 'I wanted'? Cut it.",
+      "- Are there em-dashes? Replace each with a comma or period.",
+      "- Does it sound like a press release or a LinkedIn bio? Rewrite.",
+      "- Does it reference at least one specific detail from the pasted context? If not, you don't have enough material — write the shortest honest version.",
+      "",
+      "## Candidate profile",
+      profileBrief || "(none on file)",
+      resumeText ? `\n## Resume excerpt (truncated to 4000 chars)\n${resumeText}` : "",
+    ].join("\n");
+
+    const user = [
+      `Action: ${action}`,
+      actionRule,
+      ctxText ? `\nContext the candidate pasted:\n"""\n${ctxText}\n"""` : "",
+      "",
+      "Write the message now. Output only the message body.",
+    ].join("\n");
+
+    const completion = await openai.chat.completions.create({
+      model: APPLY_CHAT_MODEL,
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    });
+
+    let text = (completion.choices[0]?.message?.content || "").trim();
+    text = scrubAiArtifacts(text);
+
+    // If after scrubbing the text still looks like a press release (very
+    // few sentences with mostly banned-word density), regenerate ONCE
+    // with a stronger reminder. Belt-and-braces: the prompt should have
+    // caught it, but gpt-4o-mini occasionally regresses on the second
+    // request in a row.
+    if (containsBannedPhrases(text)) {
+      const retry = await openai.chat.completions.create({
+        model: APPLY_CHAT_MODEL,
+        temperature: 0.6,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+          {
+            role: "user",
+            content:
+              "That draft contains banned phrases (em-dashes, AI-slop openers, or words like 'hands-on / data-driven / passionate about / leverage'). Rewrite it now from scratch with NONE of those, keeping the same length budget and the same specific details. Output only the new message.",
+          },
+        ],
+      });
+      const retryText = (retry.choices[0]?.message?.content || "").trim();
+      if (retryText) text = scrubAiArtifacts(retryText);
+    }
+
+    res.json({ text, action });
+  } catch (err: any) {
+    console.error("[POST /api/apply/assistant-text]", err?.message || err);
+    res.status(500).json({ error: err?.message || "Assistant generation failed" });
+  }
+});
+
+/**
+ * Strip the obvious AI tells the model occasionally smuggles past the
+ * system prompt. Replaces em-dashes/en-dashes with commas, removes
+ * wrapper quotes/code fences, normalises curly quotes, and trims
+ * meta-talk like "Here is the draft:" or "Let me know if you want...".
+ *
+ * We intentionally do NOT delete banned WORDS (leverage, holistic, etc.)
+ * — replacing them silently would break the sentence. The retry path
+ * regenerates the whole message instead. This scrub only fixes
+ * punctuation and shell.
+ */
+function scrubAiArtifacts(input: string): string {
+  let text = input;
+  text = text.replace(/[—–]/g, ", ");
+  text = text.replace(/--/g, ", ");
+  text = text.replace(/[“”]/g, "\"").replace(/[‘’]/g, "'");
+  text = text.replace(/^```[a-z]*\n?/i, "").replace(/```$/i, "").trim();
+  text = text.replace(/^["'`]+|["'`]+$/g, "").trim();
+  text = text.replace(/^\s*(here(?:'s| is)\s+(?:the\s+)?(?:draft|message|text|note)[:\-]?\s*)/i, "");
+  text = text.replace(/\n*\s*let me know if (?:you|there)[^\n]*$/i, "").trim();
+  text = text.replace(/\n*\s*hope this helps[^\n]*$/i, "").trim();
+  text = text.replace(/[ \t]+,/g, ",").replace(/,{2,}/g, ",").replace(/[ \t]{2,}/g, " ");
+  return text.trim();
+}
+
+const BANNED_PHRASE_REGEX = new RegExp(
+  [
+    "\\b(?:hands-on|data-driven decision)\\b",
+    "\\b(?:results-driven|results-oriented|passionate about|deeply committed)\\b",
+    "\\bproven track record\\b",
+    "\\bin today's fast-paced\\b",
+    "\\b(?:leverage|leveraging|leverages)\\b",
+    "\\b(?:synergy|synergistic|synergies)\\b",
+    "\\b(?:delve|delves|delving|delved)\\b",
+    "\\bholistic\\b",
+    "\\b(?:foster|fostering|fostered)\\b",
+    "\\bembark(?:ing|ed)?\\b",
+    "\\b(?:robust|cutting-edge|paradigm|seamless|intuitive|transformative|groundbreaking|pivotal)\\b",
+    "\\b(?:tapestry|testament|underscore|underscoring|underscores)\\b",
+    "\\b(?:additionally|moreover|furthermore)\\b",
+    "i am writing to",
+    "i am reaching out",
+    "i hope this finds you well",
+    "i wanted to reach out",
+    "i came across your profile",
+    "great question",
+    "huge fan",
+    "this resonates",
+    "—",
+  ].join("|"),
+  "i"
+);
+
+function containsBannedPhrases(text: string): boolean {
+  return BANNED_PHRASE_REGEX.test(text);
+}
+
+interface AssistantActionInputs {
+  recipientName: string;
+  recipientRole: string;
+  targetCompany: string;
+  targetRole: string;
+  customInstruction: string;
+}
+
+function buildAssistantActionRule(action: string, x: AssistantActionInputs): string {
+  const who = x.recipientName
+    ? `Address it to ${x.recipientName}${x.recipientRole ? ` (${x.recipientRole})` : ""}.`
+    : "Use a neutral greeting (no name) if no recipient is named.";
+  const co = x.targetCompany ? `Target company: ${x.targetCompany}.` : "";
+  const role = x.targetRole ? `Target role: ${x.targetRole}.` : "";
+
+  switch (action) {
+    case "followup":
+      return [
+        "Write a recruiter / hiring-manager follow-up email.",
+        "3 to 5 short sentences. Reference one specific detail (a project, the JD, a recent post) so it does not read as a template.",
+        "End with a soft ask (timeline check, next steps, brief chat).",
+        who, co, role,
+      ].filter(Boolean).join("\n");
+    case "linkedin_connect":
+      return [
+        "Write a LinkedIn connection-request note. STRICT 280-character limit.",
+        "Open with one genuine, specific reason for connecting (their work, a post, a shared interest).",
+        "Mention what the candidate brings or is looking for in one short line. End warmly. No 'I would love to'.",
+        who, co, role,
+      ].filter(Boolean).join("\n");
+    case "linkedin_comment":
+      return [
+        "Write an INSIGHTFUL comment on the LinkedIn post in the context.",
+        "2 to 3 sentences. Add a real perspective the candidate has earned the right to share (a project, a result, a counterpoint).",
+        "Do NOT start with 'Great post' or 'This resonates'. Lead with the idea.",
+        "Sound like a peer, not a fan.",
+      ].filter(Boolean).join("\n");
+    case "referral_request":
+      return [
+        "Write a SHORT message asking for a genuine referral.",
+        "4 short sentences max: who the candidate is in one line, the role they want, one specific reason this person's referral matters, a low-pressure ask.",
+        "Acknowledge that a referral is a favour and offer to send anything that makes it easy (resume, blurb).",
+        who, co, role,
+      ].filter(Boolean).join("\n");
+    case "cold_outreach":
+      return [
+        "Write a cold outreach message to a hiring manager or engineer on the team.",
+        "4 short sentences: one line of credible signal about the candidate, one specific tie to the company or role, a one-line ask, a graceful close.",
+        "No flattery. No 'I am a huge fan'. Earn the reply.",
+        who, co, role,
+      ].filter(Boolean).join("\n");
+    case "thank_you":
+      return [
+        "Write a post-interview thank-you note.",
+        "3 to 4 sentences. Reference one specific topic that came up in the interview. Reinforce one concrete strength the candidate brings to that topic.",
+        "End with quiet confidence, not a hard ask.",
+        who, co, role,
+      ].filter(Boolean).join("\n");
+    case "custom":
+      return [
+        `Follow this custom instruction from the candidate exactly: "${x.customInstruction}".`,
+        "Keep it SHORT and personalised to the context. Apply all the global style rules.",
+        who, co, role,
+      ].filter(Boolean).join("\n");
+    default:
+      return "Write something short, specific, and personal.";
+  }
+}
+
 export default router;

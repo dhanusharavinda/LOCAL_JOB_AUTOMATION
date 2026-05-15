@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { freeTailorResume, checkFreeTailorStatus, FreeTailorResult, AuthUser, AuthRequiredError } from "../api";
+import { freeTailorResume, checkFreeTailorStatus, generateFreeTailorCoverLetter, FreeTailorResult, AuthUser, AuthRequiredError } from "../api";
 import AuthModal from "./AuthModal";
 
 interface Props {
@@ -19,6 +19,14 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   // a tailored resume.
   const [alsoCoverLetter, setAlsoCoverLetter] = useState(false);
   const [copiedCoverLetter, setCopiedCoverLetter] = useState(false);
+  // Post-tailor cover letter generation. Lets a user click "Generate
+  // cover letter" on the result panel even if they didn't check the
+  // opt-in box before tailoring. We store the generated text here
+  // instead of mutating `result.coverLetter` so the original response
+  // stays intact and refresh-after-failure works cleanly.
+  const [generatedCoverLetter, setGeneratedCoverLetter] = useState<string | null>(null);
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
+  const [coverLetterError, setCoverLetterError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("input");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FreeTailorResult | null>(null);
@@ -214,6 +222,22 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setResumeText("");
     setJobDescription("");
     setUploadedFileName(null);
+    setGeneratedCoverLetter(null);
+    setCoverLetterError(null);
+  }
+
+  async function handleGenerateCoverLetter() {
+    if (!resumeText || !jobDescription) return;
+    setGeneratingCoverLetter(true);
+    setCoverLetterError(null);
+    try {
+      const res = await generateFreeTailorCoverLetter(resumeText, jobDescription);
+      setGeneratedCoverLetter(res.coverLetter);
+    } catch (err: any) {
+      setCoverLetterError(err.message || "Couldn't generate cover letter. Please try again.");
+    } finally {
+      setGeneratingCoverLetter(false);
+    }
   }
 
   function handleRemoveFile() {
@@ -570,50 +594,91 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               </div>
             </div>
 
-            {/* Cover letter — only when the user opted in AND the
-                server actually produced one. Shows copy button +
-                inline preview. The card mirrors the kanban
-                JobDetailModal's cover-letter section for visual
-                consistency across the two surfaces. */}
-            {result.coverLetter && (
-              <div className="bg-[var(--bg-raised)] border border-blue-500/20 rounded-2xl overflow-hidden shadow-2xl">
-                <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+            {/* Cover letter card — shown when EITHER the user opted in
+                up front and the server produced one (result.coverLetter)
+                OR the user clicked "Generate cover letter" on this
+                result panel (generatedCoverLetter). The card mirrors
+                the kanban JobDetailModal's cover-letter section for
+                visual consistency across the two surfaces. */}
+            {(() => {
+              const coverLetter = result.coverLetter || generatedCoverLetter;
+              if (!coverLetter) return null;
+              return (
+                <div className="bg-[var(--bg-raised)] border border-blue-500/20 rounded-2xl overflow-hidden shadow-2xl">
+                  <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[var(--text-primary)]">Cover letter drafted</h3>
+                        <p className="text-xs text-[var(--text-secondary)]">Grounded in your resume, no fabricated tools or roles.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-display text-lg font-bold text-[var(--text-primary)]">Cover letter drafted</h3>
-                      <p className="text-xs text-[var(--text-secondary)]">Grounded in your resume — no fabricated tools or roles.</p>
-                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(coverLetter);
+                        setCopiedCoverLetter(true);
+                        setTimeout(() => setCopiedCoverLetter(false), 2000);
+                      }}
+                      className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-4 py-2 rounded-xl transition-colors"
+                    >
+                      {copiedCoverLetter ? "Copied!" : "Copy"}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (!result.coverLetter) return;
-                      navigator.clipboard.writeText(result.coverLetter);
-                      setCopiedCoverLetter(true);
-                      setTimeout(() => setCopiedCoverLetter(false), 2000);
-                    }}
-                    className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-4 py-2 rounded-xl transition-colors"
-                  >
-                    {copiedCoverLetter ? "Copied!" : "Copy"}
-                  </button>
+                  <div className="px-6 py-5">
+                    <pre className="font-body text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{coverLetter}</pre>
+                  </div>
                 </div>
-                <div className="px-6 py-5">
-                  <pre className="font-body text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{result.coverLetter}</pre>
+              );
+            })()}
+
+            {/* Post-tailor cover-letter CTA. Shown when no cover letter
+                exists yet — either because the user didn't opt in, or
+                because the inline cover-letter call failed. Gives them
+                a way to generate one without re-tailoring (which would
+                burn another daily quota). */}
+            {!result.coverLetter && !generatedCoverLetter && (
+              <div className="bg-[var(--bg-raised)] border border-blue-500/20 rounded-2xl px-6 py-5 shadow-2xl flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-display text-base font-bold text-[var(--text-primary)]">
+                      {alsoCoverLetter ? "Cover letter not generated" : "Want a cover letter too?"}
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      {alsoCoverLetter
+                        ? "The initial draft didn't come through. Try again, free."
+                        : "Generate a 3-paragraph cover letter for this job, free."}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={handleGenerateCoverLetter}
+                  disabled={generatingCoverLetter}
+                  className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {generatingCoverLetter ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate cover letter"
+                  )}
+                </button>
               </div>
             )}
 
-            {/* If the user opted in but the AI failed (or returned
-                an empty answer), surface a soft hint instead of
-                silently dropping the request. The resume PDF still
-                shipped; this is just an explainer. */}
-            {alsoCoverLetter && !result.coverLetter && (
-              <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
-                We couldn't generate the cover letter this time. Try again with a longer / clearer job description.
+            {coverLetterError && (
+              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                {coverLetterError}
               </div>
             )}
 

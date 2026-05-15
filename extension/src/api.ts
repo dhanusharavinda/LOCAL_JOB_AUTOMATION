@@ -175,3 +175,33 @@ export async function aiAnswer(input: {
 }): Promise<{ answer: string; cached: boolean }> {
   return apiFetch("/api/apply/answer", { method: "POST", body: input });
 }
+
+export type AssistantAction =
+  | "followup"
+  | "linkedin_connect"
+  | "linkedin_comment"
+  | "referral_request"
+  | "cold_outreach"
+  | "thank_you"
+  | "custom";
+
+export interface AssistantTextInput {
+  actionType: AssistantAction;
+  context?: string;
+  recipientName?: string;
+  recipientRole?: string;
+  targetCompany?: string;
+  targetRole?: string;
+  customInstruction?: string;
+}
+
+/**
+ * Personalised draft from the in-popup AI assistant. The server already
+ * holds the user's resume + apply_profile, so we send only the action
+ * type, the pasted context, and optional recipient hints.
+ */
+export async function generateAssistantText(
+  input: AssistantTextInput
+): Promise<{ text: string; action: string }> {
+  return apiFetch("/api/apply/assistant-text", { method: "POST", body: input });
+}

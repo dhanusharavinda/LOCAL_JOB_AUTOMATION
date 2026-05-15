@@ -492,6 +492,99 @@ Return the JSON now.`;
   }
 });
 
+// ─── POST /api/free-tailor/cover-letter ─────────────────────────────
+//
+// Stateless cover-letter generator for the landing-page tailor flow.
+// Lets a user click "Generate Cover Letter" AFTER they've already
+// tailored a resume without opting into the inline cover letter. Takes
+// the same resumeText + jobDescription the tailor used and returns the
+// cover letter. Does NOT burn against the daily tailor quota — the
+// user already spent that for the resume; the cover letter is a
+// follow-up convenience on the same inputs.
+router.post("/cover-letter", async (req: Request, res: Response) => {
+  const { resumeText, jobDescription } = req.body || {};
+
+  if (!resumeText || typeof resumeText !== "string" || resumeText.length < 50) {
+    res.status(400).json({ error: "Resume text must be at least 50 characters." });
+    return;
+  }
+  if (!jobDescription || typeof jobDescription !== "string" || jobDescription.length < 30) {
+    res.status(400).json({ error: "Job description must be at least 30 characters." });
+    return;
+  }
+
+  const MAX_INPUT_CHARS = 25000;
+  if (resumeText.length + jobDescription.length > MAX_INPUT_CHARS) {
+    res.status(400).json({ error: "Input too large. Resume + job description must be under 25,000 characters combined." });
+    return;
+  }
+
+  const openai = getOpenAI();
+  if (!openai) {
+    res.status(503).json({ error: "AI service is not configured on the server." });
+    return;
+  }
+
+  try {
+    const resume = resumeText.slice(0, 16000);
+    const jd = jobDescription.slice(0, 4000);
+
+    // Same heuristic infer-from-JD-snippet that the inline cover-letter
+    // path uses, so the follow-up version reads identically.
+    const jdSnippet = jd.slice(0, 200);
+    const titleGuess = (jdSnippet.match(/(?:position|role|hiring)[\s:]+([A-Z][^\.\n]{3,60})/i)?.[1] || "").trim();
+    const companyGuess = (jdSnippet.match(/(?:at|for|with|@)\s+([A-Z][A-Za-z0-9& ]{2,40})/)?.[1] || "").trim();
+    const targetRole = titleGuess || "the role";
+    const targetCompany = companyGuess || "the company";
+    const candidateSkills = resume.slice(0, 1500);
+
+    const clPrompt = `Write a cover letter for a job application. Output valid JSON only. No backticks, no markdown.
+
+Return: { "coverLetter": "the cover letter text here" }
+
+BANNED WORDS: "I am writing to express my interest", "I am confident", "Thank you for your time and consideration", "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "delve", "foster", "showcase", "pivotal", "cutting-edge", "synergy", "dynamic". NEVER use em-dashes.
+
+RULES:
+- 3 short paragraphs, under 150 words total.
+- Start with "Dear Hiring Team,".
+- Para 1 (1-2 sentences): mention the ${targetRole} role at ${targetCompany} + something concrete from the JD.
+- Para 2 (2-3 sentences): connect candidate skills to job needs using CONCRETE examples ("I built X that did Y"). Stay grounded in CANDIDATE SKILLS below.
+- Para 3 (1-2 sentences): one specific thing about this role that interests you + sign off.
+
+NEVER reference tools/frameworks not in CANDIDATE SKILLS.
+
+CANDIDATE SKILLS:
+${candidateSkills}
+
+JOB DESCRIPTION:
+${jd}
+
+Return the JSON now.`;
+
+    const completion = await openai.chat.completions.create({
+      model: TAILOR_CHAT_MODEL,
+      messages: [{ role: "user", content: clPrompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+      max_tokens: 600,
+    });
+    const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    const coverLetter = typeof parsed.coverLetter === "string" && parsed.coverLetter.trim().length > 0
+      ? parsed.coverLetter.trim()
+      : null;
+
+    if (!coverLetter) {
+      res.status(502).json({ error: "AI returned an empty cover letter. Please try again." });
+      return;
+    }
+
+    res.json({ coverLetter });
+  } catch (err: any) {
+    console.error("[POST /api/free-tailor/cover-letter]", err?.message || err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
 /**
  * Resume tailoring prompt. Mirrors the pipeline's 1-10 intensity scale
  * so the free hook produces the same quality output as a paid pipeline

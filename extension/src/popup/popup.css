@@ -50,3 +50,120 @@ body {
 .detected .meta  { color: #555; font-size: 12px; }
 
 .error-text { color: #c62828; font-size: 12px; margin-top: 8px; }
+
+/* ── AI Assistant view ─────────────────────────────────────────────── */
+/* When the assistant view is active we widen the popup so the textarea
+ * and generated output have room to breathe. 340px is too cramped for
+ * a paste-the-JD workflow. */
+body.assistant-mode { width: 460px; }
+
+.assistant-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.assistant-actions .action-chip {
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.25;
+}
+.assistant-actions .action-chip:hover { background: #f1f1f1; }
+.assistant-actions .action-chip.active {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+.assistant-actions .action-chip .hint {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+.assistant-actions .action-chip.active .hint { color: #ddd; }
+
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  margin: 8px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.input, .textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #1a1a1a;
+}
+.textarea { resize: vertical; min-height: 70px; line-height: 1.4; }
+.input:focus, .textarea:focus { outline: 2px solid #ff5722; outline-offset: -1px; border-color: transparent; }
+
+.recipient-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.assistant-output {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.assistant-output.empty { color: #999; font-style: italic; }
+
+.assistant-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.assistant-header .title {
+  font-weight: 700;
+  font-size: 14px;
+  flex: 1;
+  text-align: center;
+}
+.assistant-header .back-btn,
+.assistant-header .pop-out-btn {
+  background: #f1f1f1;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.assistant-header .back-btn:hover,
+.assistant-header .pop-out-btn:hover {
+  background: #e8e8e8;
+  border-color: #b0b0b0;
+}
+.assistant-header .pop-out-btn {
+  background: #fff3e0;
+  border-color: #ffcc80;
+  color: #e65100;
+}
+.assistant-header .pop-out-btn:hover { background: #ffe0b2; border-color: #ffb74d; }

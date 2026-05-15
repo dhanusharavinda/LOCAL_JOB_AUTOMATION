@@ -733,6 +733,27 @@ export async function freeTailorResume(
   return res.json();
 }
 
+// Stateless follow-up cover-letter generator. Used by the landing-page
+// FreeTailor flow so users who didn't opt into the inline cover letter
+// can still generate one AFTER the resume PDF lands, on the same
+// resume + JD inputs. Doesn't burn the daily tailor quota.
+export async function generateFreeTailorCoverLetter(
+  resumeText: string,
+  jobDescription: string,
+): Promise<{ coverLetter: string }> {
+  const res = await fetch("/api/free-tailor/cover-letter", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resumeText, jobDescription }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Cover letter generation failed" }));
+    if (res.status === 401) throw new AuthRequiredError(err.error || "Authentication required");
+    throw new Error(err.error || "Cover letter generation failed");
+  }
+  return res.json();
+}
+
 // ─── Auth API ───────────────────────────────────────────────────────
 
 // Patch window.fetch once to auto-inject the current Supabase access token

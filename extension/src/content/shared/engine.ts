@@ -695,13 +695,12 @@ function installSubmitWatcher(adapter: AtsAdapter) {
     } catch { /* never let learning errors block tracking */ }
 
     // Tracked-job path: PATCH the existing kanban row to applied.
-    // Untracked-page path: surface a CONFIRMATION CARD with pre-
-    // filled fields so the user explicitly chooses to add this to
-    // their kanban (or skips). This replaces the prior fire-and-
-    // forget auto-create: heuristic extraction is sometimes wrong
-    // (LinkedIn job titles drift, company-on-careers-page is
-    // ambiguous, etc.), and silently adding a wrong-looking row
-    // was more annoying than helpful.
+    // Untracked-page path: surface a review card with heuristic-pre-
+    // filled fields. Save is the ONLY action — every manual submission
+    // is added to the kanban. The earlier fire-and-forget auto-create
+    // produced wrong-looking rows when heuristics misfired, so the
+    // review step lets the user correct title/company in place before
+    // it lands; but there is no skip path.
     const jobId = STATE.ctx.job?.id;
     if (!jobId) {
       if (!STATE.overlay?.showKanbanPrompt) {
@@ -711,7 +710,7 @@ function installSubmitWatcher(adapter: AtsAdapter) {
         return;
       }
       const guess = guessUntrackedJobMetadata();
-      let confirmed: { title: string; company: string; location: string; job_type: string; url: string } | null = null;
+      let confirmed: { title: string; company: string; location: string; job_type: string; url: string };
       try {
         confirmed = await STATE.overlay.showKanbanPrompt({
           title: guess.title,
@@ -720,13 +719,9 @@ function installSubmitWatcher(adapter: AtsAdapter) {
           url: guess.url,
         });
       } catch {
-        // Prompt errored out (shouldn't happen) — fall back to
-        // skipping the kanban add. Answers are already saved.
-        STATE.overlay?.showInfo("Answers saved to your profile bank.");
-        return;
-      }
-      if (!confirmed) {
-        STATE.overlay?.showInfo("Answers saved to your profile bank. Application not added to kanban.");
+        // Prompt errored out (shouldn't happen). Answers are already
+        // saved; the row will need to be added manually on the dashboard.
+        STATE.overlay?.showInfo("Answers saved to your profile bank. Add this application from the dashboard.");
         return;
       }
       try {
