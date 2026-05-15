@@ -219,10 +219,17 @@ function buildResumeHtml(data: any): string {
   .header { text-align: center; margin-bottom: 4px; }
   .name {
     font-family: 'EB Garamond', Georgia, serif;
-    font-size: 26pt;
-    font-variant: small-caps;
-    font-weight: 400;
-    letter-spacing: 1.5px;
+    font-size: 22pt;
+    /* text-transform: uppercase (not font-variant: small-caps).
+       Chromium's synthesized small-caps writes lowercase letters into
+       the PDF text layer with a font that lacks a proper ToUnicode
+       mapping for the small-cap glyphs, so ATS parsers drop the
+       lowercase characters and "Aravind" gets extracted as "Arvind".
+       text-transform feeds genuine uppercase characters to the PDF
+       text layer, which every ATS reads cleanly. */
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 1px;
     color: #000;
     margin-bottom: 4px;
   }
