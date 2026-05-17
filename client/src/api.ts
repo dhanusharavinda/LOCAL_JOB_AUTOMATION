@@ -719,11 +719,15 @@ export async function freeTailorResume(
   // resume. Off by default so the OpenAI cost stays at 1 call per
   // tailor for users who only want the resume.
   generateCoverLetter = false,
+  // Free-form steering ("emphasise Databricks, drop GCP") that the
+  // prompt treats as a high-priority keyword hint without overriding
+  // immutable rules (job titles, certs, no fabrication).
+  userInstructions?: string,
 ): Promise<FreeTailorResult> {
   const res = await fetch("/api/free-tailor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ resumeText, jobDescription, intensity, originalFilename, generateCoverLetter }),
+    body: JSON.stringify({ resumeText, jobDescription, intensity, originalFilename, generateCoverLetter, userInstructions }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Tailoring failed" }));

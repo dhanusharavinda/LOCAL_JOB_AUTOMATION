@@ -428,6 +428,16 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
     ? Math.max(1, Math.min(10, requestedIntensity))
     : 5;
 
+  // Optional free-form steering ("emphasise Databricks, drop GCP").
+  // Validated for type + length; the prompt builder strips control chars.
+  const rawInstructions = typeof (req.body || {}).userInstructions === "string"
+    ? (req.body as any).userInstructions
+    : "";
+  if (rawInstructions.length > 1000) {
+    res.status(400).json({ error: "Custom instructions are too long (max 1000 characters)." });
+    return;
+  }
+
   try {
     const result = await loadJobAndResume(userId, id);
     if ("error" in result) {
@@ -456,7 +466,7 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
     const expectedExperience = (resumeText.match(/\b(?:Engineer|Developer|Manager|Analyst|Intern|Consultant|Designer|Scientist|Architect|Director|Lead|Specialist|Coordinator|Officer|Associate)\b/gi) || []).length;
 
     const bankProjects = await fetchBankProjectsForPrompt(userId);
-    const systemPrompt = buildTailorPrompt(resumeText, intensity, expectedEducation, expectedExperience, bankProjects);
+    const systemPrompt = buildTailorPrompt(resumeText, intensity, expectedEducation, expectedExperience, bankProjects, rawInstructions);
     const userPrompt = `Job description:\n\n${job.description}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
 
     const completion = await openai.chat.completions.create({

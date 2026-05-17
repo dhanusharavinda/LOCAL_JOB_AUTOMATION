@@ -19,6 +19,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   // a tailored resume.
   const [alsoCoverLetter, setAlsoCoverLetter] = useState(false);
   const [copiedCoverLetter, setCopiedCoverLetter] = useState(false);
+  // Optional free-form steering ("emphasise Databricks, drop GCP").
+  // Capped at 500 chars in the UI; the server allows up to 1000 as
+  // a safety margin in case the cap moves later. Collapsed by
+  // default so it doesn't intimidate first-time users.
+  const [userInstructions, setUserInstructions] = useState("");
+  const [showInstructions, setShowInstructions] = useState(false);
   // Post-tailor cover letter generation. Lets a user click "Generate
   // cover letter" on the result panel even if they didn't check the
   // opt-in box before tailoring. We store the generated text here
@@ -148,6 +154,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
         intensity,
         uploadedFileName || undefined,
         alsoCoverLetter,
+        userInstructions.trim() || undefined,
       );
       setResult(res);
       setPhase("result");
@@ -224,6 +231,8 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setUploadedFileName(null);
     setGeneratedCoverLetter(null);
     setCoverLetterError(null);
+    setUserInstructions("");
+    setShowInstructions(false);
   }
 
   async function handleGenerateCoverLetter() {
@@ -449,6 +458,52 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               {intensity === 10 && (
                 <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
                   <strong className="font-semibold">Mirror-mode warning.</strong> Intensity 10 will fabricate plausible metrics, tools, and projects to hit 90%+ JD keyword coverage. Your ATS score goes up, but recruiters who screen dozens of CVs a day spot JD-mirroring instantly and it reads as lazy or manipulative. Stay at 7-9 for aggressive tailoring without the fabrication tax.
+                </div>
+              )}
+            </div>
+
+            {/* Custom instructions add-on. Collapsed by default —
+                clicking the header expands a 500-char textarea that
+                lets the user steer keyword emphasis ("lean on
+                Databricks, drop GCP", "weave Airflow into the
+                pipeline bullets"). The server treats this as a
+                high-priority hint without overriding the immutable
+                rules (job titles stay verbatim, no fabrication
+                beyond what intensity allows, etc.). */}
+            <div className="px-6 pt-4 pb-2">
+              <button
+                type="button"
+                onClick={() => setShowInstructions((v) => !v)}
+                className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <svg className={`w-3 h-3 transition-transform ${showInstructions ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                Custom instructions
+                <span className="text-[10px] normal-case tracking-normal text-[var(--text-ghost)]">
+                  optional, tell the AI what to emphasise or drop
+                </span>
+              </button>
+              {showInstructions && (
+                <div className="mt-3">
+                  <textarea
+                    value={userInstructions}
+                    onChange={(e) => {
+                      const next = e.target.value.slice(0, 500);
+                      setUserInstructions(next);
+                    }}
+                    rows={3}
+                    placeholder={'e.g. "Mention Databricks and drop GCP. Weave Databricks into the work experience and project bullets where it fits."'}
+                    className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40 font-mono resize-none leading-relaxed"
+                  />
+                  <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--text-ghost)]">
+                    <span>
+                      Steers keyword choice only. Past job titles, certifications, and dates stay verbatim.
+                    </span>
+                    <span className={`font-mono tabular-nums ${userInstructions.length >= 480 ? "text-amber-400" : ""}`}>
+                      {userInstructions.length} / 500
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
