@@ -79,7 +79,18 @@ export async function checkJobRelevance(
       const dims = parsed.dimensions as Record<string, { score: number; reasoning: string }>;
       let weightedSum = 0;
       let totalWeight = 0;
-      let gateCapped = false;
+      // Track gate-pass dimensions separately so we can require BOTH to
+      // fail before capping the score. The old behaviour (cap when ANY
+      // gate dim < 2) made the AI's overcautious role_match=1 on
+      // adjacent roles (e.g. Data Scientist for a Data Engineer
+      // candidate) hard-cap the score to 4/10 even when
+      // skills_alignment was 3-4. Users then had to set the threshold
+      // absurdly low to see anything. Requiring both gates to fail
+      // still catches the genuine category mismatches (sales for a
+      // tech candidate → role_match=1 AND skills_alignment=1) while
+      // letting adjacent tech roles bubble up on their merits.
+      let gateFailures = 0;
+      let gateCount = 0;
 
       for (const [key, cfg] of Object.entries(SCORING_DIMENSIONS)) {
         const dimKey = key as ScoringDimensionKey;
@@ -95,11 +106,17 @@ export async function checkJobRelevance(
         const clampedScore = Math.max(1, Math.min(5, dimScore));
         weightedSum += clampedScore * cfg.weight;
         totalWeight += cfg.weight;
-        // Gate-pass check
-        if (cfg.gate && clampedScore < 2) {
-          gateCapped = true;
+        if (cfg.gate) {
+          gateCount++;
+          if (clampedScore < 2) gateFailures++;
         }
       }
+
+      // Strict cap only when EVERY gate dimension failed (role_match
+      // AND skills_alignment both < 2). That's the true "wrong field"
+      // signal: the AI is telling us this isn't the candidate's role
+      // AND they have no applicable skills.
+      const gateCapped = gateCount > 0 && gateFailures === gateCount;
 
       let weightedScore = totalWeight > 0 ? weightedSum / totalWeight : 2.5;
       if (gateCapped) {

@@ -493,10 +493,12 @@ async function main() {
   // threshold based on what their actual scrape returned, instead of
   // guessing from a generic warning.
   const allScores: number[] = [];
-  // Track jobs whose final score was gate-capped (role_match=1 or
+  // Track jobs whose final score was gate-capped (role_match=1 AND
   // skills_alignment=1 → score forced down to 4/10 regardless of other
   // dimensions). High gate-cap counts mean the keyword search is pulling
-  // off-target jobs; the AI scorer is doing its job but LinkedIn isn't.
+  // off-target jobs; the AI scorer is doing its job but the scrapers
+  // aren't. Adjacent tech roles (Data Scientist for a Data Engineer
+  // candidate) only flag one gate and bubble up on their merits now.
   let gateCappedCount = 0;
   let completedCount = 0;
 
@@ -627,7 +629,7 @@ async function main() {
       const pctCapped = Math.round((gateCappedCount / allScores.length) * 100);
       log.info(
         `  ${gateCappedCount} of ${allScores.length} jobs (${pctCapped}%) were gate-capped at 4/10 ` +
-        "(role_match or skills_alignment scored 1 — the job's function is fundamentally different from your target role)."
+        "(role_match AND skills_alignment both scored 1 — the job is in a fundamentally different field, e.g. sales/marketing/HR for a tech candidate)."
       );
     }
 

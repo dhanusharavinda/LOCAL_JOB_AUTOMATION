@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Job, JobStatus, COLUMNS } from "./types";
 import { fetchJobs, updateJobStatus, batchDeleteJobs, gmailStatus, gmailAuth, gmailSync, gmailDisconnect, toggleJobFlag, checkExpiry, authMe, AuthUser, LimitsInfo } from "./api";
-import { supabase } from "./supabaseClient";
+import { supabase, getCurrentAccessToken } from "./supabaseClient";
 import { startLandingTour, startDashboardTour, getTourState } from "./onboarding/tour";
 import KanbanBoard from "./components/KanbanBoard";
 import JobDetailModal from "./components/JobDetailModal";
@@ -214,6 +214,58 @@ export default function App() {
     const interval = setInterval(loadJobs, 30000);
     return () => clearInterval(interval);
   }, [loadJobs, page, currentUser]);
+
+  // Live refresh — subscribe to the pipeline SSE stream so the kanban
+  // updates as jobs land. Previously the dashboard only polled every
+  // 30s, so a pipeline finishing seconds after the last poll left the
+  // board stale until the next tick (or until the user manually
+  // refreshed). We listen for two signals:
+  //   - "Posted: <title> @ <company>" success messages → debounced
+  //     refresh as jobs trickle in during the run.
+  //   - type === "complete" → immediate refresh + one delayed catch-up
+  //     500ms later in case the final DB inserts hadn't committed
+  //     when the SSE event fired.
+  // EventSource auto-reconnects on transient drops; we close + reopen
+  // when page / user changes. The 30s poll above stays as a safety net.
+  useEffect(() => {
+    if (page !== "dashboard") return;
+    if (!currentUser) return;
+
+    const token = getCurrentAccessToken();
+    const url = token
+      ? `/api/pipeline/events?access_token=${encodeURIComponent(token)}`
+      : "/api/pipeline/events";
+    const es = new EventSource(url);
+
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const refreshSoon = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => { loadJobs(); pending = null; }, 800);
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as { type?: string; message?: string };
+        if (data.type === "complete") {
+          loadJobs();
+          setTimeout(loadJobs, 500);
+          return;
+        }
+        if (data.type === "success" && typeof data.message === "string" && /Posted:/i.test(data.message)) {
+          refreshSoon();
+        }
+      } catch { /* ignore parse errors */ }
+    };
+    // EventSource fires onerror for both transient hiccups (auto-
+    // reconnects) and terminal failures. We don't surface errors on
+    // the dashboard — the 30s poll keeps the board fresh either way.
+    es.onerror = () => { /* silent — polling fallback covers it */ };
+
+    return () => {
+      if (pending) clearTimeout(pending);
+      es.close();
+    };
+  }, [page, currentUser, loadJobs]);
 
   // ── First-run onboarding tour ──────────────────────────────────────
   // Two-phase tour: landing page first, then dashboard. Trigger logic:

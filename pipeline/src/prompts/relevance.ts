@@ -113,11 +113,11 @@ The user's relevance threshold is set on a 1-10 scale where **5 = "plausibly rel
 
 1. **role_match** (GATE-PASS): Does the job title, function, and daily work match the candidate's target role?
    - 5: exact role match. 4: same domain, slightly different title. 3: adjacent role with transferable scope. 2: tangentially related (different function, overlapping tools). 1: completely different field.
-   - GATE RULE: if score < 2, the final weighted score is CAPPED at 2.0 (grade D). Triggers ONLY for fundamentally different roles (sales/marketing/finance for a tech candidate). Adjacent tech roles are NOT gate-cap material.
+   - GATE RULE: a score of 1 here only HARD-caps the final score when skills_alignment is ALSO 1 (true category mismatch — e.g. sales/marketing/finance for a tech candidate). If role_match=1 but skills_alignment>=2, the score is NOT capped — the candidate has applicable skills even if the title is off-target, so the job stays scorable on its merits.
 
 2. **skills_alignment** (GATE-PASS): Does the candidate's resume show skills this job requires?
    - 5: 80%+ skill overlap. 4: 50%+ overlap. 3: 30%+ overlap with transferable skills. 2: <15% overlap. 1: no relevant skills.
-   - GATE RULE: if score < 2, the final weighted score is CAPPED at 2.0. Triggers ONLY when the candidate has essentially zero applicable skills.
+   - GATE RULE: a score of 1 here only HARD-caps the final score when role_match is ALSO 1. Missing skills for a target-domain role is a SOFT signal — score the job on its other dimensions and let the threshold filter handle it.
    - IMPORTANT: 50% skill overlap counts as a 4, not a 3. The bar for 4 is "transferable + some direct match", not "perfect alignment". Reserve 5 for genuine 80%+ matches.
 
 3. **seniority_fit**: Does the candidate's experience level match what the job asks for?
