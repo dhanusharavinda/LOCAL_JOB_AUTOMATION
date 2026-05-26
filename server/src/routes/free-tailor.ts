@@ -708,6 +708,21 @@ export function buildTailorPrompt(
 - Restructure skills and summary around the target role.
 - Still grounded: never invent companies, schools, job titles, or time periods.
 
+=== PROOF-IN-CONTEXT RULES (INTENSITY 10 — HARD STOPS) ===
+This is the #1 tell of a fake/over-tailored resume: a SKILLS section stuffed with the JD's tool list while the work experience and projects don't mention any of those tools. Recruiters scan top-to-bottom and ask "where did they actually use X?" — if the answer is "only in skills", they discard the resume in seconds. Every JD-driven skill must have backing PROOF in either work experience or a project bullet. Listing without proof is treated as fabrication.
+
+1. **No orphan skills.** Every tool / technology / platform / methodology you put in the SKILLS section MUST be referenced (directly or by tight synonym) in at least ONE bullet inside either work experience or projects. If you can't show usage in a bullet, DO NOT list it in skills. Removing an unbacked skill is better than listing it unbacked.
+
+2. **Context, not name-dropping.** Backing bullets must show HOW the skill was used — the system / problem / outcome — not just mention the tool's name. Acceptable: "Built an ETL pipeline in Databricks that ingested 5M rows/day into Delta tables for the analytics team." Unacceptable: "Used Databricks." Tool name alone is keyword stuffing, not proof.
+
+3. **Match the JD's framing.** When a JD asks for "Databricks for ML feature stores", a backing bullet that says "queried tables in Databricks" is too thin — the context must match the JD's USE CASE, not just the tool. Rewrite the bullet to show the matching context (feature store work, ML pipelines, etc.) provided the candidate's resume gives you something plausible to anchor to.
+
+4. **Spread proof across roles + projects when possible.** Don't dump every JD skill into one bullet. Distribute usage across multiple experience entries / projects so the skill set reads as accumulated over time, not crammed in at the last minute.
+
+5. **When projects can carry the proof, use them.** If a work experience role genuinely didn't touch a JD-critical skill, surface it through a project bullet instead. Projects are the legitimate place to demonstrate skills not yet seen in paid roles — that's their job on a junior / mid-level resume.
+
+6. **Skills section ordering reflects evidence weight.** Lead each skill category with tools the bullets back up most heavily. Tools mentioned in only one bullet go last in their category. This way the reader's eye lands on the strongest matches first.
+
 === ANTI-MIRRORING RULES (INTENSITY 10 — HARD STOPS) ===
 A recruiter screening dozens of CVs spots JD-mirroring in seconds and reads it as lazy or manipulative. Avoid it absolutely:
 
@@ -716,7 +731,7 @@ A recruiter screening dozens of CVs spots JD-mirroring in seconds and reads it a
 3. Do NOT copy JD phrasings like "collaborating with X teams to optimize Y", "managing high volumes of Z", "driving [metric] through [activity]" — these are JD boilerplate, not resume material. If the candidate did similar work, describe it in the candidate's voice using their actual scope and outcomes.
 4. Do NOT use JD-flavoured gerund-chains in the summary ("analyzing…collaborating…managing…"). Lead with concrete past-tense achievements.
 5. Keywords travel as TOKENS (tool names, platform names, domain nouns, certifications, metric types). They do NOT travel as full JD phrases or sentence structures.
-6. If the candidate's resume does NOT show evidence of a JD responsibility, don't fabricate that they performed it. You may include the adjacent tool/technology in the SKILLS section; do not stage-manage new bullets under unrelated roles.
+6. Skills without backing bullets are FABRICATION (see PROOF-IN-CONTEXT rule #1 above). If a JD tool genuinely can't be tied to ANY plausible work experience or project bullet given the candidate's resume, drop it from the skills section. Listing it unbacked makes the whole resume look padded.
 7. The candidate's professional summary must open with a concrete past achievement or role framing in their voice. Example of BAD (JD-mirrored): "Motivated BDR analyzing lead data, collaborating with sales teams to optimize lead handoff, managing high-volume inbound leads." Example of GOOD: "Data engineer turned BDR-curious analyst, 2+ years turning messy CRM data into clean pipelines at [Company]. Comfortable with Salesforce and Outreach; built dashboards sales teams actually use."
 
 Before you finalise the summary: read it back and ask "does any 4-word run also appear in the JD?" If yes, rephrase in the candidate's voice.`;
@@ -864,7 +879,8 @@ Sound human. Vary sentence length. Be specific about tools and outcomes.
 2. Count entries in experience. Does it match the number of roles? If not, add the missing ones.
 3. For every experience entry, is "location" populated if the resume shows one? If not, fix it.
 4. For every bullet, is "original" the verbatim resume text? If not, fix it.
-5. Re-read the ORIGINAL summary. If it contained a work-authorization, visa, sponsorship, security-clearance, driving-license, or availability statement, that sentence MUST appear unchanged at the end of your rewritten summary. Verify character-for-character. If you paraphrased or dropped it, restore the original phrasing now.
+5. Re-read the ORIGINAL summary. If it contained a work-authorization, visa, sponsorship, security-clearance, driving-license, or availability statement, that sentence MUST appear unchanged at the end of your rewritten summary. Verify character-for-character. If you paraphrased or dropped it, restore the original phrasing now.${intensity >= 10 ? `
+6. **PROOF-IN-CONTEXT AUDIT (intensity 10 only):** for EVERY tool / technology / platform / methodology you put in the SKILLS section, scan the experience bullets AND project bullets. Does at least one bullet show the candidate USING that skill (built X with it, optimized Y using it, migrated Z to it, etc.)? If no bullet backs it up, either (a) add a backing bullet to the most plausible role / project using the candidate's actual scope, or (b) remove the skill from the skills section. Orphan skills are fabrication and a recruiter-visible tell — fix them before returning.` : ""}
 
 Return ONLY the JSON object. No markdown, no backticks, no prose.${buildBankProjectsBlock(bankProjects)}`;
 }
