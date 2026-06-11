@@ -723,11 +723,16 @@ export async function freeTailorResume(
   // prompt treats as a high-priority keyword hint without overriding
   // immutable rules (job titles, certs, no fabrication).
   userInstructions?: string,
+  // The uploaded resume's real page count (from the PDF parser). When set,
+  // the tailored PDF is rendered to the same number of pages: 1 in -> 1 out,
+  // 2 -> 2. Omitted for DOCX / pasted text, where the server estimates from
+  // the resume's text length instead.
+  targetPages?: number,
 ): Promise<FreeTailorResult> {
   const res = await fetch("/api/free-tailor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ resumeText, jobDescription, intensity, originalFilename, generateCoverLetter, userInstructions }),
+    body: JSON.stringify({ resumeText, jobDescription, intensity, originalFilename, generateCoverLetter, userInstructions, targetPages }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Tailoring failed" }));
@@ -1312,5 +1317,99 @@ export async function clearApplyAnswerCache(key?: string): Promise<{ ok: true }>
     body: JSON.stringify({ key: key || "" }),
   });
   if (!res.ok) throw new Error("Could not clear answer cache");
+  return res.json();
+}
+
+// ─── AI Career Coach ─────────────────────────────────────────────────
+
+export interface CareerSkillGap {
+  skill: string;
+  why: string;
+  priority: "high" | "medium" | "low";
+}
+
+export interface CareerLearningItem {
+  title: string;
+  detail: string;
+  resource: string;
+  timeframe: string;
+}
+
+export interface CareerSalaryBenchmark {
+  role: string;
+  currency: string;
+  low: number;
+  median: number;
+  high: number;
+  sample_size: number;
+  note: string;
+}
+
+export interface CareerRoadmap {
+  role_target: string;
+  summary: string;
+  skill_gaps: CareerSkillGap[];
+  learning_plan: CareerLearningItem[];
+  salary_benchmark: CareerSalaryBenchmark | null;
+  action_items: string[];
+  generated_at: string;
+}
+
+/** Latest stored roadmap, or null if the user has never generated one. */
+export async function getCareerRoadmap(): Promise<CareerRoadmap | null> {
+  const res = await fetch("/api/career-coach");
+  if (!res.ok) throw new Error("Failed to load career roadmap");
+  const data = await res.json();
+  return data.roadmap ?? null;
+}
+
+/** Build a fresh roadmap from the user's resume + scored jobs + skills. */
+export async function generateCareerRoadmap(): Promise<CareerRoadmap> {
+  const res = await fetch("/api/career-coach/generate", { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to build roadmap" }));
+    throw new Error(err.error || "Failed to build roadmap");
+  }
+  const data = await res.json();
+  return data.roadmap;
+}
+
+// ─── Realtime Job Matching ───────────────────────────────────────────
+
+export interface JobMatch {
+  id: number;
+  job_title: string;
+  company_name: string;
+  location: string | null;
+  salary: string | null;
+  seniority_level: string | null;
+  match_score: number | null;
+  match_reason: string | null;
+  detected_role_type: string | null;
+  letter_grade: string;
+  apply_url: string | null;
+  job_link: string | null;
+  status: string;
+  posted_at: string | null;
+  salary_fit: boolean;
+  city_fit: boolean;
+}
+
+export interface JobMatchesResponse {
+  matches: JobMatch[];
+  profile: {
+    salary_min: number | null;
+    salary_max: number | null;
+    salary_currency: string;
+    city: string | null;
+  };
+  generated_at: string;
+}
+
+/** Curated, already-scored jobs matched to the user's skills/salary/city. */
+export async function fetchJobMatches(minScore = 6, limit = 50): Promise<JobMatchesResponse> {
+  const params = new URLSearchParams({ min: String(minScore), limit: String(limit) });
+  const res = await fetch(`/api/job-matches?${params}`);
+  if (!res.ok) throw new Error("Failed to load job matches");
   return res.json();
 }

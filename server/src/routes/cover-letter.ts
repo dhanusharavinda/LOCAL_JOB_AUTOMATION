@@ -3,7 +3,8 @@ import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { downloadResumeText, uploadResumePdf } from "../storage";
-import { generateLocalPdf } from "../pdf";
+import { generateLocalPdf, estimateResumePages } from "../pdf";
+import { capWords, JD_WORD_CAP } from "../text";
 import { buildTailorPrompt, fetchBankProjectsForPrompt } from "./free-tailor";
 
 const router = Router();
@@ -467,7 +468,7 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
 
     const bankProjects = await fetchBankProjectsForPrompt(userId);
     const systemPrompt = buildTailorPrompt(resumeText, intensity, expectedEducation, expectedExperience, bankProjects, rawInstructions);
-    const userPrompt = `Job description:\n\n${job.description}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
+    const userPrompt = `Job description:\n\n${capWords(job.description, JD_WORD_CAP)}\n\nProduce the tailored resume JSON now. Respond with ONLY the JSON object.`;
 
     const completion = await openai.chat.completions.create({
       model: CL_CHAT_MODEL,
@@ -513,7 +514,8 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
     // Generate the PDF + upload to storage. Filename pairs the tailored
     // PDF with the role + company so the user recognises it in their
     // kanban downloads list.
-    const pdfBuffer = await generateLocalPdf(inner);
+    // Match output page count to the candidate's stored resume (1 in -> 1 out).
+    const pdfBuffer = await generateLocalPdf(inner, { targetPages: estimateResumePages(resumeText) });
     const safeTitle = (job.job_title || "role").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60);
     const safeCompany = (job.company_name || "company").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 40);
     const filename = `MODIFIED_${safeCompany}_${safeTitle}_${id}.pdf`;

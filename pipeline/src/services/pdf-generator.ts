@@ -7,7 +7,20 @@ import { internalAuthHeaders } from "./job-tracker";
  * Generate PDF via the local server endpoint.
  * No cold-start warm-up needed — the server is always running locally.
  */
-export async function generatePdf(resumeData: ResumeData): Promise<Buffer> {
+/**
+ * Estimate how many Letter pages an uploaded resume occupies from its text
+ * length. Mirrors estimateResumePages in server/src/pdf.ts (the two packages
+ * can't share code) so the pipeline and the manual tailor agree on the
+ * single-page boundary (~4200 chars). Returns 1, 2, or 3.
+ */
+export function estimateResumePages(resumeText: string | null | undefined): number {
+  const len = (resumeText || "").length;
+  if (len < 4200) return 1;
+  if (len < 9500) return 2;
+  return 3;
+}
+
+export async function generatePdf(resumeData: ResumeData, targetPages?: number): Promise<Buffer> {
   const pdfUrl = `${config.JOB_TRACKER_URL}/api/pdf/generate`;
   const maxRetries = 3;
 
@@ -19,7 +32,8 @@ export async function generatePdf(resumeData: ResumeData): Promise<Buffer> {
       const response = await fetch(pdfUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...internalAuthHeaders() },
-        body: JSON.stringify(resumeData.resumeData),
+        // Envelope so the server can match output pages to the input resume.
+        body: JSON.stringify({ resumeData: resumeData.resumeData, targetPages }),
         signal: controller.signal,
       });
 

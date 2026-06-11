@@ -164,3 +164,10 @@ Server + pipeline run on Railway (Dockerfile + nixpacks.toml at root); client de
 - **Apify scrapers fail independently**: `Promise.allSettled` in the orchestrator means one broken scraper doesn't sink the whole run. Each surfaces a `log.warn` with the actor that failed.
 - **The AI relevance prompt is byte-stable** so OpenAI's prefix-cache hits on every job (50% cost discount). Be careful when editing [`pipeline/src/prompts/relevance.ts`](pipeline/src/prompts/relevance.ts) — even a whitespace change invalidates the cache for the rest of the run.
 - **Pipeline subprocess auth**: server signs a one-shot M2M token at boot (`INTERNAL_PIPELINE_TOKEN`) and passes it via env to the subprocess. The subprocess uses it to call `/api/internal/*` endpoints (write-back of scraped jobs, status updates).
+
+to do:
+AI Career Coach provides a roadmap, salary benchmarks, and learning suggestions tuned to your goals.
+
+Realtime Job Matching surfaces curated jobs matched to your skills, salary, and city, refreshed hourly.
+
+have my profile feature to collect personal career info in order to auto fill job applications using our extension!

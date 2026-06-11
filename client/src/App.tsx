@@ -8,6 +8,9 @@ import JobDetailModal from "./components/JobDetailModal";
 import AddJobModal from "./components/AddJobModal";
 import SkillsTrendModal from "./components/SkillsTrendModal";
 import CareerEventsModal from "./components/CareerEventsModal";
+import CareerCoachModal from "./components/CareerCoachModal";
+import JobMatchesModal from "./components/JobMatchesModal";
+import Sidebar from "./components/Sidebar";
 import SettingsModal from "./components/SettingsModal";
 import StoryBankModal from "./components/StoryBankModal";
 import ApplyProfileEditor from "./components/ApplyProfileEditor";
@@ -76,6 +79,10 @@ export default function App() {
   const [expiryChecking, setExpiryChecking] = useState(false);
   const [showStoryBank, setShowStoryBank] = useState(false);
   const [showApplyProfile, setShowApplyProfile] = useState(false);
+  const [showCoach, setShowCoach] = useState(false);
+  const [showMatches, setShowMatches] = useState(false);
+  // Mobile drawer for the new left sidebar nav (desktop shows it statically).
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showInterview, setShowInterview] = useState(false);
   const [interviewJobId, setInterviewJobId] = useState<number | null>(null);
 
@@ -985,7 +992,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#07080a] overflow-hidden relative">
+    <div className="h-screen flex bg-[#07080a] overflow-hidden relative">
       {/* Subtle animated video background — loops behind everything.
           Opacity is deliberately low (~0.08) so it stays a texture and
           never competes with the cards. pointer-events-none so it can't
@@ -1037,22 +1044,49 @@ export default function App() {
         </div>
       )}
 
-      {/* Header — two-row layout: top row = brand + search + user, bottom row = action buttons */}
+      {/* Premium left navigation rail (replaces the old 3-row button wall).
+          Pure presentation — every action maps to an existing handler. */}
+      <Sidebar
+        currentUser={currentUser}
+        jobCount={jobs.length}
+        onOpenMatches={() => setShowMatches(true)}
+        onOpenCoach={() => setShowCoach(true)}
+        onOpenSkills={() => setShowSkills(true)}
+        onOpenEvents={() => setShowEvents(true)}
+        onOpenStories={() => setShowStoryBank(true)}
+        onOpenApplyProfile={() => setShowApplyProfile(true)}
+        onOpenInterview={() => { setInterviewJobId(null); setShowInterview(true); }}
+        onAddJob={() => setShowAddJob(true)}
+        gmailConnected={gmailConnected}
+        gmailSyncing={gmailSyncing}
+        onGmailConnect={handleGmailConnect}
+        onGmailSync={handleGmailSync}
+        onGmailDisconnect={handleGmailDisconnect}
+        isAdmin={!!currentUser?.is_admin}
+        onAdmin={() => setPage("admin")}
+        onBackToLanding={() => { setActiveCandidateId(null); setPage("landing"); }}
+        mobileOpen={sidebarOpen}
+        onCloseMobile={() => setSidebarOpen(false)}
+      />
+
+      {/* Main content column */}
+      <div className="flex-1 flex flex-col min-h-0 relative z-10">
+
+      {/* Header — board top bar (search + account) and the board toolbar */}
       <header className="shrink-0 border-b border-[rgba(255,255,255,0.06)] bg-[#07080a]/80 backdrop-blur-sm relative z-10">
       <div className="px-3 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-3.5">
-        {/* Back to landing */}
+        {/* Mobile: open the sidebar drawer (desktop shows the rail statically) */}
         <button
-          data-tour="dashboard-back"
-          onClick={() => { setActiveCandidateId(null); setPage("landing"); }}
-          className="shrink-0 w-8 h-8 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all"
-          title="Back to Pipeline"
+          onClick={() => setSidebarOpen(true)}
+          className="md:hidden shrink-0 w-8 h-8 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
+          aria-label="Open menu"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        {/* Title — hidden on smallest screens to save space */}
-        <h1 className="hidden sm:block font-display text-lg md:text-2xl tracking-tight text-[var(--text-primary)] shrink-0">Job Tracker</h1>
+        {/* View title */}
+        <h1 className="hidden sm:block font-display text-lg md:text-xl tracking-tight text-[var(--text-primary)] shrink-0">Pipeline Board</h1>
 
         {/* Search — flex-1 on mobile so it fills remaining space */}
         <div className="relative flex-1 md:flex-none min-w-0" data-tour="dashboard-search">
@@ -1326,65 +1360,6 @@ export default function App() {
       {/* Third row — actions, stats, rates, selection (Skills / Events / Stories / counts / Gmail / …) */}
       <div className="px-3 md:px-6 py-2 flex items-center gap-2 overflow-x-auto border-t border-[rgba(255,255,255,0.03)]">
 
-        {/* Skills trend button */}
-        <button
-          onClick={() => setShowSkills(true)}
-          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3] transition-all shrink-0"
-          title="View in-demand skills from your job descriptions"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          Skills
-        </button>
-
-        {/* Career events button */}
-        <button
-          onClick={() => setShowEvents(true)}
-          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3] transition-all shrink-0"
-          title="Career fairs & events in Ireland"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          Events
-        </button>
-
-        {/* Story Bank button */}
-        <button
-          onClick={() => setShowStoryBank(true)}
-          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#c9a94e] transition-all shrink-0"
-          title="STAR story bank for interviews"
-        >
-          Stories
-        </button>
-
-        {/* Auto-Apply profile button (beta) */}
-        <button
-          onClick={() => setShowApplyProfile(true)}
-          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#ff5722] transition-all shrink-0"
-          title="Set up your auto-apply profile (used by the browser extension) - BETA"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          Auto-Apply
-          <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">BETA</span>
-        </button>
-
-        {/* Interview practice button (beta, general entry; per-job button lives in JobDetailModal) */}
-        <button
-          onClick={() => { setInterviewJobId(null); setShowInterview(true); }}
-          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#c9a94e] transition-all shrink-0"
-          title="AI interview practice with voice. Pick a tracked job or paste a JD. - BETA"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-          </svg>
-          Interview
-          <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">BETA</span>
-        </button>
-
         {/* Export CSV button — downloads the current filtered view */}
         <button
           onClick={handleExportCsv}
@@ -1414,55 +1389,6 @@ export default function App() {
           ))}
         </div>
 
-
-        {/* Divider */}
-        <div className="w-px h-5 bg-[rgba(255,255,255,0.06)] shrink-0" />
-
-        {/* Add Job button */}
-        <button
-          data-tour="add-job"
-          onClick={() => setShowAddJob(true)}
-          className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-all shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Job
-        </button>
-
-        {/* Gmail */}
-        {gmailConnected ? (
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={handleGmailSync}
-              disabled={gmailSyncing}
-              className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3] transition-all disabled:opacity-50"
-              title={gmailLastSync ? `Last sync: ${new Date(gmailLastSync).toLocaleString()}` : "Sync Gmail now"}
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-              </span>
-              {gmailSyncing ? "Syncing..." : "Sync Gmail"}
-            </button>
-            <button
-              onClick={handleGmailDisconnect}
-              className="font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#c45252] transition-all"
-              title="Disconnect Gmail"
-            >
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <button
-            data-tour="gmail-connect"
-            onClick={handleGmailConnect}
-            className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-transparent text-[#555872] hover:text-[#8b8fa3] transition-all shrink-0"
-          >
-            <span className="w-2 h-2 rounded-full bg-gray-600 inline-block" />
-            Connect Gmail
-          </button>
-        )}
 
         {/* Divider */}
         <div className="w-px h-5 bg-[rgba(255,255,255,0.06)] shrink-0" />
@@ -1553,6 +1479,7 @@ export default function App() {
           onToggleFlag={handleToggleFlag}
         />
       </div>
+      </div>{/* end main content column */}
 
       {/* Detail Modal */}
       {selectedJob && !selectionMode && (
@@ -1576,6 +1503,12 @@ export default function App() {
 
       {/* Auto-Apply Profile Editor */}
       {showApplyProfile && <ApplyProfileEditor onClose={() => setShowApplyProfile(false)} />}
+
+      {/* AI Career Coach */}
+      {showCoach && <CareerCoachModal onClose={() => setShowCoach(false)} />}
+
+      {/* Realtime Job Matches */}
+      {showMatches && <JobMatchesModal onClose={() => setShowMatches(false)} />}
 
       {/* AI Interview Practice */}
       {showInterview && (() => {

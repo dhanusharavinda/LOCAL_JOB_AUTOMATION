@@ -37,6 +37,8 @@ import coverLetterRouter from "./routes/cover-letter";
 import freeTailorRouter from "./routes/free-tailor";
 import applyRouter from "./routes/apply";
 import interviewRouter from "./routes/interview";
+import careerCoachRouter from "./routes/career-coach";
+import jobMatchesRouter from "./routes/job-matches";
 import { generateLocalPdf } from "./pdf";
 import { requireAuth } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
@@ -208,7 +210,10 @@ app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, async (req
       return;
     }
     const data = await pdfParse(buffer, { max: 5 });
-    res.json({ text: data.text || "" });
+    // `numpages` is the PDF's true total page count (independent of `max`,
+    // which only caps text extraction). The client passes it back as
+    // targetPages so a 2-page upload yields a 2-page tailored PDF.
+    res.json({ text: data.text || "", pages: data.numpages || null });
   } catch {
     res.status(500).json({ error: "Could not parse PDF. Please try a different file." });
   }
@@ -274,6 +279,12 @@ app.use("/api/candidates", candidatesRouter);
 app.use("/api/story-bank", storyBankRouter);
 app.use("/api/target-companies", targetCompaniesRouter);
 app.use("/api/free-tailor", llmLimiter, freeTailorRouter);
+// AI Career Coach. The /generate endpoint hits OpenAI, so the whole
+// router gets the tight llmLimiter (the GET is cheap and rarely called).
+app.use("/api/career-coach", llmLimiter, careerCoachRouter);
+// Realtime job matching — a read-only curated view over already-scored
+// jobs, so it rides the normal apiLimiter (no LLM call here).
+app.use("/api/job-matches", jobMatchesRouter);
 // Auto-apply endpoints. The router itself applies llmLimiter to the
 // AI-answer endpoint inline; profile/track/job-context don't need it.
 app.use("/api/apply", applyRouter);
@@ -285,12 +296,18 @@ app.use("/api/interview", express.json({ limit: "5mb" }), interviewRouter);
 // Local PDF generation endpoint (replaces external Render backend)
 app.post("/api/pdf/generate", async (req, res) => {
   try {
-    const resumeData = req.body;
+    // Accept either a raw resumeData object (legacy callers) or the newer
+    // { resumeData, targetPages } envelope used to honor the input's page
+    // count ("1 page in -> 1 page out, 2 -> 2").
+    const body = req.body || {};
+    const resumeData = body?.resumeData?.personalInfo ? body.resumeData : body;
     if (!resumeData?.personalInfo) {
       res.status(400).json({ error: "Invalid resume data - missing personalInfo" });
       return;
     }
-    const pdfBuffer = await generateLocalPdf(resumeData);
+    const rawTarget = Number(body?.targetPages);
+    const targetPages = Number.isFinite(rawTarget) && rawTarget >= 1 ? rawTarget : undefined;
+    const pdfBuffer = await generateLocalPdf(resumeData, { targetPages });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", "attachment; filename=resume.pdf");
     res.send(pdfBuffer);

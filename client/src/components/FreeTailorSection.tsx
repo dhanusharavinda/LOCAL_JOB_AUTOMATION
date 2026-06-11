@@ -37,6 +37,10 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FreeTailorResult | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  // Real page count of the uploaded resume (PDF only). Passed to the tailor
+  // so the output PDF matches the input's page count. null for DOCX / pasted
+  // text, where the server estimates from the resume's text length.
+  const [resumePages, setResumePages] = useState<number | null>(null);
   const [parsing, setParsing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -91,6 +95,9 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
 
       setResumeText(data.text);
       setUploadedFileName(file.name);
+      // PDF parser returns the true page count; DOCX has none (server falls
+      // back to a text-length estimate).
+      setResumePages(typeof data.pages === "number" && data.pages > 0 ? data.pages : null);
     } catch (err: any) {
       setError(err.message || "Failed to parse file.");
     } finally {
@@ -155,6 +162,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
         uploadedFileName || undefined,
         alsoCoverLetter,
         userInstructions.trim() || undefined,
+        resumePages || undefined,
       );
       setResult(res);
       setPhase("result");
@@ -229,6 +237,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setResumeText("");
     setJobDescription("");
     setUploadedFileName(null);
+    setResumePages(null);
     setGeneratedCoverLetter(null);
     setCoverLetterError(null);
     setUserInstructions("");
@@ -252,6 +261,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   function handleRemoveFile() {
     setResumeText("");
     setUploadedFileName(null);
+    setResumePages(null);
   }
 
   return (

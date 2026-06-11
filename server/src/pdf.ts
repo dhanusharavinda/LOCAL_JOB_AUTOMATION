@@ -349,7 +349,33 @@ function buildResumeHtml(data: any): string {
 </html>`;
 }
 
-export async function generateLocalPdf(resumeData: any): Promise<Buffer> {
+/**
+ * Estimate how many Letter pages an uploaded resume occupies, from the
+ * length of its extracted text. Aligns with the pipeline's existing
+ * single-page boundary (~4200 chars) so both the prompt and the renderer
+ * agree on what "one page" means. Returns 1, 2, or 3.
+ *
+ * This is a proxy: PDF text extraction strips layout, so character count is
+ * the most reliable cross-format signal we have (a real PDF page count from
+ * pdf-parse, when available, can be passed straight through as targetPages
+ * instead and takes precedence).
+ */
+export function estimateResumePages(resumeText: string | null | undefined): number {
+  const len = (resumeText || "").length;
+  if (len < 4200) return 1;
+  if (len < 9500) return 2;
+  return 3;
+}
+
+export async function generateLocalPdf(
+  resumeData: any,
+  opts?: { targetPages?: number },
+): Promise<Buffer> {
+  // Page budget = the input resume's page count. "1 page in -> 1 page out,
+  // 2 -> 2." Defaults to 1 so any caller that doesn't pass a target keeps
+  // the original single-page behavior. Clamped to [1, 3].
+  const targetPages = Math.min(3, Math.max(1, Math.round(opts?.targetPages || 1)));
+
   const html = buildResumeHtml(resumeData);
   const b = await getBrowser();
   const page = await b.newPage();
@@ -358,30 +384,27 @@ export async function generateLocalPdf(resumeData: any): Promise<Buffer> {
     await page.setContent(html, { waitUntil: "networkidle0", timeout: 15000 });
     await page.evaluateHandle("document.fonts.ready");
 
-    // Force single-page output. The product contract is: if the user's
-    // uploaded resume is one page, the tailored resume must also be one
-    // page. We don't know the input page count server-side, but in
-    // practice every tailored resume should fit on one Letter page —
-    // that's what recruiters expect and what the AI is prompted for.
+    // Fit the content within the target page budget. We only ever SHRINK to
+    // avoid spilling PAST the budget; we never stretch content to fill more
+    // pages, so a short resume given a 2-page budget still renders short.
     //
     // Strategy:
     //   1. Measure body height after initial render.
-    //   2. If it exceeds 1056px (Letter @ 96 DPI), shrink font-size +
-    //      line-height uniformly to fit, with a 0.70x minimum so text
-    //      stays readable.
-    //   3. Remeasure. If still overflowing (rare — happens when the AI
-    //      generates genuinely too much content), tighten section and
-    //      bullet spacing as a last resort.
-    //   4. Only if BOTH passes fail do we let the content spill to a
-    //      second page — better than unreadable 0.5x text.
+    //   2. If it exceeds the budget (targetPages × 1056px @ 96 DPI), shrink
+    //      font-size + line-height uniformly to fit, with a 0.70x minimum so
+    //      text stays readable.
+    //   3. Remeasure. If still overflowing, tighten section + bullet spacing.
+    //   4. If STILL over, one more uniform shrink down to the readability
+    //      floor before the page-range cap clips any final overflow.
     const letterHeightPx = 1056;
+    const budgetPx = letterHeightPx * targetPages;
     const MIN_SCALE = 0.70;
 
     const measure = () => page.evaluate(() => document.body.scrollHeight);
 
     let contentHeight = await measure();
-    if (contentHeight > letterHeightPx) {
-      const scale = Math.max(MIN_SCALE, letterHeightPx / contentHeight);
+    if (contentHeight > budgetPx) {
+      const scale = Math.max(MIN_SCALE, budgetPx / contentHeight);
       await page.evaluate((s) => {
         const body = document.body;
         const current = parseFloat(getComputedStyle(body).fontSize);
@@ -392,8 +415,8 @@ export async function generateLocalPdf(resumeData: any): Promise<Buffer> {
       contentHeight = await measure();
     }
 
-    // Second pass — squeeze section/bullet spacing if still over.
-    if (contentHeight > letterHeightPx) {
+    // Second pass — squeeze section/bullet spacing if still over budget.
+    if (contentHeight > budgetPx) {
       await page.evaluate(() => {
         document.querySelectorAll<HTMLElement>(".section").forEach((s) => {
           s.style.marginTop = "3px";
@@ -401,9 +424,9 @@ export async function generateLocalPdf(resumeData: any): Promise<Buffer> {
         document.querySelectorAll<HTMLElement>(".exp-entry").forEach((e) => {
           e.style.marginBottom = "2px";
         });
-        document.querySelectorAll<HTMLElement>(".bullet").forEach((b) => {
-          b.style.marginBottom = "0px";
-          b.style.lineHeight = "1.22";
+        document.querySelectorAll<HTMLElement>(".bullet").forEach((bl) => {
+          bl.style.marginBottom = "0px";
+          bl.style.lineHeight = "1.22";
         });
         document.querySelectorAll<HTMLElement>(".edu-entry, .cert-entry").forEach((e) => {
           e.style.marginBottom = "1px";
@@ -413,11 +436,9 @@ export async function generateLocalPdf(resumeData: any): Promise<Buffer> {
       contentHeight = await measure();
     }
 
-    // Third pass — if STILL over, apply one more uniform shrink down to
-    // the readability floor. We'd rather ship a slightly tight 1-page
-    // PDF than a 2-page one that breaks the product contract.
-    if (contentHeight > letterHeightPx) {
-      const scale = Math.max(MIN_SCALE, letterHeightPx / contentHeight);
+    // Third pass — if STILL over, one more uniform shrink to the floor.
+    if (contentHeight > budgetPx) {
+      const scale = Math.max(MIN_SCALE, budgetPx / contentHeight);
       await page.evaluate((s) => {
         const body = document.body;
         const current = parseFloat(getComputedStyle(body).fontSize);
@@ -431,13 +452,10 @@ export async function generateLocalPdf(resumeData: any): Promise<Buffer> {
       printBackground: true,
       tagged: true,
       margin: { top: "0", bottom: "0", left: "0", right: "0" },
-      // Belt-and-suspenders single-page enforcement. The three-pass
-      // shrink above should have compressed the content to fit, but if
-      // the AI genuinely produced more than one page of content, this
-      // caps the output at the first page instead of letting it spill.
-      // The product contract is "1 page in = 1 page out" — any content
-      // loss here is a symptom of over-tailoring, not a PDF bug.
-      pageRanges: "1",
+      // Cap output at the input's page count: 1 page in -> "1", 2 -> "1-2".
+      // The shrink passes above keep content within this budget; this range
+      // is the belt-and-suspenders clip for any residual overflow.
+      pageRanges: `1-${targetPages}`,
     });
     return Buffer.from(pdfUint8);
   } finally {

@@ -8,7 +8,7 @@ import { filterByLocation } from "./services/location-filter";
 import { checkJobRelevance, customizeResume } from "./services/openai";
 import { expandKeywords } from "./services/keywordExpander";
 import { generateCoverLetter } from "./services/outreach-email";
-import { generatePdf, warmUpPdfBackend } from "./services/pdf-generator";
+import { generatePdf, warmUpPdfBackend, estimateResumePages } from "./services/pdf-generator";
 import {
   checkDuplicatesBatch,
   titleCompanyKey,
@@ -716,7 +716,11 @@ async function main() {
       // ── Customize resume via OpenAI ──
       let resumeData;
       try {
-        resumeData = await customizeResume(baseResumeText, job.descriptionText, config.TARGET_ROLE);
+        // Cap the JD at 1000 words for the tailoring prompt so the resume
+        // tailoring call stays token-bounded. Relevance scoring above still
+        // sees the full description.
+        const tailorJd = (job.descriptionText || "").trim().split(/\s+/).slice(0, 1000).join(" ");
+        resumeData = await customizeResume(baseResumeText, tailorJd, config.TARGET_ROLE);
         log.success("Resume customized");
       } catch (err: any) {
         log.error(`Resume customization failed: ${err.message}`);
@@ -725,9 +729,11 @@ async function main() {
       }
 
       // ── Generate PDF ──
+      // Match the tailored PDF's page count to the base resume's page count
+      // (1 page in -> 1 page out, 2 -> 2), estimated from the resume text.
       let pdfBuffer: Buffer;
       try {
-        pdfBuffer = await generatePdf(resumeData);
+        pdfBuffer = await generatePdf(resumeData, estimateResumePages(baseResumeText));
         log.success(`PDF generated (${(pdfBuffer.length / 1024).toFixed(0)}KB)`);
       } catch (err: any) {
         log.error(`PDF generation failed: ${err.message}`);

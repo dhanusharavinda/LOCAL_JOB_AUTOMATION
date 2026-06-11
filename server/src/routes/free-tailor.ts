@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
-import { generateLocalPdf } from "../pdf";
+import { generateLocalPdf, estimateResumePages } from "../pdf";
+import { capWords, JD_WORD_CAP } from "../text";
 import { uploadResumePdf } from "../storage";
 import { isAdmin } from "./auth";
 
@@ -266,7 +267,7 @@ router.post("/", async (req: Request, res: Response) => {
     // entries, which is exactly the "only 1 education shows up" bug.
     // 16000 chars is roughly 4000 tokens, well within the context budget.
     const resume = resumeText.slice(0, 16000);
-    const jd = jobDescription.slice(0, 4000);
+    const jd = capWords(jobDescription, JD_WORD_CAP);
 
     // Rough counts nudge the model to return the correct number of
     // entries. These heuristics are intentionally loose; the prompt
@@ -360,8 +361,17 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
+    // Match the output page count to the uploaded resume's page count:
+    // 1 page in -> 1 page out, 2 -> 2. The client may pass an explicit
+    // `targetPages` (the real page count it read when parsing the PDF);
+    // otherwise we estimate from the resume's text length.
+    const explicitPages = Number((req.body as any).targetPages);
+    const targetPages = Number.isFinite(explicitPages) && explicitPages >= 1
+      ? Math.min(3, Math.round(explicitPages))
+      : estimateResumePages(resumeText);
+
     // Generate PDF
-    const pdfBuffer = await generateLocalPdf(inner);
+    const pdfBuffer = await generateLocalPdf(inner, { targetPages });
 
     // Upload to storage so the user can re-download later. Use the
     // uploaded resume's original filename (minus extension) prefixed
@@ -535,7 +545,7 @@ router.post("/cover-letter", async (req: Request, res: Response) => {
 
   try {
     const resume = resumeText.slice(0, 16000);
-    const jd = jobDescription.slice(0, 4000);
+    const jd = capWords(jobDescription, JD_WORD_CAP);
 
     // Same heuristic infer-from-JD-snippet that the inline cover-letter
     // path uses, so the follow-up version reads identically.
