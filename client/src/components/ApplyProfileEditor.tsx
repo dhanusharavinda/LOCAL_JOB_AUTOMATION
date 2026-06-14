@@ -324,7 +324,11 @@ const overlayStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
 };
 const panelStyle: React.CSSProperties = {
-  background: "#fff", borderRadius: 14, width: "min(820px, 100%)",
+  // Explicit dark text: this is a light (#fff) panel rendered inside an app
+  // whose global `body { color: var(--text-primary) }` is near-white, so
+  // without this every unstyled bit of text inherits white-on-white and
+  // becomes invisible.
+  background: "#fff", color: "#1a1a1a", borderRadius: 14, width: "min(820px, 100%)",
   maxHeight: "85vh", display: "flex", flexDirection: "column",
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
 };
@@ -345,6 +349,9 @@ const closeBtn: React.CSSProperties = {
 const fieldName: React.CSSProperties = { fontSize: 12, color: "#444", marginBottom: 4, fontWeight: 600 };
 const input: React.CSSProperties = {
   width: "100%", padding: "8px 10px", font: "inherit",
+  // Form controls don't reliably inherit color; set it so typed values and
+  // placeholders are dark/visible on the white field instead of near-white.
+  color: "#1a1a1a",
   border: "1px solid #d4d4d4", borderRadius: 8, background: "#fff", boxSizing: "border-box",
 };
 const primaryBtn: React.CSSProperties = {

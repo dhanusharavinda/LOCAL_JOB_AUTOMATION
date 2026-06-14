@@ -25,6 +25,7 @@ const FALLBACK_MAX_JOBS = 5;
 const FALLBACK_MAX_TAILOR = 1;
 import SettingsModal from "./SettingsModal";
 import FreeTailorSection from "./FreeTailorSection";
+import { getTourState } from "../onboarding/tour";
 import AuthModal from "./AuthModal";
 
 interface PipelineLog {
@@ -265,6 +266,34 @@ interface Props {
 
 export default function LandingPage({ currentUser, userLimits, onLogout, onNavigateToDashboard, onNavigateToAuth, onNavigateToPricing }: Props) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Landing has two views: a clean hero (page 1, just the headline + a
+  // "Click Here" button) and the full configuration surface (page 2, every
+  // feature in cards). The hero button flips to "configure"; a back button
+  // returns to the hero. This replaces the old single long-scroll page.
+  // Returning from the dashboard's "Back to Pipeline" sets a sessionStorage
+  // flag so we open straight on the Job Hunt config instead of the hero.
+  const landingTarget = (() => { try { return sessionStorage.getItem("gc8-landing-target"); } catch { return null; } })();
+  const [view, setView] = useState<"hero" | "configure">(landingTarget === "hunt" ? "configure" : "hero");
+  // During the first-run onboarding tour (driver.js) we render the original
+  // single-scroll layout (hero + config together) so every tour step — the
+  // hero nav AND the #config-start / start-pipeline targets — resolves.
+  // Onboarded users never trigger it, so the poll is scoped to new users.
+  const [tourActive, setTourActive] = useState<boolean>(() => !!getTourState());
+  useEffect(() => {
+    // Only the first-run tour (logged-in user who hasn't onboarded) needs the
+    // single-scroll fallback, so anonymous visitors never poll.
+    if (!currentUser || currentUser.onboarded_at) return;
+    const id = setInterval(() => setTourActive(!!getTourState()), 800);
+    return () => clearInterval(id);
+  }, [currentUser, currentUser?.onboarded_at]);
+  // Which configure section the columnar layout shows. The pipeline config
+  // ("hunt") is logged-in only, so anonymous visitors are pinned to the
+  // resume tailor regardless of selection.
+  const [configSection, setConfigSection] = useState<"hunt" | "tailor">(landingTarget === "hunt" ? "hunt" : "tailor");
+  const effectiveConfigSection: "hunt" | "tailor" = currentUser ? configSection : "tailor";
+  // Consume the deep-link flag once so a later plain visit to the landing
+  // page starts on the hero again.
+  useEffect(() => { try { sessionStorage.removeItem("gc8-landing-target"); } catch { /* ignore */ } }, []);
 
   const [config, setConfig] = useState<PipelineConfig | null>(null);
 
@@ -668,6 +697,10 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       await startPipeline(config);
       setRunning(true);
       connectSSE();
+      // Do NOT auto-navigate. The user stays on the config to watch progress;
+      // when the run completes, the completion toast + "Open Dashboard" CTA
+      // guide them to the Pipeline Board. (A "View Dashboard Live" button is
+      // also shown while running for those who want to switch early.)
     } catch (err: any) {
       setError(err.message || "Failed to start pipeline");
     } finally {
@@ -730,6 +763,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           onSuccess={() => setAuthModal(null)}
         />
       )}
+
+      {/* ── Settings Modal ──
+          Mounted at the top level (not inside the Job Hunt <main>, which only
+          renders on the hunt section) so the nav's Settings button works from
+          the hero and every configure section. */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* ── Pipeline Completion Toast ── */}
       {showCompletionToast && (
@@ -831,7 +870,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       {/* ── Hero Section ── */}
       <header className="relative overflow-hidden z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-[rgba(201,169,78,0.04)] to-transparent pointer-events-none" />
-        <div className="w-full px-8 md:px-16 lg:px-24 pt-8 relative min-h-screen flex flex-col">
+        <div className={`w-full px-8 md:px-16 lg:px-24 pt-8 relative flex flex-col ${(view === "hero" || tourActive) ? "min-h-screen" : ""}`}>
           {/* Nav — edge to edge */}
           <div className="flex items-center justify-between relative">
             <div className="flex items-center gap-3 sm:gap-4">
@@ -861,19 +900,6 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               {currentUser && (
                 <button onClick={onNavigateToDashboard} data-tour="nav-dashboard" className="text-base text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                   Dashboard
-                </button>
-              )}
-              {currentUser && (
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent("go-candid8/practice-interview", { detail: {} }))}
-                  className="flex items-center gap-1.5 text-base font-medium px-3 py-1.5 rounded-xl bg-[rgba(255,87,34,0.1)] border border-[rgba(255,87,34,0.25)] text-[var(--accent)] hover:bg-[rgba(255,87,34,0.18)] transition-all"
-                  title="Practice with an AI interviewer using your voice - BETA"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                  AI Interviewer
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">BETA</span>
                 </button>
               )}
               {currentUser ? (
@@ -979,7 +1005,9 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             )}
           </div>
 
-          {/* Hero — vertically centered, massive type */}
+          {/* Hero — vertically centered, massive type. Page 1 only (hidden on
+              the configure view; shown during the tour for the original flow). */}
+          {(view === "hero" || tourActive) && (
           <div className="flex-1 flex flex-col justify-center">
             <h1 className="font-display text-4xl md:text-5xl lg:text-[6.5rem] text-[var(--text-primary)] leading-[1.05] mb-8 tracking-tight">
               Your<br />
@@ -990,39 +1018,121 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               Configure your preferences, hit start, and let AI scrape, score, and tailor resumes for the best-fit roles, all in one click.
             </p>
           </div>
+          )}
 
-          {/* Scroll arrow — bottom of viewport */}
-          <div className="flex flex-col items-center pb-10 animate-bounce">
-            <button
-              onClick={() => document.getElementById("config-start")?.scrollIntoView({ behavior: "smooth" })}
-              className="text-[var(--text-ghost)] hover:text-[var(--accent)] transition-colors"
-            >
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-            </button>
-            <span className="text-sm text-[var(--text-ghost)] mt-2">Scroll to configure</span>
-          </div>
+          {/* Primary CTA. "Click Here" opens the configuration view (page 2)
+              so the hero stays clean and scroll-free. During the onboarding
+              tour we keep the original scroll indicator so the tour's
+              #config-start step still resolves. */}
+          {tourActive ? (
+            <div className="flex flex-col items-center pb-10 animate-bounce">
+              <button
+                onClick={() => document.getElementById("config-start")?.scrollIntoView({ behavior: "smooth" })}
+                className="text-[var(--text-ghost)] hover:text-[var(--accent)] transition-colors"
+              >
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </button>
+              <span className="text-sm text-[var(--text-ghost)] mt-2">Scroll to configure</span>
+            </div>
+          ) : view === "hero" ? (
+            <div className="flex flex-col items-center pb-16">
+              <button
+                id="landing-configure-cta"
+                onClick={() => { setView("configure"); window.scrollTo({ top: 0 }); }}
+                className="launch-btn inline-flex items-center gap-2 px-10 py-4 rounded-full font-semibold text-lg tracking-wide"
+              >
+                Click Here
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+              <span className="text-sm text-[var(--text-ghost)] mt-3">Set up your job hunt</span>
+            </div>
+          ) : null}
         </div>
       </header>
 
-      {/* ── Free Resume Tailor Hook ── */}
-      <div className="relative z-10">
-        <FreeTailorSection
-          currentUser={currentUser}
-          onNavigateToPricing={onNavigateToPricing}
-        />
-      </div>
+      {/* ── Configure surface (page 2) ──────────────────────────────────────
+          Columnar layout: a left section rail + the active section's content,
+          so users switch sections instead of scrolling one long page. During
+          the onboarding tour the rail is dropped and every section renders
+          stacked (the original single-scroll) so each tour step resolves. */}
+      {(view === "configure" || tourActive) && (
+      <div className={tourActive ? "relative z-10" : "flex relative z-10"}>
+
+        {/* Left section rail (desktop) */}
+        {!tourActive && (
+          <aside className="hidden md:flex w-56 shrink-0 flex-col gap-1 border-r border-[var(--border-subtle)] bg-[var(--bg-raised)] px-3 py-5 sticky top-0 self-start max-h-screen overflow-y-auto">
+            <button
+              onClick={() => { setView("hero"); window.scrollTo({ top: 0 }); }}
+              className="flex items-center gap-2 px-3 py-2 mb-1 rounded-lg text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-colors"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              Back to home
+            </button>
+            <div className="px-3 pt-2 pb-1.5 text-[10px] font-mono uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Configure</div>
+            <button
+              onClick={() => setConfigSection("tailor")}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${effectiveConfigSection === "tailor" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.25)]" : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"}`}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span className="flex-1 text-left">Resume Tailor</span>
+            </button>
+            {currentUser && (
+              <button
+                onClick={() => setConfigSection("hunt")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.25)]" : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"}`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h12" /></svg>
+                <span className="flex-1 text-left">Job Hunt</span>
+              </button>
+            )}
+            <div className="flex-1" />
+            <button
+              onClick={onNavigateToDashboard}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[var(--accent-muted)] transition-all"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10h6m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+              <span className="flex-1 text-left">Pipeline Board</span>
+              <span>→</span>
+            </button>
+          </aside>
+        )}
+
+        {/* Content column */}
+        <div className={tourActive ? "" : "flex-1 min-w-0"}>
+
+          {/* Mobile section switcher (the rail is desktop-only) */}
+          {!tourActive && (
+            <div className="md:hidden flex items-center gap-2 px-4 pt-4 overflow-x-auto">
+              <button onClick={() => { setView("hero"); window.scrollTo({ top: 0 }); }} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] text-[var(--text-secondary)]">← Home</button>
+              <button onClick={() => setConfigSection("tailor")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "tailor" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Resume Tailor</button>
+              {currentUser && (
+                <button onClick={() => setConfigSection("hunt")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Job Hunt</button>
+              )}
+              <button onClick={onNavigateToDashboard} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[rgba(201,169,78,0.2)] text-[var(--accent)]">Pipeline Board →</button>
+            </div>
+          )}
+
+          {/* ── Resume Tailor section ── */}
+          {(tourActive || effectiveConfigSection === "tailor") && (
+          <div className="relative z-10">
+            <FreeTailorSection
+              currentUser={currentUser}
+              onNavigateToPricing={onNavigateToPricing}
+            />
+          </div>
+          )}
 
       {/* The full pipeline config + scraper controls are logged-in only.
           Anonymous visitors see the hero and the FreeTailor bait above,
           and nothing below this line. Once they sign up and return, the
           whole dashboard-configuration surface appears. */}
-      {currentUser && (
+          {/* ── Job Hunt section (pipeline config + run) ── */}
+          {currentUser && (tourActive || effectiveConfigSection === "hunt") && (
       <main id="config-start" className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 pb-20 relative z-10">
-        {/* ── Settings Modal ── */}
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-
         {/* ── Error Banner ── */}
         {error && (
           <div className="mb-6 px-4 py-3 rounded-xl bg-[var(--accent-red-muted)] border border-[rgba(196,82,82,0.2)] text-red-400 text-sm flex items-center justify-between">
@@ -1034,7 +1144,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         {/* ── Resume & Role ── */}
         <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-6 h-6 rounded-full bg-[var(--accent-muted)] flex items-center justify-center text-xs text-[var(--accent)] font-bold">1</div>
+            <span className="w-1 h-4 rounded-full bg-[var(--accent)] shrink-0" />
             <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Resume & Target Role</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1109,7 +1219,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         {config && (
           <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 mb-6">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 rounded-full bg-[var(--accent-muted)] flex items-center justify-center text-xs text-[var(--accent)] font-bold">2</div>
+              <span className="w-1 h-4 rounded-full bg-[var(--accent)] shrink-0" />
               <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Target Countries</h3>
             </div>
             <p className="text-xs text-[var(--text-tertiary)] mb-4">Pick one country. Clicking a different one re-targets the pipeline to search jobs in that country.</p>
@@ -1211,7 +1321,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         {config && targetCompaniesList.length > 0 && (
           <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 mb-6">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 rounded-full bg-[var(--accent-muted)] flex items-center justify-center text-xs text-[var(--accent)] font-bold">3</div>
+              <span className="w-1 h-4 rounded-full bg-[var(--accent)] shrink-0" />
               <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Focus Company <span className="text-[10px] text-[var(--text-tertiary)] normal-case tracking-normal">(optional)</span></h3>
             </div>
             <p className="text-xs text-[var(--text-tertiary)] mb-3">
@@ -1250,10 +1360,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           </div>
         )}
 
-        {/* ── Config Sections ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* ── Config Sections ──
+            Stack into a single column until xl so the config + launch panels
+            never get cramped in the narrowed (rail-offset) content area. */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
           {/* Left Panel — Config */}
-          <div className="lg:col-span-2 space-y-1">
+          <div className="xl:col-span-2 space-y-1">
             {/* Section Tabs */}
             <div className="flex gap-1 p-1 bg-[var(--bg-raised)] rounded-xl border border-[var(--border-subtle)] mb-4">
               {[
@@ -2083,6 +2195,10 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           </div>
         )}
       </main>
+          )}
+
+        </div>
+      </div>
       )}
     </div>
   );

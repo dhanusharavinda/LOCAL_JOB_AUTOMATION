@@ -1064,7 +1064,13 @@ export default function App() {
         onGmailDisconnect={handleGmailDisconnect}
         isAdmin={!!currentUser?.is_admin}
         onAdmin={() => setPage("admin")}
-        onBackToLanding={() => { setActiveCandidateId(null); setPage("landing"); }}
+        onBackToLanding={() => {
+          setActiveCandidateId(null);
+          // Land directly on the Job Hunt config (not the hero) so returning
+          // from the dashboard to tweak/re-run the pipeline is one click.
+          try { sessionStorage.setItem("gc8-landing-target", "hunt"); } catch { /* ignore */ }
+          setPage("landing");
+        }}
         mobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
       />

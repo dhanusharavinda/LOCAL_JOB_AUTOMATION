@@ -212,7 +212,7 @@ export default function Sidebar({
           <div className="space-y-0.5">
             <NavItem
               icon={ic("M13 10V3L4 14h7v7l9-11h-7z")}
-              label="Auto-Apply"
+              label="Auto-Apply Extension"
               onClick={tap(onOpenApplyProfile)}
               badge={betaBadge}
             />
