@@ -39,6 +39,7 @@ import applyRouter from "./routes/apply";
 import interviewRouter from "./routes/interview";
 import careerCoachRouter from "./routes/career-coach";
 import jobMatchesRouter from "./routes/job-matches";
+import feedbackRouter from "./routes/feedback";
 import { generateLocalPdf } from "./pdf";
 import { requireAuth } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
@@ -190,6 +191,11 @@ app.set("trust proxy", 1); // required when behind a reverse proxy (Vercel, Fly,
 // router itself is mounted BEFORE the global requireAuth. Auth routes get
 // the tighter authLimiter since they're the most commonly brute-forced.
 app.use("/api/auth", authLimiter, authRouter);
+
+// Feedback capture is PUBLIC (mounted before the global requireAuth) so the
+// floating Contact button works for anonymous visitors too. Rate-limited to
+// blunt spam.
+app.use("/api/feedback", apiLimiter, feedbackRouter);
 
 // File-parsing utilities - these used to be public for the landing-page
 // FreeTailor demo, but unauthenticated + CPU-heavy + pdf-parse = DoS bait.

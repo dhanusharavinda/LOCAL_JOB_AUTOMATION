@@ -683,6 +683,19 @@ async function main() {
 
   if (topN.length === 0) {
     log.warn("No relevant jobs to tailor. Pipeline complete.");
+    // Phase 1c already posted stats.relevant jobs to the user's tracker, so
+    // charge them against the daily jobs-scraped budget even though nothing
+    // gets tailored on this run. Without this, a tailor-exhausted run (with
+    // jobs-scraped budget remaining) delivers jobs to the board for free.
+    try {
+      await fetch(`${config.JOB_TRACKER_URL}/api/pipeline/report-scraped`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...internalAuthHeaders() },
+        body: JSON.stringify({ count: stats.relevant }),
+      });
+    } catch (err: any) {
+      log.warn(`Failed to report scraped count to server: ${err.message}`);
+    }
     log.summary(stats);
     return;
   }

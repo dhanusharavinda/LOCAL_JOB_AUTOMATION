@@ -17,17 +17,24 @@ export default function JobMatchesModal({ onClose }: Props) {
   const [minScore, setMinScore] = useState(6);
   const minRef = useRef(minScore);
   minRef.current = minScore;
+  // Monotonic request id so overlapping loads (threshold clicks, manual
+  // refresh, hourly poll) can't resolve out of order and show a list that
+  // doesn't match the selected threshold.
+  const reqIdRef = useRef(0);
 
   const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
+    const myId = ++reqIdRef.current;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await fetchJobMatches(minRef.current, 50);
+      if (myId !== reqIdRef.current) return; // superseded by a newer load
       setData(res);
     } catch {
-      setError("Could not load your matches.");
+      // Never surface an error banner for a background (silent) refresh —
+      // the already-shown matches are still valid.
+      if (myId === reqIdRef.current && !silent) setError("Could not load your matches.");
     } finally {
-      setLoading(false);
+      if (myId === reqIdRef.current && !silent) setLoading(false);
     }
   }, []);
 

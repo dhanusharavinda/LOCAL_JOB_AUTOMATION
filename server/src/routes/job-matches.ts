@@ -92,8 +92,12 @@ router.get("/", async (req: Request, res: Response) => {
 
     const matches = rows.map((r) => {
       const parsed = parseSalary(r.salary);
+      // Only claim a salary fit when currencies match — comparing a €60k job
+      // against a $50-70k target by magnitude alone gives false positives.
+      const targetCurrency = profile.salary_currency || "USD";
       const salaryFit =
         parsed !== null &&
+        parsed.currency === targetCurrency &&
         (profile.salary_min !== null || profile.salary_max !== null) &&
         rangesOverlap(parsed.min, parsed.max, profile.salary_min, profile.salary_max);
       const locLower = (r.location || "").toLowerCase();

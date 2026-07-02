@@ -256,7 +256,16 @@ export function startDashboardTour() {
     },
   ];
 
-  const drv = makeDriver(steps, () => {
+  // On mobile the sidebar is off-canvas, so steps anchored to sidebar items
+  // (Add Job, Connect Gmail, Back) would spotlight invisible elements at the
+  // screen edge. Drop them on small viewports — those features stay reachable
+  // via the menu button.
+  const isMobileTour = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const shownSteps = isMobileTour
+    ? steps.filter((s) => !s.element || !["add-job", "gmail-connect", "dashboard-back"].some((a) => String(s.element).includes(a)))
+    : steps;
+
+  const drv = makeDriver(shownSteps, () => {
     // Whether they finished or dismissed, consider them onboarded.
     setTourState("complete");
     void markOnboardedOnServer();

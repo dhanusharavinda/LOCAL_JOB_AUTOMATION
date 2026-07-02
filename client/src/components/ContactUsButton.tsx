@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { submitFeedback } from "../api";
 
 /**
  * Small floating "Contact" button + dialog for bug reports and feature
@@ -6,9 +7,9 @@ import { useEffect, useState } from "react";
  * it's visible across every page (dashboard, landing, auth, pricing,
  * etc.) without each page having to render its own copy.
  *
- * No backend required: pressing "Send" opens the user's mail client via
- * a mailto: link with subject + body pre-filled. Falls back to a
- * copy-email button when the user's environment can't handle mailto:.
+ * "Send" posts to POST /api/feedback (captured server-side so nothing is
+ * lost and the user gets a real confirmation). A mailto: link is kept as a
+ * fallback for anyone who'd rather email directly.
  */
 const CONTACT_EMAIL = "dhanushgoku997@gmail.com";
 
@@ -25,6 +26,9 @@ export default function ContactUsButton() {
   const [category, setCategory] = useState<Category>("feature");
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   // Esc closes the dialog. Mirrors the keyboard contract of every
   // other modal in the app so the user's muscle memory works.
@@ -37,18 +41,31 @@ export default function ContactUsButton() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  function send() {
-    const subject = `[${CATEGORY_LABEL[category]}] GO CANDID8 feedback`;
+  // Reset transient state each time the dialog opens.
+  useEffect(() => {
+    if (open) { setSent(false); setErr(null); }
+  }, [open]);
+
+  async function send() {
     const trimmed = message.trim();
-    const body = trimmed || "(write your feedback here)";
-    const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    // Use window.open(...) over location.href so the user doesn't
-    // navigate away from the dashboard if their mail client is a
-    // webmail tab. window.open returns null when blocked; in that
-    // case the click on the underlying <a href={mailto}> falls back.
-    window.open(mailto, "_blank");
-    setOpen(false);
-    setMessage("");
+    if (!trimmed) { setErr("Write a message first."); return; }
+    setSending(true);
+    setErr(null);
+    try {
+      await submitFeedback({
+        category,
+        message: trimmed,
+        page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
+      setSent(true);
+      setMessage("");
+      // Auto-close shortly after the confirmation shows.
+      setTimeout(() => { setOpen(false); setSent(false); }, 1600);
+    } catch (e: any) {
+      setErr(e?.message || "Could not send. Try the email option below.");
+    } finally {
+      setSending(false);
+    }
   }
 
   async function copyEmail() {
@@ -132,18 +149,30 @@ export default function ContactUsButton() {
               </button>
             </div>
 
-            <div style={footerRow}>
-              <button onClick={() => setOpen(false)} style={secondaryBtn}>Cancel</button>
-              <a
-                href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-                  `[${CATEGORY_LABEL[category]}] GO CANDID8 feedback`
-                )}&body=${encodeURIComponent(message.trim() || "(write your feedback here)")}`}
-                onClick={(e) => { e.preventDefault(); send(); }}
-                style={primaryBtn}
-              >
-                Open mail to send
-              </a>
-            </div>
+            {err && <p style={{ color: "#f87171", fontSize: 12, margin: "0 0 8px" }}>{err}</p>}
+            {sent ? (
+              <div style={{ color: "#4ade80", fontSize: 13, fontWeight: 600, textAlign: "center", padding: "8px 0" }}>
+                ✓ Sent — thanks for the feedback!
+              </div>
+            ) : (
+              <div style={footerRow}>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+                    `[${CATEGORY_LABEL[category]}] GO CANDID8 feedback`
+                  )}&body=${encodeURIComponent(message.trim() || "(write your feedback here)")}`}
+                  style={{ ...secondaryBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+                >
+                  Email instead
+                </a>
+                <button
+                  onClick={send}
+                  disabled={sending}
+                  style={{ ...primaryBtn, border: 0, opacity: sending ? 0.6 : 1, cursor: sending ? "wait" : "pointer" }}
+                >
+                  {sending ? "Sending…" : "Send"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

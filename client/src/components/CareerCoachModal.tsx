@@ -18,14 +18,21 @@ export default function CareerCoachModal({ onClose }: Props) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    getCareerRoadmap()
-      .then((r) => { if (mounted) setRoadmap(r); })
-      .catch(() => { if (mounted) setError("Could not load your roadmap."); })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
+  // Reusable so the error state can offer a real "Try again" (re-fetch the
+  // existing roadmap) rather than only "Build a new one".
+  const loadRoadmap = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRoadmap(await getCareerRoadmap());
+    } catch {
+      setError("Could not load your roadmap.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadRoadmap(); }, [loadRoadmap]);
 
   const generate = useCallback(async () => {
     setGenerating(true);
@@ -97,7 +104,7 @@ export default function CareerCoachModal({ onClose }: Props) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {error && (
+          {error && roadmap && (
             <div className="mb-4 p-3 rounded-xl text-xs bg-red-500/8 border border-red-500/20 text-red-400">
               {error}
             </div>
@@ -107,6 +114,25 @@ export default function CareerCoachModal({ onClose }: Props) {
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <div className="w-7 h-7 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
               <p className="text-gray-500 text-sm">Loading your roadmap...</p>
+            </div>
+          ) : error && !roadmap ? (
+            // Load failed — offer a retry (re-fetch the saved roadmap), not
+            // the onboarding empty state, so a returning user isn't told
+            // their roadmap is gone on a transient error.
+            <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-center">
+                <span className="text-red-400 text-xl">!</span>
+              </div>
+              <div>
+                <p className="text-gray-200 text-sm font-medium mb-1">Couldn't load your roadmap</p>
+                <p className="text-gray-500 text-xs max-w-sm">Usually a temporary network or sign-in hiccup, not lost data.</p>
+              </div>
+              <button
+                onClick={loadRoadmap}
+                className="font-mono text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/12 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-all"
+              >
+                Try again
+              </button>
             </div>
           ) : !roadmap ? (
             // Empty state — no roadmap yet

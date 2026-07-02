@@ -3,13 +3,16 @@ import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { summarizeSalaries, SalaryBenchmark } from "../services/salary";
+import { downloadResumeText } from "../storage";
 
 /**
  * AI Career Coach.
  * ────────────────
  * Produces a roadmap (positioning summary, skill gaps, learning plan,
  * salary benchmark, next actions) grounded in the user's own data:
- *   - their default resume (resume_profiles.is_default),
+ *   - their resume: the uploaded primary resume in Supabase Storage
+ *     (downloadResumeText, the same source the pipeline + free-tailor use),
+ *     falling back to a named resume_profiles entry,
  *   - their scored jobs (match_score + detected_role_type + salary),
  *   - the latest skill snapshot (in-demand skills from scraped JDs).
  *
@@ -85,8 +88,22 @@ function shapeRoadmap(row: RoadmapRow | undefined) {
   };
 }
 
-/** The user's default resume text (falls back to the most recent one). */
+/**
+ * The user's resume text for the coach. Reads the PRIMARY uploaded resume
+ * from Supabase Storage first (the canonical source used by the pipeline,
+ * free-tailor, cover letter, interview, etc.), then falls back to a named
+ * `resume_profiles` entry for users who built profiles but never did a base
+ * upload. Returns null only when neither exists.
+ */
 async function getDefaultResumeText(userId: string): Promise<string | null> {
+  // 1) Primary uploaded resume (Supabase Storage: resumes/{userId}/resume.txt)
+  try {
+    const primary = await downloadResumeText(userId);
+    if (primary && primary.trim().length >= 50) return primary.slice(0, 12000);
+  } catch {
+    /* fall through to resume_profiles */
+  }
+  // 2) Fallback: a named resume profile
   try {
     const rows = await sql<{ resume_text: string }[]>`
       SELECT resume_text
@@ -128,7 +145,7 @@ router.post("/generate", async (req: Request, res: Response) => {
   if (!resumeText || resumeText.length < 50) {
     res.status(422).json({
       error:
-        "Add your resume first (Auto-Apply profile or a resume profile) so the coach has something to work from.",
+        "Upload your resume first (Settings, or the Upload Resume step on the home page) so the coach has something to work from.",
     });
     return;
   }

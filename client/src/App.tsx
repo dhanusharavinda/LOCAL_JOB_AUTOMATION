@@ -53,9 +53,12 @@ export default function App() {
   // so a numeric sort was redundant with Grade sort and confusing).
   // The raw match_score still drives the final tiebreak inside Grade
   // and Seniority sorts.
-  const [sortByDeadline, setSortByDeadline] = useState(true);
+  // Default the board to Grade (relevance-first) so the best-fit jobs float
+  // to the top out of the box. Deadline is usually empty on scraped jobs, so
+  // defaulting to it made the board look unsorted.
+  const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByFreshness, setSortByFreshness] = useState(false);
-  const [sortByGrade, setSortByGrade] = useState(false);
+  const [sortByGrade, setSortByGrade] = useState(true);
   // Seniority sort is tri-state — single button that cycles
   // off → high (most senior first) → low (least senior first) → off.
   // Other sorts are binary; this one needs both directions because the
@@ -503,6 +506,38 @@ export default function App() {
     }
     return searched;
   }, [searched, sortByDeadline, sortByFreshness, sortByGrade, sortBySeniority]);
+
+  // Whether the current board has any data for each sort key. Used to
+  // disable + explain a sort button when nothing can be sorted by it, so a
+  // click never silently does nothing (the UAT "inaccessible" complaint).
+  const hasDeadlines = useMemo(() => jobs.some((j) => !!j.deadline), [jobs]);
+  const hasSeniority = useMemo(() => jobs.some((j) => !!j.seniority_level), [jobs]);
+  const hasGrades = useMemo(() => jobs.some((j) => {
+    if (!j.score_breakdown) return j.match_score != null;
+    try { return !!JSON.parse(j.score_breakdown)?.letter_grade; } catch { return j.match_score != null; }
+  }), [jobs]);
+
+  // If the board has jobs but none are graded, don't leave the default Grade
+  // sort active-but-disabled (unclickable) — fall back to Newest, which is
+  // always usable. Only fires once jobs have loaded (not on the empty board).
+  useEffect(() => {
+    if (jobs.length > 0 && !hasGrades && sortByGrade) {
+      setSortByGrade(false);
+      setSortByFreshness(true);
+    }
+  }, [jobs.length, hasGrades, sortByGrade]);
+
+  // Keep the selection in sync with what's on screen: prune selected ids that
+  // are no longer visible (e.g. after a filter change) so batch actions never
+  // touch off-screen jobs and the "Delete N" count stays honest.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filteredJobs.map((j) => j.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredJobs]);
 
   // Live `jobs` snapshot for callbacks that don't want to depend on
   // the jobs array as a deps entry (which would invalidate them on
@@ -1071,6 +1106,9 @@ export default function App() {
           try { sessionStorage.setItem("gc8-landing-target", "hunt"); } catch { /* ignore */ }
           setPage("landing");
         }}
+        onOpenSettings={() => setShowSettings(true)}
+        onNavigateToCandidates={() => setPage("candidates")}
+        onNavigateToPricing={() => setPage("pricing")}
         mobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
       />
@@ -1171,14 +1209,16 @@ export default function App() {
       {/* Collapsible wrapper — rows 2+3 always shown on md+, toggled on mobile */}
       <div className={`${mobileFiltersOpen ? "block" : "hidden"} md:block`}>
       {/* Second row — sorts & filters (Deadline / Score / Newest / date / locations / sources / flagged) */}
-      <div className="px-3 md:px-6 py-2 flex items-center gap-2 overflow-x-auto border-t border-[rgba(255,255,255,0.03)]">
+      <div className="px-3 md:px-6 py-2 flex flex-wrap items-center gap-2 border-t border-[rgba(255,255,255,0.03)]">
 
         {/* Sort by deadline. Single-key — clears Grade + Seniority
             because deadline ordering can't meaningfully combine with
             grade or seniority bands. */}
         <button
           onClick={() => { setSortByDeadline((v) => !v); setSortByFreshness(false); setSortByGrade(false); setSortBySeniority("off"); }}
-          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
+          disabled={!hasDeadlines}
+          title={hasDeadlines ? "Sort by application deadline (soonest first)" : "No jobs have a deadline yet"}
+          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
             sortByDeadline
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
@@ -1203,14 +1243,17 @@ export default function App() {
             one click each. */}
         <button
           onClick={() => { setSortByGrade((v) => !v); setSortByDeadline(false); setSortByFreshness(false); }}
-          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
-            sortByGrade
+          disabled={!hasGrades}
+          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+            sortByGrade && hasGrades
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
-          title={sortBySeniority !== "off"
-            ? "Grade sort active. Combined with Seniority below — grade first, seniority breaks ties."
-            : "Sort by letter grade — A first, then B, C, D, F"}
+          title={!hasGrades
+            ? "No graded jobs yet — run the pipeline so jobs get an AI match grade"
+            : sortBySeniority !== "off"
+              ? "Grade sort active. Combined with Seniority below — grade first, seniority breaks ties."
+              : "Sort by letter grade — A first, then B, C, D, F"}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 19l7-14 7 14M8 14h8" />
@@ -1230,17 +1273,20 @@ export default function App() {
             setSortByDeadline(false);
             setSortByFreshness(false);
           }}
-          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
+          disabled={!hasSeniority}
+          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
             sortBySeniority !== "off"
               ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
           title={
-            sortBySeniority === "off"
-              ? "Sort by seniority — click to start with highest first"
-              : sortBySeniority === "high"
-                ? "Highest seniority first (Director → Intern). Click again to flip."
-                : "Lowest seniority first (Intern → Director). Click again to clear."
+            !hasSeniority
+              ? "No seniority level on these jobs yet"
+              : sortBySeniority === "off"
+                ? "Sort by seniority — click to start with highest first"
+                : sortBySeniority === "high"
+                  ? "Highest seniority first (Director → Intern). Click again to flip."
+                  : "Lowest seniority first (Intern → Director). Click again to clear."
           }
         >
           {/* Bar-chart-style icon flips orientation to match direction */}
@@ -1364,7 +1410,7 @@ export default function App() {
       </div>
 
       {/* Third row — actions, stats, rates, selection (Skills / Events / Stories / counts / Gmail / …) */}
-      <div className="px-3 md:px-6 py-2 flex items-center gap-2 overflow-x-auto border-t border-[rgba(255,255,255,0.03)]">
+      <div className="px-3 md:px-6 py-2 flex flex-wrap items-center gap-2 border-t border-[rgba(255,255,255,0.03)]">
 
         {/* Export CSV button — downloads the current filtered view */}
         <button
@@ -1532,8 +1578,8 @@ export default function App() {
         );
       })()}
 
-      {/* Settings Modal */}
-      {/* Settings moved to Landing Page */}
+      {/* Settings Modal — reachable from the sidebar's Settings item */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* Floating Contact button — small dialog for bug reports and
           feature suggestions, opens user's mail client via mailto: */}

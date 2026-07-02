@@ -157,11 +157,11 @@ router.post("/", async (req: Request, res: Response) => {
     return;
   }
 
-  if (!resumeText || resumeText.length < 50) {
+  if (typeof resumeText !== "string" || resumeText.length < 50) {
     res.status(400).json({ error: "Resume text must be at least 50 characters." });
     return;
   }
-  if (!jobDescription || jobDescription.length < 30) {
+  if (typeof jobDescription !== "string" || jobDescription.length < 30) {
     res.status(400).json({ error: "Job description must be at least 30 characters." });
     return;
   }

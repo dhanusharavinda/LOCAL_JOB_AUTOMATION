@@ -1,15 +1,25 @@
 import { useState, useEffect } from "react";
-import { fetchStoryBank, deleteStory, StoryBankEntry } from "../api";
+import { fetchStoryBank, deleteStory, createStory, StoryBankEntry } from "../api";
 
 interface Props {
   onClose: () => void;
 }
+
+const EMPTY_FORM = { story_title: "", situation: "", task: "", action: "", result: "", reflection: "", tags: "" };
 
 export default function StoryBankModal({ onClose }: Props) {
   const [stories, setStories] = useState<StoryBankEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  // Manual add-story form (previously stories could only appear via
+  // auto-generation from an Interviewing job — this lets users build the
+  // bank directly).
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStoryBank()
@@ -36,10 +46,45 @@ export default function StoryBankModal({ onClose }: Props) {
   }
 
   async function handleDelete(id: number) {
+    setDeleteErr(null);
     try {
       await deleteStory(id);
       setStories((prev) => prev.filter((s) => s.id !== id));
-    } catch {}
+    } catch (e: any) {
+      setDeleteErr(e?.message || "Could not delete that story. Please try again.");
+    }
+  }
+
+  async function handleAdd() {
+    setAddErr(null);
+    if (!form.story_title.trim() || !form.situation.trim() || !form.task.trim() || !form.action.trim() || !form.result.trim()) {
+      setAddErr("Title, Situation, Task, Action, and Result are all required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await createStory({
+        story_title: form.story_title.trim(),
+        situation: form.situation.trim(),
+        task: form.task.trim(),
+        action: form.action.trim(),
+        result: form.result.trim(),
+        reflection: form.reflection.trim() || null,
+        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        source_job_id: null,
+      });
+      setStories((prev) => [created, ...prev]);
+      setForm(EMPTY_FORM);
+      setShowAdd(false);
+      // Clear any active tag filter so the just-saved story is visible at the
+      // top of the list (otherwise a non-matching tag hides it and the save
+      // looks like it failed).
+      setFilter("");
+    } catch (e: any) {
+      setAddErr(e?.message || "Could not save story. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -53,15 +98,79 @@ export default function StoryBankModal({ onClose }: Props) {
           <div>
             <h2 className="font-display text-lg font-bold text-gray-50">Story Bank</h2>
             <p className="font-mono text-xs text-[#8b8fa3] mt-0.5">
-              {stories.length} STAR+R {stories.length === 1 ? "story" : "stories"} accumulated across interviews
+              {stories.length} STAR+R {stories.length === 1 ? "story" : "stories"} in your bank
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-300 transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setShowAdd((v) => !v); setAddErr(null); }}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/10 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-colors"
+            >
+              {showAdd ? "Close" : "+ Add story"}
+            </button>
+            <button onClick={onClose} className="text-gray-600 hover:text-gray-300 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {/* Add-story form */}
+        {showAdd && (
+          <div className="px-6 py-4 border-b border-gray-800/60 shrink-0 space-y-2 bg-[#0f1115]">
+            <input
+              value={form.story_title}
+              onChange={(e) => setForm((f) => ({ ...f, story_title: e.target.value }))}
+              placeholder="Story title (e.g. Led migration under deadline)"
+              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {([
+                ["situation", "Situation — the context"],
+                ["task", "Task — what you had to do"],
+                ["action", "Action — what you did"],
+                ["result", "Result — the outcome (with numbers)"],
+              ] as const).map(([key, ph]) => (
+                <textarea
+                  key={key}
+                  value={form[key]}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  placeholder={ph}
+                  className="w-full min-h-[56px] bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40 resize-y"
+                />
+              ))}
+            </div>
+            <input
+              value={form.reflection}
+              onChange={(e) => setForm((f) => ({ ...f, reflection: e.target.value }))}
+              placeholder="Reflection (optional) — what you learned"
+              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+            />
+            <input
+              value={form.tags}
+              onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+              placeholder="Tags (optional), comma-separated — e.g. leadership, teamwork"
+              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+            />
+            {addErr && <p className="text-xs text-red-400">{addErr}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => { setShowAdd(false); setForm(EMPTY_FORM); setAddErr(null); }}
+                className="text-xs font-medium px-3 py-2 rounded-lg border border-gray-800 text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={saving}
+                className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#c9a94e]/15 border border-[#c9a94e]/30 text-[#c9a94e] hover:bg-[#c9a94e]/25 transition-colors disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save story"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tag filter */}
         <div className="px-6 py-3 border-b border-gray-800/60 shrink-0">
@@ -90,6 +199,11 @@ export default function StoryBankModal({ onClose }: Props) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {deleteErr && (
+            <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 text-xs text-red-400">
+              {deleteErr}
+            </div>
+          )}
           {loading && (
             <div className="flex items-center justify-center py-16">
               <div className="w-6 h-6 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
@@ -98,7 +212,7 @@ export default function StoryBankModal({ onClose }: Props) {
           {!loading && filtered.length === 0 && (
             <p className="text-center text-gray-600 text-sm py-8">
               {stories.length === 0
-                ? "No stories yet. Stories are generated when jobs move to \"Interviewing\" status."
+                ? "No stories yet. Click \"+ Add story\" to create one. Stories are also auto-saved when a job moves to \"Interviewing\"."
                 : "No stories match this filter."}
             </p>
           )}

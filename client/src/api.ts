@@ -1413,3 +1413,23 @@ export async function fetchJobMatches(minScore = 6, limit = 50): Promise<JobMatc
   if (!res.ok) throw new Error("Failed to load job matches");
   return res.json();
 }
+
+// ─── Feedback ────────────────────────────────────────────────────────
+
+/** Capture a bug report / feature request / note server-side. Public route. */
+export async function submitFeedback(input: {
+  category: string;
+  message: string;
+  email?: string;
+  page?: string;
+}): Promise<void> {
+  const res = await fetch("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Could not send feedback" }));
+    throw new Error(err.error || "Could not send feedback");
+  }
+}

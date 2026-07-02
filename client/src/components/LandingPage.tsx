@@ -520,15 +520,16 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           setRunning(false);
           setPipelineComplete(true);
           setShowCompletionToast(true);
-          // Nudge the user to adjust settings after the run finishes. Delayed
-          // slightly so it doesn't stomp on the completion toast animation.
-          setTimeout(() => setShowAdjustSettingsModal(true), 1200);
+          // The "adjust your search" nudge is scheduled by a separate effect
+          // that only fires for under-delivered runs (see below) — not on
+          // every completion, so a fully successful run isn't told it failed.
           es.close();
           eventSourceRef.current = null;
           setLogs((prev) => [...prev, data]);
-          // Refresh usage from server for accurate final numbers
+          // Refresh usage + limits from server for accurate final numbers
           fetchSettings().then((s: any) => {
             if (s.usage) setUsage(s.usage);
+            if (s.limits) setLimits(s.limits);
           }).catch(() => {});
           return;
         }
@@ -544,16 +545,18 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           return;
         }
 
-        // Live-update usage counters from log messages
-        if (data.type === "success") {
-          const scrapedMatch = data.message.match(/Scraped (\d+) jobs/);
-          const freeMatch = data.message.match(/Free scrapers: (\d+)/);
-          const tailorMatch = data.message.includes("Resume customized");
-          if (scrapedMatch || freeMatch) {
-            const count = parseInt(scrapedMatch?.[1] || freeMatch?.[1] || "0");
-            setUsage((prev) => prev ? { ...prev, jobs_scraped: prev.jobs_scraped + count } : prev);
+        // Live-update the "Today's Usage" counters from the log stream so the
+        // card moves during the run, tracking EXACTLY what the server charges:
+        // one relevant job per "Relevant (score: …)" line (== stats.relevant,
+        // capped at the target) and one tailored resume per "PDF uploaded"
+        // line (== stats.tailored). Deriving from raw scrape totals overshot
+        // the cap mid-run; deriving from "Resume customized" over-counted
+        // failed PDFs. Authoritative totals are refetched on "complete".
+        if (data.type === "success" && typeof data.message === "string") {
+          if (data.message.includes("Relevant (score:")) {
+            setUsage((prev) => prev ? { ...prev, jobs_scraped: prev.jobs_scraped + 1 } : prev);
           }
-          if (tailorMatch) {
+          if (data.message.includes("PDF uploaded")) {
             setUsage((prev) => prev ? { ...prev, resumes_tailored: prev.resumes_tailored + 1 } : prev);
           }
         }
@@ -563,16 +566,35 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     };
 
     es.onerror = () => {
-      // EventSource fires onerror both for transient hiccups (where the
-      // browser will auto-reconnect) and for terminal failures (where
-      // it won't). If we're currently running a pipeline and the stream
-      // closes permanently, tell the user the live-log view died rather
-      // than leaving them staring at a frozen panel forever.
-      es.close();
-      eventSourceRef.current = null;
-      setError((prev) => prev ?? "Live log stream dropped. Refresh to reconnect.");
+      // EventSource fires onerror for BOTH transient hiccups (readyState
+      // CONNECTING — the browser will auto-reconnect on its own) and terminal
+      // closes (readyState CLOSED). Only tear down + warn on a terminal close,
+      // so a brief network blip mid-run doesn't kill the live log/progress and
+      // flash a scary banner while the pipeline is still running server-side.
+      if (es.readyState === EventSource.CLOSED) {
+        eventSourceRef.current = null;
+        setError((prev) => prev ?? "Live log stream dropped. Refresh to reconnect.");
+      }
     };
   }, []);
+
+  // Only nudge "adjust your search" when a completed run under-delivered
+  // (zero matches, or fewer than target). Firing it on every completion made
+  // even a fully successful run look like it failed. Reads the freshest logs
+  // once the run completes.
+  useEffect(() => {
+    if (!pipelineComplete) return;
+    const underDelivered = logs.some((l) => {
+      const m = l.message || "";
+      return m.includes("No relevant jobs to tailor")
+        || m.includes("No jobs in target locations")
+        || m.includes("no matching jobs found")
+        || /Only \d+ quality jobs? passed the AI filter/.test(m);
+    });
+    if (!underDelivered) return;
+    const t = setTimeout(() => setShowAdjustSettingsModal(true), 1200);
+    return () => clearTimeout(t);
+  }, [pipelineComplete]);
 
   function updateConfig<K extends keyof PipelineConfig>(key: K, value: PipelineConfig[K]) {
     setConfig((prev) => prev ? { ...prev, [key]: value } : prev);
@@ -926,12 +948,20 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setAuthModal("login")}
-                  className="text-base font-medium px-6 py-2.5 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.18)] transition-all"
-                >
-                  Sign In
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAuthModal("login")}
+                    className="text-base font-medium px-4 py-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={() => setAuthModal("signup")}
+                    className="text-base font-semibold px-6 py-2.5 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.18)] transition-all"
+                  >
+                    Get Started
+                  </button>
+                </div>
               )}
             </nav>
 
@@ -966,12 +996,14 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                     </div>
                   </div>
                 )}
-                <button
-                  onClick={() => { setShowSettings(true); setMobileNavOpen(false); }}
-                  className="text-left text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded-lg px-3 py-2 transition-colors"
-                >
-                  Settings
-                </button>
+                {currentUser && (
+                  <button
+                    onClick={() => { setShowSettings(true); setMobileNavOpen(false); }}
+                    className="text-left text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded-lg px-3 py-2 transition-colors"
+                  >
+                    Settings
+                  </button>
+                )}
                 <button
                   onClick={() => { onNavigateToPricing(); setMobileNavOpen(false); }}
                   className="text-left text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] rounded-lg px-3 py-2 transition-colors"
@@ -994,12 +1026,20 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                     Sign out
                   </button>
                 ) : (
-                  <button
-                    onClick={() => { setAuthModal("login"); setMobileNavOpen(false); }}
-                    className="text-left text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent-muted)] rounded-lg px-3 py-2 transition-colors mt-1"
-                  >
-                    Sign in
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { setAuthModal("signup"); setMobileNavOpen(false); }}
+                      className="text-left text-sm font-semibold text-[var(--accent)] bg-[var(--accent-muted)] rounded-lg px-3 py-2 transition-colors mt-1"
+                    >
+                      Get Started
+                    </button>
+                    <button
+                      onClick={() => { setAuthModal("login"); setMobileNavOpen(false); }}
+                      className="text-left text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] rounded-lg px-3 py-2 transition-colors"
+                    >
+                      Sign in
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -1043,12 +1083,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                 onClick={() => { setView("configure"); window.scrollTo({ top: 0 }); }}
                 className="launch-btn inline-flex items-center gap-2 px-10 py-4 rounded-full font-semibold text-lg tracking-wide"
               >
-                Click Here
+                Set up my job hunt
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </button>
-              <span className="text-sm text-[var(--text-ghost)] mt-3">Set up your job hunt</span>
+              <span className="text-sm text-[var(--text-ghost)] mt-3">Upload your resume, set your targets, and let the AI run the hunt</span>
             </div>
           ) : null}
         </div>
@@ -1090,14 +1130,16 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               </button>
             )}
             <div className="flex-1" />
-            <button
-              onClick={onNavigateToDashboard}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[var(--accent-muted)] transition-all"
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10h6m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
-              <span className="flex-1 text-left">Pipeline Board</span>
-              <span>→</span>
-            </button>
+            {currentUser && (
+              <button
+                onClick={onNavigateToDashboard}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[var(--accent-muted)] transition-all"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10h6m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+                <span className="flex-1 text-left">Pipeline Board</span>
+                <span>→</span>
+              </button>
+            )}
           </aside>
         )}
 
@@ -1112,7 +1154,9 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               {currentUser && (
                 <button onClick={() => setConfigSection("hunt")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Job Hunt</button>
               )}
-              <button onClick={onNavigateToDashboard} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[rgba(201,169,78,0.2)] text-[var(--accent)]">Pipeline Board →</button>
+              {currentUser && (
+                <button onClick={onNavigateToDashboard} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[rgba(201,169,78,0.2)] text-[var(--accent)]">Pipeline Board →</button>
+              )}
             </div>
           )}
 
@@ -2063,7 +2107,15 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               //   noMatch         — pipeline found zero relevant jobs
               //   limitedMatches  — fewer than the target survived the filter
               //   success         — target met (or no target comparison available)
-              const noMatch = logs.some((l) => l.message?.includes("no matching jobs found"));
+              const noMatch = logs.some((l) => {
+                const m = l.message || "";
+                // The pipeline's actual zero-result emits (the old
+                // "no matching jobs found" string was never emitted, so a
+                // 0-match run wrongly fell through to the success card).
+                return m.includes("No relevant jobs to tailor")
+                  || m.includes("No jobs in target locations")
+                  || m.includes("no matching jobs found");
+              });
               // Pipeline emits: "Only N quality job(s) passed the AI filter for your role (target: T)."
               const limitedLog = logs
                 .map((l) => l.message || "")
@@ -2152,13 +2204,16 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         {/* ── Live Log Terminal ── */}
         {(running || logs.length > 0) && (
           <div className="mt-4 mb-12">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                 Live Output
                 {running && <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
               </h3>
               <span className="text-xs text-[var(--text-tertiary)] font-mono">{logs.length} lines</span>
             </div>
+            <p className="text-xs text-[var(--text-tertiary)] mb-3">
+              A live activity log of the pipeline as it scrapes, scores, and tailors resumes. You can safely ignore it, or watch it work. Matched jobs land on your Pipeline Board as they're found.
+            </p>
             <div className="bg-[#0a0c10] border border-[var(--border-subtle)] rounded-2xl overflow-hidden">
               <div className="h-72 overflow-y-auto p-4 font-mono text-xs leading-relaxed">
                 {logs.map((log, i) => (

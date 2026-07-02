@@ -3,6 +3,18 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Job, JobStatus, COLUMNS } from "../types";
 import JobCard from "./JobCard";
 
+// One-line explanation of each pipeline stage, shown as a tooltip on the
+// column header so the workflow (Filtered → Saved → Applied → …) is
+// self-explanatory. Drag cards between columns to move a job through it.
+const COLUMN_DESC: Record<JobStatus, string> = {
+  filtered: "AI-approved shortlist — relevant jobs the pipeline scored and tailored a resume for. Review them, then drag to Saved or Applied.",
+  saved: "Jobs you liked and plan to apply to. Drag to Applied once you've submitted.",
+  applied: "You've applied. Drag to Interviewing when you hear back.",
+  interviewing: "You're in the interview process for these.",
+  offer: "You received an offer here.",
+  rejected: "Not moving forward. Drag here, or keep for your records.",
+};
+
 interface Props {
   jobs: Job[];
   onDragEnd: (jobId: number, newStatus: JobStatus) => void;
@@ -115,13 +127,16 @@ export default function KanbanBoard({
               onMouseLeave={() => setHoveredCol(null)}
             >
               {/* Column Header */}
-              <div className={`px-4 py-3 rounded-t-xl ${col.gradient} bg-[#0c0e14] border border-b-0 border-[rgba(255,255,255,0.06)]`}>
+              <div className={`px-4 py-3 rounded-t-xl ${col.gradient} bg-[#0c0e14] border border-b-0 border-[rgba(255,255,255,0.06)]`} title={COLUMN_DESC[col.id]}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 cursor-help" title={COLUMN_DESC[col.id]}>
                     <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
                     <h2 className="font-display text-sm text-gray-200">
                       {col.title}
                     </h2>
+                    <svg className="w-3 h-3 text-[var(--text-ghost)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className={`font-mono text-xs font-medium px-2.5 py-0.5 rounded-full ${col.countBg}`}>

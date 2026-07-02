@@ -25,15 +25,17 @@ const CURRENCY_BY_SYMBOL: Record<string, string> = {
 
 const CURRENCY_CODES = ["USD", "EUR", "GBP", "INR", "AUD", "CAD", "NZD", "CHF", "SGD"];
 
-/** Detect currency from a symbol or a 3-letter code anywhere in the string. */
+/** Detect currency from a 3-letter code or a symbol anywhere in the string.
+ *  Explicit ISO codes are checked FIRST because "$" is ambiguous (USD, CAD,
+ *  AUD, NZD, SGD all use it) — so "$90,000 CAD" resolves to CAD, not USD. */
 function detectCurrency(raw: string): string {
-  for (const sym of Object.keys(CURRENCY_BY_SYMBOL)) {
-    if (raw.includes(sym)) return CURRENCY_BY_SYMBOL[sym];
-  }
   const upper = raw.toUpperCase();
   for (const code of CURRENCY_CODES) {
     // Word-boundary match so "INR" doesn't fire inside another token.
     if (new RegExp(`\\b${code}\\b`).test(upper)) return code;
+  }
+  for (const sym of Object.keys(CURRENCY_BY_SYMBOL)) {
+    if (raw.includes(sym)) return CURRENCY_BY_SYMBOL[sym];
   }
   return "USD";
 }
