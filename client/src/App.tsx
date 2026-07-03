@@ -78,6 +78,8 @@ export default function App() {
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailSyncing, setGmailSyncing] = useState(false);
   const [gmailLastSync, setGmailLastSync] = useState<string | null>(null);
+  // Which Google account the current user connected (shown as "Connected as …").
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
   const [expiryChecking, setExpiryChecking] = useState(false);
   const [showStoryBank, setShowStoryBank] = useState(false);
@@ -335,19 +337,19 @@ export default function App() {
     // the landing or auth pages.
     if (!currentUser) return;
 
-    gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); }).catch(() => {});
+    gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
 
     // Handle redirect back from OAuth popup (?gmail=connected)
     const params = new URLSearchParams(window.location.search);
     if (params.get("gmail") === "connected") {
       window.history.replaceState({}, "", window.location.pathname);
-      gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); }).catch(() => {});
+      gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
     }
 
     // Listen for postMessage from popup (works if opener is still accessible)
     const messageHandler = (e: MessageEvent) => {
       if (e.data === "gmail_connected") {
-        gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); }).catch(() => {});
+        gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
       }
     };
     window.addEventListener("message", messageHandler);
@@ -720,6 +722,7 @@ export default function App() {
           if (s.connected) {
             setGmailConnected(true);
             setGmailLastSync(s.lastSync);
+            setGmailEmail(s.email);
             clearInterval(poll);
           }
         }).catch(() => {});
@@ -735,6 +738,7 @@ export default function App() {
       await gmailDisconnect();
       setGmailConnected(false);
       setGmailLastSync(null);
+      setGmailEmail(null);
     } catch (err: any) {
       setError("Failed to disconnect Gmail: " + err.message);
     }
@@ -745,7 +749,7 @@ export default function App() {
     try {
       const result = await gmailSync();
       await loadJobs(); // Always refresh
-      gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); }).catch(() => {});
+      gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
       if (result.synced > 0) {
         const created = result.updates?.filter((u: any) => u.created).length ?? 0;
         const updated = result.synced - created;
@@ -759,7 +763,15 @@ export default function App() {
         setTimeout(() => setError(null), 4000);
       }
     } catch (err: any) {
-      setError("Gmail sync failed: " + err.message);
+      if (err?.reconnect) {
+        // Token was revoked/expired — flip back to the disconnected state so
+        // the sidebar shows "Connect Gmail" again.
+        setGmailConnected(false);
+        setGmailEmail(null);
+        setError("Your Gmail connection expired. Please reconnect Gmail.");
+      } else {
+        setError("Gmail sync failed: " + err.message);
+      }
     } finally {
       setGmailSyncing(false);
     }
@@ -1093,6 +1105,7 @@ export default function App() {
         onOpenInterview={() => { setInterviewJobId(null); setShowInterview(true); }}
         onAddJob={() => setShowAddJob(true)}
         gmailConnected={gmailConnected}
+        gmailEmail={gmailEmail}
         gmailSyncing={gmailSyncing}
         onGmailConnect={handleGmailConnect}
         onGmailSync={handleGmailSync}

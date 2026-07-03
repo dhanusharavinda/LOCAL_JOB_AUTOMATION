@@ -75,20 +75,35 @@ function verifyState(state: string): { userId: string } | null {
   }
 }
 
+// Belt-and-suspenders: ensure the `email` column exists so the connected
+// account can be shown even on a deploy where migration 0009 hasn't run yet.
+let gmailEmailColumnReady = false;
+async function ensureGmailEmailColumn(): Promise<void> {
+  if (gmailEmailColumnReady) return;
+  try {
+    await sql`ALTER TABLE gmail_tokens ADD COLUMN IF NOT EXISTS email text`;
+    gmailEmailColumnReady = true;
+  } catch (err: any) {
+    console.error("[gmail] ensureGmailEmailColumn failed:", err?.message || err);
+  }
+}
+
 // ─── GET /api/gmail/status ───────────────────────────────────────────
 router.get("/status", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   try {
-    const rows = await sql<{ last_sync_at: Date | null }[]>`
-      SELECT last_sync_at FROM gmail_tokens WHERE user_id = ${userId} LIMIT 1
+    await ensureGmailEmailColumn();
+    const rows = await sql<{ last_sync_at: Date | null; email: string | null }[]>`
+      SELECT last_sync_at, email FROM gmail_tokens WHERE user_id = ${userId} LIMIT 1
     `;
     if (rows.length === 0) {
-      res.json({ connected: false, lastSync: null });
+      res.json({ connected: false, lastSync: null, email: null });
       return;
     }
     res.json({
       connected: true,
       lastSync: rows[0].last_sync_at ? new Date(rows[0].last_sync_at).toISOString() : null,
+      email: rows[0].email || null,
     });
   } catch (err: any) {
     console.error("[GET /api/gmail/status]", err?.message || err);
@@ -132,10 +147,23 @@ router.get("/callback", async (req: Request, res: Response) => {
   try {
     const oAuth2Client = getOAuth2Client();
     const { tokens } = await oAuth2Client.getToken(code);
+    oAuth2Client.setCredentials(tokens);
 
+    // Record which Google account this is so the UI can show "Connected as …".
+    // Non-fatal: if the profile lookup fails we still store the tokens.
+    let connectedEmail: string | null = null;
+    try {
+      const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+      const profile = await gmail.users.getProfile({ userId: "me" });
+      connectedEmail = profile.data.emailAddress || null;
+    } catch (e: any) {
+      console.warn("[Gmail OAuth] could not read profile email:", e?.message || e);
+    }
+
+    await ensureGmailEmailColumn();
     await sql`
       INSERT INTO gmail_tokens (
-        user_id, access_token, refresh_token, scope, token_type, expiry_date, connected_at
+        user_id, access_token, refresh_token, scope, token_type, expiry_date, email, connected_at
       ) VALUES (
         ${verified.userId},
         ${tokens.access_token || ""},
@@ -143,6 +171,7 @@ router.get("/callback", async (req: Request, res: Response) => {
         ${tokens.scope || null},
         ${tokens.token_type || null},
         ${tokens.expiry_date || null},
+        ${connectedEmail},
         NOW()
       )
       ON CONFLICT (user_id) DO UPDATE SET
@@ -151,6 +180,7 @@ router.get("/callback", async (req: Request, res: Response) => {
         scope         = EXCLUDED.scope,
         token_type    = EXCLUDED.token_type,
         expiry_date   = EXCLUDED.expiry_date,
+        email         = COALESCE(EXCLUDED.email, gmail_tokens.email),
         connected_at  = NOW()
     `;
 
@@ -528,8 +558,17 @@ router.post("/sync", requireAuth, async (req: Request, res: Response) => {
 
     res.json({ synced: updates.length, updates, scanned: messages.length });
   } catch (err: any) {
-    console.error("[POST /api/gmail/sync]", err?.message || err);
-    res.status(500).json({ error: err?.message || "Sync failed" });
+    const msg = err?.message || "";
+    // A revoked/expired refresh token surfaces as invalid_grant / 401. Clear
+    // the dead token and tell the client to prompt a reconnect rather than
+    // showing an opaque 500 that never resolves on retry.
+    if (/invalid_grant/i.test(msg) || err?.response?.status === 401 || err?.code === 401) {
+      try { await sql`DELETE FROM gmail_tokens WHERE user_id = ${userId}`; } catch { /* ignore */ }
+      res.status(401).json({ error: "Your Gmail connection expired or was revoked. Please reconnect.", reconnect: true });
+      return;
+    }
+    console.error("[POST /api/gmail/sync]", msg || err);
+    res.status(500).json({ error: msg || "Sync failed" });
   }
 });
 

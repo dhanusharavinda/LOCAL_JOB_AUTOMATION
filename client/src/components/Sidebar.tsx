@@ -28,6 +28,7 @@ interface SidebarProps {
   onAddJob: () => void;
   // Gmail
   gmailConnected: boolean;
+  gmailEmail: string | null;
   gmailSyncing: boolean;
   onGmailConnect: () => void;
   onGmailSync: () => void;
@@ -109,6 +110,7 @@ export default function Sidebar({
   onOpenInterview,
   onAddJob,
   gmailConnected,
+  gmailEmail,
   gmailSyncing,
   onGmailConnect,
   onGmailSync,
@@ -233,6 +235,11 @@ export default function Sidebar({
           <SectionLabel>Connections</SectionLabel>
           {gmailConnected ? (
             <div className="space-y-0.5">
+              {gmailEmail && (
+                <div className="px-3 pt-0.5 pb-1 text-[10px] text-[var(--text-tertiary)] truncate" title={gmailEmail}>
+                  Connected as {gmailEmail}
+                </div>
+              )}
               <NavItem
                 icon={
                   <span className="relative flex h-2 w-2">

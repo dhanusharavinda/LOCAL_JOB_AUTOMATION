@@ -223,7 +223,7 @@ export async function createJob(job: Partial<Job>): Promise<Job> {
   return res.json();
 }
 
-export async function gmailStatus(): Promise<{ connected: boolean; lastSync: string | null }> {
+export async function gmailStatus(): Promise<{ connected: boolean; lastSync: string | null; email: string | null }> {
   const res = await fetch("/api/gmail/status");
   if (!res.ok) throw new Error("Failed to get Gmail status");
   return res.json();
@@ -244,7 +244,11 @@ export async function gmailSync(): Promise<{ synced: number; updates: any[]; sca
   const res = await fetch("/api/gmail/sync", { method: "POST" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Sync failed" }));
-    throw new Error(err.error || "Sync failed");
+    const e: any = new Error(err.error || "Sync failed");
+    // Server sets this when the Gmail token was revoked/expired, so the UI
+    // can flip back to a "Connect Gmail" state and prompt a reconnect.
+    e.reconnect = !!err.reconnect;
+    throw e;
   }
   return res.json();
 }
