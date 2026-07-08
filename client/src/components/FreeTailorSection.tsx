@@ -46,6 +46,10 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   // so the output PDF matches the input's page count. null for DOCX / pasted
   // text, where the server estimates from the resume's text length.
   const [resumePages, setResumePages] = useState<number | null>(null);
+  // Live resume-text editor. Lets the user view and freely edit the extracted
+  // resume text (add/remove/replace anything) before tailoring, or paste a
+  // resume directly without uploading a file.
+  const [editingResume, setEditingResume] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -100,6 +104,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
 
       setResumeText(data.text);
       setUploadedFileName(file.name);
+      setEditingResume(false);
       // PDF parser returns the true page count; DOCX has none (server falls
       // back to a text-length estimate).
       setResumePages(typeof data.pages === "number" && data.pages > 0 ? data.pages : null);
@@ -126,8 +131,8 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   async function handleTailor() {
     setError(null);
 
-    if (!uploadedFileName || resumeText.length < 50) {
-      setError("Please upload your resume first (PDF or DOCX).");
+    if (resumeText.trim().length < 50) {
+      setError("Add your resume first — upload a PDF/DOCX or paste the text.");
       return;
     }
     if (jobDescription.length < 30) {
@@ -290,6 +295,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setJobDescription("");
     setUploadedFileName(null);
     setResumePages(null);
+    setEditingResume(false);
     setGeneratedCoverLetter(null);
     setCoverLetterError(null);
     setUserInstructions("");
@@ -314,6 +320,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setResumeText("");
     setUploadedFileName(null);
     setResumePages(null);
+    setEditingResume(false);
   }
 
   return (
@@ -358,8 +365,13 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
             <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)]">
               {/* Left: Resume Upload */}
               <div className="p-6">
-                <label className="font-mono text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold block mb-3">
-                  Your Resume
+                <label className="font-mono text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold flex items-center justify-between mb-3">
+                  <span>Your Resume</span>
+                  {editingResume && (
+                    <span className="font-mono text-[10px] normal-case tracking-normal text-[var(--text-ghost)]">
+                      {resumeText.length.toLocaleString()} characters
+                    </span>
+                  )}
                 </label>
 
                 <input
@@ -370,7 +382,52 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                   className="hidden"
                 />
 
-                {!uploadedFileName ? (
+                {editingResume ? (
+                  /* Live resume-text editor — the exact text below is what the
+                     AI reads. Add, remove, or replace anything. */
+                  <div className="flex flex-col h-[280px]">
+                    <textarea
+                      value={resumeText}
+                      onChange={(e) => {
+                        setResumeText(e.target.value);
+                        // Edited text no longer matches the uploaded PDF, so
+                        // drop its fixed page count and let the server
+                        // estimate pages from the edited text instead.
+                        setResumePages(null);
+                      }}
+                      placeholder={"Paste or type your resume text here...\n\nEverything in this box is exactly what the AI tailors from."}
+                      className="flex-1 w-full bg-[var(--bg-base)] border border-[#c9a94e]/30 rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/60 font-mono resize-none leading-relaxed"
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-between gap-2 mt-2">
+                      <p className="text-[10px] text-[var(--text-ghost)]">
+                        This exact text is what the AI tailors from.
+                      </p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={handleRemoveFile}
+                          className="text-[10px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (resumeText.trim().length < 50) {
+                              setError("Resume text must be at least 50 characters.");
+                              return;
+                            }
+                            if (!uploadedFileName) setUploadedFileName("pasted-resume");
+                            setEditingResume(false);
+                          }}
+                          disabled={resumeText.trim().length < 50}
+                          className="text-[10px] font-semibold text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-4 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : !uploadedFileName ? (
                   /* Drop zone */
                   <div
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -405,6 +462,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                           <span className="font-mono text-[10px] text-[var(--text-ghost)] bg-[var(--bg-surface)] px-2 py-0.5 rounded border border-[var(--border-subtle)]">PDF</span>
                           <span className="font-mono text-[10px] text-[var(--text-ghost)] bg-[var(--bg-surface)] px-2 py-0.5 rounded border border-[var(--border-subtle)]">DOCX</span>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingResume(true); }}
+                          className="mt-4 text-xs text-[#c9a94e] hover:text-[#d4b85a] underline underline-offset-2 decoration-[rgba(201,169,78,0.4)] transition-colors"
+                        >
+                          or paste your resume text instead
+                        </button>
                       </>
                     )}
                   </div>
@@ -419,6 +482,13 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                     <p className="text-sm font-medium text-emerald-400 mb-1">{uploadedFileName}</p>
                     <p className="text-xs text-[var(--text-ghost)] mb-4">{resumeText.length.toLocaleString()} characters extracted</p>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingResume(true)}
+                        className="text-[10px] font-semibold text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-3 py-1.5 rounded-md transition-colors"
+                        title="View and edit the extracted resume text — add, remove, or replace anything before tailoring"
+                      >
+                        Edit text
+                      </button>
                       <button
                         onClick={() => fileRef.current?.click()}
                         className="text-[10px] font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-3 py-1.5 rounded-md transition-colors"
@@ -442,10 +512,10 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                   <span>Job Description</span>
                   {(() => {
                     const words = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
-                    const over = words > 600;
+                    const over = words > 1000;
                     return (
                       <span className={`font-mono text-[10px] normal-case tracking-normal ${over ? "text-red-400" : "text-[var(--text-ghost)]"}`}>
-                        {words} / 600 words
+                        {words} / 1000 words
                       </span>
                     );
                   })()}
@@ -453,20 +523,21 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                 <textarea
                   value={jobDescription}
                   onChange={(e) => {
-                    // Enforce a hard 600-word cap. We measure by whitespace-
-                    // separated tokens after trimming. If the new value would
-                    // exceed the cap, slice it down to the first 600 words
-                    // rather than silently dropping input on paste.
+                    // Enforce a hard 1000-word cap (matches the server's
+                    // JD_WORD_CAP). We measure by whitespace-separated tokens
+                    // after trimming. If the new value would exceed the cap,
+                    // slice it down to the first 1000 words rather than
+                    // silently dropping input on paste.
                     const next = e.target.value;
                     const words = next.trim() ? next.trim().split(/\s+/) : [];
-                    if (words.length > 600) {
-                      setJobDescription(words.slice(0, 600).join(" "));
-                      setError("Job description capped at 600 words.");
+                    if (words.length > 1000) {
+                      setJobDescription(words.slice(0, 1000).join(" "));
+                      setError("Job description capped at 1000 words.");
                       return;
                     }
                     setJobDescription(next);
                   }}
-                  placeholder={"Paste the full job description here...\n\nInclude requirements, responsibilities, and preferred qualifications for best results. Max 600 words."}
+                  placeholder={"Paste the full job description here...\n\nInclude requirements, responsibilities, and preferred qualifications for best results. Max 1000 words."}
                   rows={12}
                   className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40 font-mono resize-none leading-relaxed h-[280px]"
                 />
