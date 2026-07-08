@@ -180,8 +180,9 @@ export async function customizeResume(
       //
       // Model choice scales with intensity. At Level 10 the prompt requires
       // multi-step keyword extraction, verbatim JD mirroring, and fabrication
-      // that's internally consistent with the candidate's real roles — gpt-4o-mini
-      // drifts on instructions that complex. Intensities 1-9 stay on mini for cost.
+      // that stays internally consistent with the candidate's real roles —
+      // gpt-4o-mini drifts on instructions that complex. Intensities 1-9 stay
+      // on mini for cost.
       //
       // Temperature also scales inversely — Level 10 needs strict rule
       // adherence (mirror the JD mechanically), low levels need gentler
@@ -293,6 +294,24 @@ export async function customizeResume(
       // and just burn OpenAI tokens for no quality gain.
       if (hardWarnings.length > 0 && attempt < maxAttempts) {
         throw new Error(`Incomplete resume data (${hardWarnings.join("; ")}) — retrying`);
+      }
+
+      // ── Normalize bullet acceptance (deterministic, never trust the LLM) ──
+      // The PDF renderer (server/src/pdf.ts bulletText) only prints
+      // `improved` when `accepted === true`; otherwise it falls back to
+      // `original`. The pipeline generates the PDF straight from this JSON
+      // with no human review step, so every improved bullet must ship as
+      // accepted — historically the prompt said `accepted: always false`,
+      // which silently rendered the ORIGINAL bullets into "tailored" PDFs.
+      for (const section of [rd.experience, rd.projects]) {
+        for (const entry of section || []) {
+          for (const bp of entry?.bulletPoints || []) {
+            if (!bp) continue;
+            const improved = typeof bp.improved === "string" ? bp.improved.trim() : "";
+            bp.accepted = improved.length > 0;
+            if (!bp.accepted) bp.improved = null;
+          }
+        }
       }
 
       return parsed as ResumeData;

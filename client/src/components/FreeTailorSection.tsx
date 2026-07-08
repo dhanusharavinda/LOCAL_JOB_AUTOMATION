@@ -1,13 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { freeTailorResume, checkFreeTailorStatus, generateFreeTailorCoverLetter, FreeTailorResult, AuthUser, AuthRequiredError } from "../api";
+import { freeTailorResume, checkFreeTailorStatus, generateFreeTailorCoverLetter, renderResumePdf, FreeTailorResult, AuthUser, AuthRequiredError } from "../api";
 import AuthModal from "./AuthModal";
+import ResumeReviewEditor from "./ResumeReviewEditor";
 
 interface Props {
   currentUser: AuthUser | null;
   onNavigateToPricing: () => void;
 }
 
-type Phase = "input" | "tailoring" | "result";
+type Phase = "input" | "tailoring" | "review" | "result";
 
 export default function FreeTailorSection({ currentUser, onNavigateToPricing }: Props) {
   const [resumeText, setResumeText] = useState("");
@@ -36,6 +37,10 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   const [phase, setPhase] = useState<Phase>("input");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FreeTailorResult | null>(null);
+  // Live review editor state: true while the edited resume JSON is being
+  // re-rendered to PDF server-side (no LLM call, no quota burn).
+  const [rendering, setRendering] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   // Real page count of the uploaded resume (PDF only). Passed to the tailor
   // so the output PDF matches the input's page count. null for DOCX / pasted
@@ -165,7 +170,11 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
         resumePages || undefined,
       );
       setResult(res);
-      setPhase("result");
+      // Land on the live review editor when the server returned structured
+      // resume data (green-highlighted AI changes, accept/reject, manual
+      // edits). Fall back straight to the result panel if it's missing.
+      setReviewError(null);
+      setPhase(res?.resumeData ? "review" : "result");
     } catch (err: any) {
       // If the server says the user isn't authenticated (stale token,
       // signed out in another tab, cold-start 401, etc.) re-open the sign-
@@ -203,12 +212,55 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   // bait. The "result" phase doesn't block either; the tour can start
   // once the PDF is delivered.
   useEffect(() => {
-    const busy = pendingTailor || showAuthModal || phase === "tailoring";
+    // "review" blocks too: the user is actively editing their resume and
+    // a tour popover over the editor would be hostile.
+    const busy = pendingTailor || showAuthModal || phase === "tailoring" || phase === "review";
     (window as any).__freeTailorBusy = busy;
     return () => {
       (window as any).__freeTailorBusy = false;
     };
   }, [pendingTailor, showAuthModal, phase]);
+
+  // Confirm handler for the live review editor: re-render the PDF from the
+  // user-edited resume JSON (accept/reject/manual edits applied). Pure
+  // Puppeteer render server-side — no LLM call, so it never burns quota.
+  async function handleApplyEdits(edited: any) {
+    setRendering(true);
+    setReviewError(null);
+    try {
+      // Reuse the exact page budget the server rendered the first PDF at
+      // (result.targetPages), falling back to the uploaded PDF's page count.
+      // Without this, an edited multi-page resume would be squeezed to 1 page.
+      const budget = result?.targetPages ?? resumePages ?? undefined;
+      const { pdfBase64 } = await renderResumePdf(edited, budget);
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              resumeData: edited,
+              pdfBase64,
+              // The original signed URL still points at the pre-edit PDF;
+              // null it so the download button uses the fresh base64.
+              pdfUrl: null,
+            }
+          : prev,
+      );
+      setPhase("result");
+    } catch (err: any) {
+      if (err instanceof AuthRequiredError) {
+        // Session expired mid-review. Stay in the review phase so the user's
+        // accept/reject/edit decisions survive, and reopen the auth modal.
+        // Deliberately do NOT set pendingTailor — that would replay the whole
+        // tailor (burning a quota run) and discard the edits.
+        setReviewError("Your session expired. Sign in again, then click Apply & Generate PDF — your edits are preserved.");
+        setShowAuthModal(true);
+        return;
+      }
+      setReviewError(err.message || "Couldn't render the edited PDF. Please try again.");
+    } finally {
+      setRendering(false);
+    }
+  }
 
   function handleDownloadPdf() {
     if (!result) return;
@@ -467,7 +519,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               </div>
               {intensity === 10 && (
                 <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
-                  <strong className="font-semibold">Mirror-mode warning.</strong> Intensity 10 will fabricate plausible metrics, tools, and projects to hit 90%+ JD keyword coverage. Your ATS score goes up, but recruiters who screen dozens of CVs a day spot JD-mirroring instantly and it reads as lazy or manipulative. Stay at 7-9 for aggressive tailoring without the fabrication tax.
+                  <strong className="font-semibold">Full Mirror mode.</strong> Intensity 10 simulates how an ATS screens you (modeled on the logic of a major commercial ATS platform) and pushes for 90%+ keyword match — mirroring the JD's exact wording <em>and</em> fabricating plausible metrics, tools, and projects to get there. Your machine ATS score goes way up, but every added line is something you must be ready to defend in an interview, and heavy mirroring is visible to human recruiters. Use the review editor to check each change. 7-9 gives aggressive tailoring without the fabrication. (Employers, titles, dates, and certifications are never altered, at any level.)
                 </div>
               )}
             </div>
@@ -589,7 +641,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               Tailoring your resume...
             </h3>
             <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto leading-relaxed">
-              Our AI is analyzing the job description, matching keywords, rewriting bullets, and generating your tailored PDF. This takes 15-30 seconds.
+              Our AI is analyzing the job description, matching keywords, and rewriting bullets. Next you'll review every change in a live editor before the final PDF. This takes 15-30 seconds.
             </p>
             <div className="mt-6 flex justify-center gap-1.5">
               {[0, 1, 2].map((i) => (
@@ -601,6 +653,17 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               ))}
             </div>
           </div>
+        )}
+
+        {/* ── Review Phase: live editor with green diff highlights ── */}
+        {phase === "review" && result?.resumeData && (
+          <ResumeReviewEditor
+            initialData={result.resumeData}
+            rendering={rendering}
+            error={reviewError}
+            onConfirm={handleApplyEdits}
+            onSkip={() => setPhase("result")}
+          />
         )}
 
         {/* ── Result Phase ── */}
@@ -620,15 +683,28 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                     <p className="text-xs text-[var(--text-secondary)]">Keywords optimized, bullets rewritten, PDF ready to download.</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleDownloadPdf}
-                  className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download PDF
-                </button>
+                <div className="flex items-center gap-2">
+                  {result.resumeData && (
+                    <button
+                      onClick={() => { setReviewError(null); setPhase("review"); }}
+                      className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-subtle)] px-4 py-2.5 rounded-xl transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit resume
+                    </button>
+                  )}
+                  <button
+                    onClick={handleDownloadPdf}
+                    className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF
+                  </button>
+                </div>
               </div>
 
               {/* Preview of what changed */}

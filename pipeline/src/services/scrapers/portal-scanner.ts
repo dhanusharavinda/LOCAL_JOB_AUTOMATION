@@ -166,7 +166,18 @@ async function scrapeGreenhouse(company: TargetCompany): Promise<ScrapedJob[]> {
   const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`;
   try {
     const res = await fetch(apiUrl, { signal: withTimeout(FETCH_TIMEOUT) });
-    if (!res.ok) return jobs;
+    if (!res.ok) {
+      // A 404 means the board doesn't exist — the company isn't on
+      // Greenhouse (or the slug is wrong). Say so explicitly instead of
+      // letting the run report a misleading "0 matching jobs".
+      if (res.status === 404) {
+        log.warn(
+          `[PortalScanner] ${company.company_name}: no Greenhouse board at slug "${slug}" (HTTP 404). ` +
+          `The company is likely not on Greenhouse — fix ats_type/careers_url in Settings, or re-click "Seed Defaults" to repair the row.`
+        );
+      }
+      return jobs;
+    }
     const data = (await res.json()) as { jobs: Array<{ title: string; absolute_url: string; location?: { name: string }; updated_at?: string }> };
     if (!Array.isArray(data.jobs)) return jobs;
 
@@ -221,9 +232,25 @@ async function scrapeLever(company: TargetCompany): Promise<ScrapedJob[]> {
   const apiUrl = `https://api.lever.co/v0/postings/${slug}?mode=json`;
   try {
     const res = await fetch(apiUrl, { signal: withTimeout(FETCH_TIMEOUT) });
-    if (!res.ok) return jobs;
+    if (!res.ok) {
+      if (res.status === 404) {
+        log.warn(
+          `[PortalScanner] ${company.company_name}: no Lever board at slug "${slug}" (HTTP 404). ` +
+          `The company is likely not on Lever — fix ats_type/careers_url in Settings, or re-click "Seed Defaults" to repair the row.`
+        );
+      }
+      return jobs;
+    }
     const data = (await res.json()) as Array<{ text: string; hostedUrl: string; categories?: { location?: string }; createdAt?: number }>;
-    if (!Array.isArray(data)) return jobs;
+    // Lever answers missing boards with 200 + {"ok":false,"error":"Document
+    // not found"} instead of a 404 — catch that shape explicitly.
+    if (!Array.isArray(data)) {
+      log.warn(
+        `[PortalScanner] ${company.company_name}: Lever returned no board for slug "${slug}" ` +
+        `(${JSON.stringify(data).slice(0, 80)}). The company is likely not on Lever — fix ats_type/careers_url in Settings.`
+      );
+      return jobs;
+    }
 
     // Newest first so the per-company cap keeps the freshest postings.
     const sortedData = [...data].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -287,6 +314,15 @@ async function scrapeAshby(company: TargetCompany): Promise<ScrapedJob[]> {
     if (res.ok) {
       const data = (await res.json()) as any;
       const postings = data?.data?.jobBoard?.jobPostings;
+      // Ashby answers unknown orgs with 200 + jobBoard:null — flag it
+      // explicitly rather than reporting a misleading "0 matching jobs".
+      if (!Array.isArray(postings)) {
+        log.warn(
+          `[PortalScanner] ${company.company_name}: no Ashby job board found for slug "${slug}". ` +
+          `The company is likely not on Ashby — fix ats_type/careers_url in Settings.`
+        );
+        return jobs;
+      }
       if (Array.isArray(postings)) {
         const sortedPostings = [...postings].sort((a, b) => {
           const ta = a.publishedDate ? new Date(a.publishedDate).getTime() : 0;

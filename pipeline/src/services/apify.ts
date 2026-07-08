@@ -18,23 +18,30 @@ async function apifyFetch(path: string, options?: RequestInit): Promise<any> {
   const url = `${BASE_URL}${path}${path.includes("?") ? "&" : "?"}token=${config.APIFY_API_TOKEN}`;
   let lastErr: Error | null = null;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // fetch() is awaited OUTSIDE the response-status handling so that a
+    // deliberate "non-retryable status" throw below isn't swallowed by the
+    // network-error catch. (Previous version threw the 4xx error inside the
+    // same try block, its own catch caught it, and 404s got retried twice
+    // for nothing — "Apify API error: 404 Not Found — retrying (2/3)".)
+    let res: Response | null = null;
     try {
-      const res = await fetch(url, options);
-      if (res.ok) return res.json();
-
-      // Non-retryable (4xx other than 429) — bail immediately
-      if (!RETRYABLE_STATUSES.has(res.status)) {
-        throw new Error(`Apify API error: ${res.status} ${res.statusText}`);
-      }
-      lastErr = new Error(`Apify API error: ${res.status} ${res.statusText}`);
+      res = await fetch(url, options);
     } catch (err: any) {
       // fetch() rejection (DNS/network/timeout) — retryable
       lastErr = err instanceof Error ? err : new Error(String(err));
     }
+    if (res) {
+      if (res.ok) return res.json();
+      const httpErr = new Error(`Apify API error: ${res.status} ${res.statusText}`);
+      // Non-retryable (4xx other than 429) — a 404/401/403 won't heal on
+      // retry; bail immediately instead of burning 7s of backoff.
+      if (!RETRYABLE_STATUSES.has(res.status)) throw httpErr;
+      lastErr = httpErr;
+    }
     if (attempt < MAX_RETRIES) {
       // 1s, 2s, 4s — total worst-case 7s before giving up.
       const backoff = 1000 * Math.pow(2, attempt);
-      log.warn(`  Apify request failed (${lastErr.message}) — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      log.warn(`  Apify request failed (${lastErr?.message}) — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
       await delay(backoff);
     }
   }

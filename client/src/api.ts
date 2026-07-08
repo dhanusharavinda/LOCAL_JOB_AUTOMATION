@@ -689,6 +689,10 @@ export interface FreeTailorResult {
   pdfBase64: string;
   pdfUrl: string | null;
   resumeData: any;
+  // The page budget the server actually rendered to. The review editor
+  // reuses it on re-render so an edited multi-page resume isn't silently
+  // squeezed to one page. Optional for backward compatibility.
+  targetPages?: number;
   // Optional cover-letter text. Populated only when the request set
   // `generateCoverLetter: true`. null when the flag was off, or when
   // the cover-letter call failed (the resume PDF still ships).
@@ -744,6 +748,37 @@ export async function freeTailorResume(
     throw new Error(err.error || "Tailoring failed");
   }
   return res.json();
+}
+
+// Re-render a PDF from (possibly user-edited) structured resume data.
+// Used by the live review editor: the user accepts/rejects/edits the
+// AI's changes, then we regenerate the PDF server-side WITHOUT another
+// LLM call — so it never burns the daily tailor quota. Returns base64
+// so the download path matches the original tailor result.
+export async function renderResumePdf(
+  resumeData: any,
+  targetPages?: number,
+): Promise<{ pdfBase64: string }> {
+  const res = await fetch("/api/pdf/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resumeData, targetPages }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "PDF generation failed" }));
+    if (res.status === 401) throw new AuthRequiredError(err.error || "Authentication required");
+    throw new Error(err.error || "PDF generation failed");
+  }
+  // The endpoint streams raw PDF bytes; convert to base64 via FileReader
+  // (chunk-safe, unlike btoa over a giant binary string).
+  const blob = await res.blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  return { pdfBase64: dataUrl.split(",")[1] || "" };
 }
 
 // Stateless follow-up cover-letter generator. Used by the landing-page

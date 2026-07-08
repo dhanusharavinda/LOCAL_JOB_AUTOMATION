@@ -1,3 +1,5 @@
+import { ATS_ENGINE_BLOCK } from "./ats-engine";
+
 /** Rough count of matches for a pattern in the resume text (used to tell the LLM expected counts) */
 function countSection(text: string, pattern: RegExp): number {
   const matches = text.match(pattern);
@@ -88,10 +90,10 @@ KEYWORD COVERAGE TARGET: 80%+ of all JD keywords must appear somewhere in the re
 
 VOICE: The resume should feel purpose-built for this specific position. Every section speaks directly to what the JD asks for.`;
   } else {
-    // Intensity 10: Maximum JD match mode — fabrication allowed
-    intensityInstruction = `TAILORING INTENSITY: MAXIMUM (10/10) — JD MIRROR MODE
+    // Intensity 10: Full Mirror — maximum-aggression JD match (mirror + fabricate)
+    intensityInstruction = `TAILORING INTENSITY: MAXIMUM (10/10) — FULL MIRROR MODE
 
-YOUR SOLE OBJECTIVE: Achieve 90%+ keyword and skill match with the job description. Nothing else matters more.
+YOUR SOLE OBJECTIVE: Achieve 90%+ keyword and skill match with the job description. This is the aggressive, opt-in maximum: run the ATS SIMULATION ENGINE at full depth, mirror the JD's exact vocabulary and phrasing, and fabricate plausible supporting detail to drive machine-gate coverage as high as it goes.
 
 MECHANICAL CONSTRAINTS — follow these numbers exactly:
 
@@ -103,51 +105,46 @@ EXPERIENCE BULLETS (skill-driven tailoring):
 - No keyword limit. No original-wording preservation requirement. Full rewrites from scratch are expected.
 - Rewrite EVERY bullet under EVERY past role so it demonstrates one or more specific skills from the JD master list. If a bullet cannot be credibly tied to a JD skill, replace it with one that can.
 - You MUST invent realistic metrics, percentages, and scale numbers to strengthen EVERY bullet that lacks them.
-- You MUST add tools, platforms, methodologies, and domain-specific terms from the JD into bullet points even if the original resume does not mention them. Weave them into existing responsibilities so they read naturally.
+- You MUST add tools, platforms, methodologies, and domain-specific terms from the JD into bullet points even if the original resume does not mention them. Weave them into existing responsibilities so they read naturally and stay in the candidate's real professional ecosystem.
 - You MAY add at most 2 new bullet points per existing experience entry to cover JD requirements that no existing bullet addresses. Match the style and length of surrounding bullets.
 - The first 3 bullets of the most recent role must collectively contain at least 10 distinct JD keywords.
+- MIRROR SURFACE FORMS: spell every matched keyword exactly as the JD does (same casing, same punctuation, e.g., "Node.js" not "nodejs"; "CI/CD" not "CICD"), and pair acronyms with expansions on first use ("PostgreSQL (Postgres)").
 - HARD RULE — JOB TITLES ARE IMMUTABLE: The job title of every past experience entry must be copied verbatim from the original resume. Never rename, upgrade, downgrade, translate, or rephrase a past job title, even if the JD uses a different title. Framing senior-level language inside bullets is fine; changing the title itself is forbidden.
 
 SKILLS (TOP PRIORITY — this is the ATS keyword zone and it must not be trimmed):
-- Add EVERY skill, tool, platform, framework, methodology, and domain term from the JD to the skills section. No exceptions, no plausibility gate, no "but the candidate might not know this" filter.
-- Every single JD keyword MUST appear in skills, verbatim as the JD spells it (same casing, same punctuation, e.g., "Node.js" not "nodejs"; "CI/CD" not "CICD").
+- Add EVERY skill, tool, platform, framework, methodology, and domain term from the JD to the skills section. No exceptions, no plausibility gate.
+- Every single JD keyword MUST appear in skills, verbatim as the JD spells it (same casing, same punctuation).
+- NO ORPHAN SKILLS: every skill you list must appear in at least one experience or project bullet (fabricate a plausible backing bullet if needed) — an unbacked keyword dump is the recruiter tell that unravels the resume in the first screening call.
 - Reorganize categories so JD-aligned skills lead each category. Append ecosystem neighbors of JD tools (AWS → add related AWS services if JD emphasizes AWS).
 - Preserve every original skill from the resume too. Skills section is additive at Level 10 — you add JD keywords, you do NOT remove the candidate's real skills.
 - Do NOT trim the skills section to save page space. Skills are the single highest-weight ATS zone; keeping them dense is mandatory even in single-page mode.
 
 SUMMARY:
-- Rewrite from scratch. Must read like a direct answer to "who is the perfect candidate for this JD?" and contain 8+ JD keywords.
+- Rewrite from scratch. Must read like a direct answer to "who is the perfect candidate for this JD?", mirror the JD's exact title and top vocabulary, and contain 8+ JD keywords.
 
-PROJECTS (fabrication explicitly allowed at Level 10):
+PROJECTS (fabrication allowed at Level 10):
 - You MAY fabricate project titles AND full project descriptions/bullets, provided they are grounded in the JD skill master list and plausible for the candidate's seniority and domain.
 - Every existing project must be rewritten so its bullets map directly to JD skills.
 - BULLET CAP for fabricated or fully rewritten projects: at most 3 bullets total. If a project has more than 3 original bullets in the source resume, preserve every original bullet (ZERO DATA LOSS overrides the cap) and do not add more.
 - You MAY invent entirely new projects (maximum 2) when the JD emphasizes skills not covered by existing projects. Invented projects must prominently feature JD tools, methodologies, and outcomes — and still respect the 3-bullet cap.
-- Fabricated project titles must sound specific and real (e.g., "Real-Time Fraud Detection Pipeline" for a data role, "Q4 Brand Relaunch Campaign" for marketing, "Patient Readmission Risk Dashboard" for healthcare). Not "Cool Project".
+- Fabricated project titles must sound specific and real (e.g., "Real-Time Fraud Detection Pipeline" for a data role, "Q4 Brand Relaunch Campaign" for marketing). Not "Cool Project".
 
 CERTIFICATIONS (NEVER NEGLECT, NEVER RENAME):
-- Every certification from the original resume MUST appear in the output, unchanged. Certification names are immutable at ALL intensity levels — do not translate, abbreviate, expand, rename, or "modernize" them, even if the JD asks for a differently named credential.
+- Every certification from the original resume MUST appear in the output, unchanged. Certification names are immutable at ALL intensity levels — do not translate, abbreviate, expand, rename, or "modernize" them.
 - Preserve the issuer and date of each certification exactly as given.
 - You MAY NOT invent new certifications at Level 10. Fabrication is permitted for bullets, metrics, tools, and project content only — never for credentials.
 
 RULES FOR FABRICATION:
 - Keep it plausible. Numbers should be realistic for the role level (not "saved $50M" for a junior role).
-- Fabricated tools and skills must be in the same professional ecosystem as the candidate's real experience. Examples by domain:
-  - Tech: candidate used AWS → adding Redshift, Glue, CDK is fine
-  - Marketing: candidate used Google Analytics → adding Google Tag Manager, Looker Studio is fine
-  - Healthcare: candidate used Epic → adding Cerner, MEDITECH modules is fine
-  - Finance: candidate used Bloomberg Terminal → adding FactSet, Capital IQ is fine
-  - Operations: candidate used SAP → adding SAP Ariba, SAP S/4HANA is fine
-  - Education: candidate used Canvas LMS → adding Blackboard, Moodle is fine
-- Company names, past job titles, dates, locations, and certification names must NEVER be changed — fabrication applies only to bullet content, skills, and project details.
-- The resume must still read as coherent and believable to a hiring manager.
+- Fabricated tools and skills must be in the same professional ecosystem as the candidate's real experience (candidate used AWS → adding Redshift, Glue, CDK is fine; used Google Analytics → adding GTM, Looker Studio is fine; used Epic → adding Cerner, MEDITECH is fine).
+- Company names, past job titles, dates, locations, degrees, certification names, and work-authorization / visa / clearance statements must NEVER be changed — fabrication applies only to bullet content, metrics, skills, and project details.
+- The resume must still read as ONE coherent, believable professional to a hiring manager who probes any line.
 
 MATCHING STRATEGY:
 - Extract every single keyword, skill, tool, platform, methodology, credential, and domain term from the JD.
 - Ensure each one appears at least TWICE in the resume: once in skills AND once in bullets, summary, or project descriptions.
-- Mirror the JD's exact phrasing — if the JD says "orchestrate data pipelines using Airflow", write exactly that. If the JD says "manage vendor relationships and negotiate contracts", write exactly that. Match phrasing verbatim regardless of domain.
+- Mirror the JD's exact phrasing — if the JD says "orchestrate data pipelines using Airflow", write exactly that over the candidate's (real or plausibly-added) scope. Match phrasing verbatim regardless of domain.
 - Front-load JD terms in every section. The first bullet of each role should hit the JD's top 3 requirements.
-- Skills section must contain ALL skills, tools, and domain terms mentioned in the JD, plus their ecosystem neighbors.
 
 KEYWORD COVERAGE TARGET: 90%+ of all JD keywords must appear in the resume. Every keyword in the JD must appear at least once. Count them during POST-WRITE VERIFICATION.`;
   }
@@ -169,7 +166,7 @@ KEYWORD COVERAGE TARGET: 90%+ of all JD keywords must appear in the resume. Ever
   const isMaxIntensity = tailoringIntensity >= 10;
   const pageLengthRule = isSinglePage
     ? `\n=== PAGE LENGTH RULE ===\nThe original resume fits on a SINGLE PAGE (${resumeText.length} characters). The tailored output MUST also fit on a single page.\n\nHow to stay on one page WITHOUT violating ZERO DATA LOSS:\n- Preserve every original bullet, project, role, education entry, and certification. Never drop originals to save space.\n- Trim bullet verbosity (tighter phrasing, remove filler words) instead of removing bullets.\n- Keep the summary to 2-3 lines maximum.\n- Do NOT expand short bullets into multi-line paragraphs.\n${isMaxIntensity ? `- Level 10 ADDITION caps (apply only to NEWLY ADDED content, never to originals):\n  - At most 2 NEW bullets added per existing role.\n  - Fabricated/rewritten projects: at most 3 bullets total per project. Existing projects with more than 3 original bullets keep every original bullet — ZERO DATA LOSS overrides the cap.\n  - At most 2 entirely new projects.\n  - Do NOT add new experience entries beyond what the original resume has.` : `- At intensities 1-9 no new bullets, roles, or projects are added. Keep the same bullet count per role/project as the original.`}\n\nEXEMPT FROM THIS RULE: the SKILLS section. Skills are compact (one line per category) and do not threaten the page budget. Never trim skills to fit the page; trim bullet verbosity instead.\n=== END PAGE LENGTH RULE ===\n`
-    : `\n=== PAGE LENGTH RULE ===\nThe original resume is multi-page (${resumeText.length} characters). Preserve all content.${isMaxIntensity ? ` Level 10 caps apply only to NEW content: at most 2 new bullets per role, at most 2 new projects, at most 3 bullets on any fabricated or fully rewritten project. Existing project bullets are preserved regardless.` : ""}\n=== END PAGE LENGTH RULE ===\n`;
+    : `\n=== PAGE LENGTH RULE ===\nThe original resume is multi-page (${resumeText.length} characters). Preserve all content.${isMaxIntensity ? ` Level 10 caps apply only to NEW evidence-backed content: at most 2 new bullets per role (from real resume content only), no new projects, at most 3 bullets on any fully rewritten project. Existing project bullets are preserved regardless.` : ""}\n=== END PAGE LENGTH RULE ===\n`;
 
   const roleHint = targetRole
     ? ` The candidate is targeting roles in the "${targetRole}" space — adapt your language, terminology, and emphasis to that domain.`
@@ -181,12 +178,14 @@ You are an expert resume tailoring specialist with deep knowledge of ATS systems
 
 Return ONLY valid JSON. No backticks. No text outside the JSON object. Your entire response must begin with { and end with }.
 
+${ATS_ENGINE_BLOCK}
+
 === CRITICAL: ZERO DATA LOSS RULES (READ FIRST) ===
 
 These rules override EVERYTHING else. Violating ANY of them makes the output invalid:
 
 1. EDUCATION: The original resume contains approximately ${eduCount} education entries. Your output MUST contain every single one. Do NOT skip, merge, or summarize any education entry. If your draft output has fewer education entries than the original, STOP and re-add the missing ones before returning.
-2. PERSONAL INFO: Copy EVERY contact field verbatim: name, phone, email, location/city/address, and EVERY URL (linkedin, github, portfolio, website, blog, dribbble, behance, kaggle, medium, etc.). Each URL must be the FULL https:// link, not a label — the PDF renderer turns these into clickable hyperlinks, so a label like "LinkedIn" with no URL will break the link. Email must be the raw address so it renders as a mailto: link.
+2. PERSONAL INFO: Copy EVERY contact field verbatim: name, phone, email, location/city/address, and EVERY URL (linkedin, github, portfolio, website, blog, dribbble, behance, kaggle, medium, etc.). Each URL must be the FULL https:// link, not a label — the PDF renderer turns these into clickable hyperlinks, so a label like "LinkedIn" with no URL will break the link. Email must be the raw address so it renders as a mailto: link. If the resume text ends with an "EMBEDDED HYPERLINKS" section, use it to resolve label-only links to their full URLs (see LINK INTEGRITY in the ATS SIMULATION ENGINE); never copy that section itself into any field.
 3. EXPERIENCE: The original resume contains approximately ${expCount} experience entries. Every job in the original resume must appear in your output. Every bullet point under each job must appear. Do NOT drop any.
 4. PROJECTS: Every project must appear. Every bullet under each project must appear.
 5. CERTIFICATIONS & AWARDS: The original resume contains approximately ${certCount} certification/credential mentions. EVERY certification and award must appear in the output — do NOT drop any, even ones that seem unrelated to the JD. Certification and award NAMES are IMMUTABLE at every tailoring intensity (1 through 10) — never rename, translate, abbreviate, expand, or swap them for a JD-preferred credential. Issuer and date stay verbatim. You may not invent new certifications under any circumstances. If your draft output has fewer certifications than the original, STOP and re-add the missing ones before returning.
@@ -206,6 +205,7 @@ To avoid ambiguity across intensity levels, here is the universal rule:
 - EXPERIENCE BULLETS: Fabricating content in experience bullets (inventing metrics, adding tools the candidate never used, creating new responsibilities) is ONLY allowed at intensity 10. At intensity 1-9, bullets must be grounded in the candidate's real experience.
 - PROJECTS: Inventing new projects is ONLY allowed at intensity 10. At intensity 1-9, only improve existing projects.
 - SUMMARY: The summary may be rewritten at any intensity level per the intensity-specific rules, but invented claims about experience are ONLY allowed at intensity 10.
+- IMMUTABLE AT EVERY LEVEL, INCLUDING 10: employer names, job titles, employment dates, degrees, certification names, and work-authorization / visa / clearance statements. Fabrication never touches identity, credentials, or eligibility facts.
 
 This rule resolves any contradiction between the intensity instructions and hard constraints below. When in doubt, refer back to this section.
 
@@ -383,7 +383,7 @@ STEP 4 — SKILLS SECTION
 Logic:
 1. Start with the candidate's existing skills as the base.
 2. SCAN every bullet point in experience AND projects (both original and improved). Extract EVERY tool, platform, methodology, system, certification, technique, and domain-specific term mentioned (whether technical, clinical, financial, creative, operational, or otherwise).
-3. ADD ALL tools, technologies, methodologies, and domain terms from the JD into the appropriate skill category. Per the FABRICATION CLARITY RULE, adding JD skills is allowed at ALL intensity levels. ATS does literal string matching on the skills section. If the JD mentions it, it must be in skills. Examples across domains:
+3. ADD ALL tools, technologies, methodologies, and domain terms from the JD into the appropriate skill category. Per the FABRICATION CLARITY RULE, adding JD skills is allowed at ALL intensity levels. ATS does literal string matching on the skills section. If the JD mentions it, it must be in skills — spelled exactly the JD's way. Examples across domains:
    - Tech: JD says "Terraform", candidate managed infrastructure → add "Terraform"
    - Marketing: JD says "HubSpot CRM", candidate ran lead gen campaigns → add "HubSpot CRM"
    - Healthcare: JD says "Epic EHR", candidate documented patient records → add "Epic EHR"
@@ -464,7 +464,7 @@ HARD CONSTRAINTS
 
 - Preserve company names, job titles, locations, and dates exactly as in the original resume.
 - Maintain the same section order and structure.
-${tailoringIntensity >= 10 ? `- Content fabrication IS allowed and expected at intensity 10 per the FABRICATION CLARITY RULE. You MUST invent plausible metrics, add JD tools to bullets, add JD skills. You MAY add at most 2 new bullets per existing role and at most 2 new projects. But do NOT invent new companies, job titles, or employment dates.` : `- Keep the same number of bullet points per role as the original resume. Do not add or remove bullets.
+${tailoringIntensity >= 10 ? `- Content fabrication IS allowed and expected at intensity 10 per the FABRICATION CLARITY RULE: mirror the JD's vocabulary, invent plausible metrics, add JD tools to bullets, add JD skills. You MAY add at most 2 new bullets per existing role and at most 2 new projects. But do NOT invent new companies, job titles, employment dates, degrees, or certification names.` : `- Keep the same number of bullet points per role as the original resume. Do not add or remove bullets.
 - Do not fabricate experience, roles, or achievements in experience bullets or projects (per the FABRICATION CLARITY RULE, adding JD skills to the skills section IS allowed at all intensity levels).
 - Do NOT invent or fabricate new projects. Only improve existing resume projects.
 - Do NOT add new experience entries. Only improve existing ones.
@@ -596,7 +596,7 @@ Field rules:
 - personalInfo: copy ALL fields verbatim. location = city/state/country from resume. Every URL = full https:// link, not a label.
 - original: copied verbatim from the resume, no changes
 - improved: the rewritten version following all rules above, or null if the bullet already strongly matches the JD and reads cleanly
-- accepted: always false
+- accepted: true whenever improved is non-null (the pipeline generates the PDF directly from this JSON, and the renderer only prints improved text when accepted is true); false when improved is null
 - Only set improved to null if the original bullet is genuinely strong. When in doubt, improve it.
 - project link: copy the exact URL from the original resume project. Never omit project links.
 
@@ -615,16 +615,16 @@ export function buildResumeUserPrompt(jobDescription: string, tailoringIntensity
     tailoringIntensity >= 10
       ? `
 
-ACTIVE INTENSITY: 10/10 — JD MIRROR MODE. Your system instructions include a Level 10 block. That block governs this response. Non-negotiable for this output:
+ACTIVE INTENSITY: 10/10 — FULL MIRROR MODE. Your system instructions include a Level 10 block and an ATS SIMULATION ENGINE. Those govern this response. Non-negotiable for this output:
 - EXTRACT FIRST: list every skill, tool, platform, framework, methodology, credential, and domain term from the JD above (full JD, not just the first paragraph). This is your JD keyword master list.
-- SKILLS (write this section FIRST, before any bullet): every item from the master list MUST appear in skills, verbatim as the JD spells it (same casing, same punctuation). Preserve original skills too; skills is ADDITIVE, never trimmed to save space. Skills is the highest-weight ATS zone — weak skills = weak match.
-- EXPERIENCE: rewrite EVERY bullet to demonstrate one or more JD skills. Inject JD tools, metrics, and phrasing into every bullet. Fabricate realistic metrics where missing.
+- SKILLS (write this section FIRST, before any bullet): every item from the master list MUST appear in skills, verbatim as the JD spells it (same casing, same punctuation). Preserve original skills too; skills is ADDITIVE, never trimmed to save space. No orphan skills — every listed skill must show up in at least one bullet (fabricate a plausible backing bullet if needed).
+- EXPERIENCE: rewrite EVERY bullet to demonstrate one or more JD skills. Inject JD tools, metrics, and phrasing into every bullet. Fabricate realistic, in-ecosystem metrics where missing.
 - PROJECTS: rewrite EVERY project so its bullets mirror JD skills. Fabricate titles and bullets when needed. New/rewritten projects: max 3 bullets each; projects with more than 3 ORIGINAL bullets keep every original bullet.
-- SUMMARY: written from scratch, 8+ JD keywords, reads as a direct answer to "who is the perfect candidate for this JD".
+- SUMMARY: written from scratch, 8+ JD keywords, mirrors the JD's title and vocabulary, reads as a direct answer to "who is the perfect candidate for this JD".
 - CERTIFICATIONS: every original certification appears with its name, issuer, and date unchanged. Never rename, never drop, never invent.
 - EDUCATION: every original entry appears.
 - TARGET: 90%+ keyword coverage. Use the JD's exact multi-word phrases ("cross-functional stakeholder management" not "worked across teams"). If your draft is below 90%, revise before returning.
-- IMMUTABLE: company names, past job titles, dates, locations, certification names. Never change these.`
+- IMMUTABLE: company names, past job titles, dates, locations, degrees, certification names, and work-authorization / visa / clearance statements. Never change these.`
       : tailoringIntensity >= 7
         ? `
 

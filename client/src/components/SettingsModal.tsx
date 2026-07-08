@@ -458,21 +458,27 @@ export default function SettingsModal({ onClose }: Props) {
                             { company_name: "Stripe", careers_url: "https://stripe.com/jobs", ats_type: "custom" },
                             { company_name: "Salesforce", careers_url: "https://careers.salesforce.com", ats_type: "custom" },
                             { company_name: "Adobe", careers_url: "https://careers.adobe.com", ats_type: "custom" },
-                            // Lever
-                            { company_name: "Netflix", careers_url: "https://jobs.lever.co/netflix", ats_type: "lever" },
-                            // Ashby
+                            // Netflix left Lever (empty [] board) — they run their own
+                            // portal (explore.jobs.netflix.net) with no public API.
+                            { company_name: "Netflix", careers_url: "https://explore.jobs.netflix.net/careers", ats_type: "custom" },
+                            // Shopify isn't on Greenhouse/Lever/SmartRecruiters (all
+                            // probed 404/empty) — own careers site, no public API.
+                            { company_name: "Shopify", careers_url: "https://www.shopify.com/careers", ats_type: "custom" },
+                            // Atlassian: Greenhouse 404, Lever board empty — own site.
+                            { company_name: "Atlassian", careers_url: "https://www.atlassian.com/company/careers/all-jobs", ats_type: "custom" },
+                            // Lever (verified live via api.lever.co/v0/postings/<slug>)
+                            { company_name: "Spotify", careers_url: "https://jobs.lever.co/spotify", ats_type: "lever" },
+                            // Ashby (verified live via api.ashbyhq.com/posting-api)
                             { company_name: "Linear", careers_url: "https://jobs.ashbyhq.com/linear", ats_type: "ashby" },
-                            // Greenhouse (slug = path[0] of the URL)
-                            { company_name: "Shopify", careers_url: "https://boards.greenhouse.io/shopify", ats_type: "greenhouse" },
+                            { company_name: "Notion", careers_url: "https://jobs.ashbyhq.com/notion", ats_type: "ashby" },
+                            // Greenhouse (slug = path[0]; all verified live via
+                            // boards-api.greenhouse.io/v1/boards/<slug>/jobs)
                             { company_name: "Airbnb", careers_url: "https://boards.greenhouse.io/airbnb", ats_type: "greenhouse" },
-                            { company_name: "Atlassian", careers_url: "https://boards.greenhouse.io/atlassian", ats_type: "greenhouse" },
                             { company_name: "HubSpot", careers_url: "https://boards.greenhouse.io/hubspot", ats_type: "greenhouse" },
                             { company_name: "Datadog", careers_url: "https://boards.greenhouse.io/datadog", ats_type: "greenhouse" },
                             { company_name: "Cloudflare", careers_url: "https://boards.greenhouse.io/cloudflare", ats_type: "greenhouse" },
                             { company_name: "Figma", careers_url: "https://boards.greenhouse.io/figma", ats_type: "greenhouse" },
-                            { company_name: "Notion", careers_url: "https://boards.greenhouse.io/notion", ats_type: "greenhouse" },
                             { company_name: "Vercel", careers_url: "https://boards.greenhouse.io/vercel", ats_type: "greenhouse" },
-                            { company_name: "Spotify", careers_url: "https://boards.greenhouse.io/spotifyjobs", ats_type: "greenhouse" },
                           ];
                           await fetch("/api/target-companies/seed", {
                             method: "POST",

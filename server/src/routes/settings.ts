@@ -12,10 +12,10 @@ import {
   downloadResumeMeta,
   deleteResumeFiles,
 } from "../storage";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const mammoth = require("mammoth");
+// Link-aware parsers: extract text AND embedded hyperlink targets (PDF link
+// annotations / DOCX hrefs), appended as an EMBEDDED HYPERLINKS section so
+// the tailoring LLM can resolve label-only links ("GitHub") to full URLs.
+import { parsePdfWithLinks, parseDocxWithLinks } from "../parse-links";
 
 /**
  * Settings routes (Postgres edition).
@@ -118,9 +118,12 @@ const upload = multer({
   },
 });
 
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  const data = await pdfParse(buffer);
-  return data.text.trim();
+async function extractTextFromPdf(buffer: Buffer): Promise<{ text: string; rawText: string }> {
+  const data = await parsePdfWithLinks(buffer);
+  // `text` is the canonical version (with the EMBEDDED HYPERLINKS section);
+  // `rawText` is the body only, used for the "is this a real resume" length
+  // gate so an appended links block can't pad an empty document past it.
+  return { text: data.text.trim(), rawText: data.rawText.trim() };
 }
 
 // ─── GET /api/settings ───────────────────────────────────────────────
@@ -247,6 +250,9 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
 
   try {
     let text = "";
+    // Body-only text for the length gate below. null for pasted/txt where
+    // `text` already IS the body (no appended links section to exclude).
+    let bodyText: string | null = null;
     let filename = "pasted_text";
 
     if (req.file) {
@@ -254,7 +260,9 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
       filename = req.file.originalname;
 
       if (ext === ".pdf") {
-        text = await extractTextFromPdf(req.file.buffer);
+        const parsed = await extractTextFromPdf(req.file.buffer);
+        text = parsed.text;
+        bodyText = parsed.rawText;
         await uploadResumeOriginal(userId, req.file.buffer, ext, "application/pdf");
       } else if (ext === ".txt") {
         text = req.file.buffer.toString("utf-8").trim();
@@ -264,8 +272,9 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
         // is unsupported by mammoth — we still try, and if it fails we
         // return a clear error rather than the previous "coming soon" lie.
         try {
-          const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-          text = String(result?.value || "").trim();
+          const result = await parseDocxWithLinks(req.file.buffer);
+          text = result.text.trim();
+          bodyText = result.rawText.trim();
           await uploadResumeOriginal(
             userId,
             req.file.buffer,
@@ -292,8 +301,12 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
       return;
     }
 
-    if (text.length < 50) {
-      res.status(400).json({ error: `Resume too short (${text.length} chars). Please upload a proper resume.` });
+    // Gate on the BODY text (not the appended EMBEDDED HYPERLINKS section),
+    // so an image-only PDF/DOCX that yields only link annotations can't slip
+    // past as a "real" resume.
+    const gateLen = (bodyText ?? text).length;
+    if (gateLen < 50) {
+      res.status(400).json({ error: `Resume too short (${gateLen} chars). Please upload a proper resume.` });
       return;
     }
 

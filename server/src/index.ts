@@ -41,6 +41,7 @@ import careerCoachRouter from "./routes/career-coach";
 import jobMatchesRouter from "./routes/job-matches";
 import feedbackRouter from "./routes/feedback";
 import { generateLocalPdf } from "./pdf";
+import { parsePdfWithLinks, parseDocxWithLinks } from "./parse-links";
 import { requireAuth } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
 
@@ -203,8 +204,6 @@ app.use("/api/feedback", apiLimiter, feedbackRouter);
 // local 3MB body cap (well below the 10MB original).
 // Max 2MB decoded payload protects against 1.3× base64 inflation attacks
 // where a tiny compressed request balloons into a huge buffer in memory.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse");
 const MAX_PARSE_BUFFER_BYTES = 2 * 1024 * 1024;
 app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, async (req, res) => {
   try {
@@ -215,18 +214,19 @@ app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, async (req
       res.status(413).json({ error: "PDF too large - max 2MB" });
       return;
     }
-    const data = await pdfParse(buffer, { max: 5 });
-    // `numpages` is the PDF's true total page count (independent of `max`,
+    // Link-aware parsing: also extracts the PDF's link-annotation targets
+    // (the URL behind anchor text like "GitHub") and appends them as an
+    // EMBEDDED HYPERLINKS section the tailoring prompt resolves labels from.
+    const data = await parsePdfWithLinks(buffer, { maxPages: 5 });
+    // `pages` is the PDF's true total page count (independent of maxPages,
     // which only caps text extraction). The client passes it back as
     // targetPages so a 2-page upload yields a 2-page tailored PDF.
-    res.json({ text: data.text || "", pages: data.numpages || null });
+    res.json({ text: data.text || "", pages: data.pages });
   } catch {
     res.status(500).json({ error: "Could not parse PDF. Please try a different file." });
   }
 });
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const mammoth = require("mammoth");
 app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, async (req, res) => {
   try {
     const { base64 } = req.body || {};
@@ -246,16 +246,20 @@ app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, async (re
       });
       return;
     }
-    const result = await mammoth.extractRawText({ buffer });
-    const text = String(result?.value || "").trim();
-    if (text.length < 50) {
+    // Link-aware parsing: raw text stays the canonical extraction, but
+    // hyperlink targets (href behind anchor text like "GitHub") are
+    // harvested too and appended as an EMBEDDED HYPERLINKS section.
+    const result = await parseDocxWithLinks(buffer);
+    // Length check runs on the RAW text so appended links can never
+    // sneak an effectively-empty document past the threshold.
+    if (result.rawText.length < 50) {
       res.status(422).json({
         error:
           "Couldn't extract enough text from this DOCX. The document may be image-based or heavily formatted. Try saving as PDF.",
       });
       return;
     }
-    res.json({ text });
+    res.json({ text: result.text });
   } catch (err: any) {
     console.error("[/api/parse-docx]", err?.message || err);
     res.status(500).json({ error: "Could not parse DOCX. Please try a different file." });

@@ -51,12 +51,26 @@ function esc(s: string | null | undefined): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Ensure URL has protocol and return raw URL (NOT html-escaped) for use in href="" */
+/**
+ * Turn a user-supplied URL into an href value that is safe to interpolate
+ * into `href="..."`. Two guarantees:
+ *  1. Scheme is forced to http(s): a bare domain gets https:// prepended,
+ *     and dangerous schemes (javascript:, data:) never match the http(s)
+ *     test so they get https:// prefixed and neutralized into inert links.
+ *  2. The result is HTML-attribute-escaped, so a double quote (or angle
+ *     bracket) in the URL can't break out of the attribute and inject
+ *     markup into the Puppeteer-rendered HTML. This is critical because
+ *     /api/pdf/generate renders fully client-controlled resumeData.
+ */
 function safeHref(url: string): string {
   if (!hasVal(url)) return "";
   const trimmed = url.trim();
-  if (!/^https?:\/\//i.test(trimmed)) return "https://" + trimmed;
-  return trimmed;
+  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : "https://" + trimmed;
+  return withProto
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 /** Strip protocol and trailing slash for display */
@@ -84,7 +98,7 @@ function buildResumeHtml(data: any): string {
   const contactParts: string[] = [];
   if (hasVal(p.location)) contactParts.push(wrap(esc(p.location)));
   if (hasVal(p.phone)) contactParts.push(wrap(esc(p.phone)));
-  if (hasVal(p.email)) contactParts.push(wrap(`<a href="mailto:${p.email.trim()}">${esc(p.email)}</a>`));
+  if (hasVal(p.email)) contactParts.push(wrap(`<a href="mailto:${esc(p.email.trim())}">${esc(p.email)}</a>`));
 
   // Render all link fields dynamically (linkedin, github, portfolio, website, blog, etc.).
   // Every URL-shaped field becomes a clickable <a href> — recruiters expect
@@ -103,6 +117,13 @@ function buildResumeHtml(data: any): string {
 
   function bulletText(bp: any): string {
     if (bp.accepted && bp.improved) return esc(bp.improved);
+    // Explicit rejection (accepted === false) is authoritative: render the
+    // ORIGINAL only. For an AI-added bullet (empty original) this yields ""
+    // and the line is filtered out below — so "Reject" in the editor truly
+    // removes an added bullet instead of falling back to the improved text.
+    // `accepted === false` (not just falsy) preserves legacy behavior for
+    // bullets that never carried the flag.
+    if (bp.accepted === false) return esc(bp.original || "");
     return esc(bp.original || bp.improved || "");
   }
 
@@ -135,7 +156,7 @@ function buildResumeHtml(data: any): string {
             ${hasVal(exp.date) ? `<span class="right bold">${esc(exp.date)}</span>` : ""}
           </div>
           ${hasVal(exp.location) ? `<div class="location">${esc(exp.location)}</div>` : ""}
-          <div class="bullets">${(exp.bulletPoints || []).map((bp: any) => `<div class="bullet">- ${bulletText(bp)}</div>`).join("")}</div>
+          <div class="bullets">${(exp.bulletPoints || []).map((bp: any) => bulletText(bp)).filter((t: string) => t.trim()).map((t: string) => `<div class="bullet">- ${t}</div>`).join("")}</div>
         </div>`;
     }
     experienceHtml += `</div>`;
@@ -146,13 +167,20 @@ function buildResumeHtml(data: any): string {
   if (projects.length > 0) {
     projectsHtml = `<div class="section"><div class="section-title">PROJECTS</div>`;
     for (const proj of projects) {
+      // Project repo/demo links were previously dropped from the PDF
+      // entirely. Render the title as a clickable link when one exists —
+      // recruiters expect to click straight into the repo, and the
+      // text layer still carries the plain title for ATS parsing.
+      const titleHtml = hasVal(proj.link)
+        ? `<a href="${safeHref(proj.link)}">${esc(proj.title)}</a>`
+        : esc(proj.title);
       projectsHtml += `
         <div class="exp-entry">
           <div class="row">
-            <span class="bold">${esc(proj.title)}</span>
+            <span class="bold">${titleHtml}</span>
             ${hasVal(proj.date) ? `<span class="right bold">${esc(proj.date)}</span>` : ""}
           </div>
-          <div class="bullets">${(proj.bulletPoints || []).map((bp: any) => `<div class="bullet">- ${bulletText(bp)}</div>`).join("")}</div>
+          <div class="bullets">${(proj.bulletPoints || []).map((bp: any) => bulletText(bp)).filter((t: string) => t.trim()).map((t: string) => `<div class="bullet">- ${t}</div>`).join("")}</div>
         </div>`;
     }
     projectsHtml += `</div>`;

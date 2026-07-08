@@ -181,9 +181,22 @@ export async function scrapeTechMeetups(countries: string[], _userKeywords: stri
   }
 
   try {
-    const res = await fetch("https://techmeetups.com/events/", { headers: { "User-Agent": UA } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
+    // TechMeetups moved its listing from /events/ (now 404) to
+    // /tech-job-fairs/. Try the current URL first and fall back to the
+    // legacy one in case they move it back — both pages carry the same
+    // techmeetups.com/event/ anchor pattern the selector below matches.
+    const LISTING_URLS = [
+      "https://techmeetups.com/tech-job-fairs/",
+      "https://techmeetups.com/events/",
+    ];
+    let html = "";
+    let lastStatus = 0;
+    for (const listingUrl of LISTING_URLS) {
+      const res = await fetch(listingUrl, { headers: { "User-Agent": UA } });
+      if (res.ok) { html = await res.text(); break; }
+      lastStatus = res.status;
+    }
+    if (!html) throw new Error(`HTTP ${lastStatus}`);
     const $ = cheerio.load(html);
 
     $('a[href*="techmeetups.com/event/"]').each((_, el) => {
