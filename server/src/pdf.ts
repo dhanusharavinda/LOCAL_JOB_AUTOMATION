@@ -10,7 +10,7 @@ async function getBrowser(): Promise<Browser> {
       // (Railway, Fly, k8s) that can't grant SYS_ADMIN for the Chromium
       // sandbox. The other flags harden what we can:
       //   --disable-dev-shm-usage: use /tmp instead of the 64MB default
-      //     /dev/shm — prevents crashes on small-shm containers.
+      //     /dev/shm - prevents crashes on small-shm containers.
       //   --no-zygote / --single-process off: default, keeps multi-process
       //     isolation between renderer and browser process.
       //   --disable-extensions + --disable-background-networking: less
@@ -88,7 +88,7 @@ function buildResumeHtml(data: any): string {
   const certifications = data.certifications || [];
   const awards = data.awards || [];
 
-  // Contact line — plain text, pipe separated, no icons, all links clickable.
+  // Contact line - plain text, pipe separated, no icons, all links clickable.
   // Every part is wrapped in a .contact-item span with `white-space: nowrap`
   // so URLs and multi-word location strings never break mid-value. The
   // flex-wrap container in CSS then only breaks BETWEEN items (at the
@@ -101,7 +101,7 @@ function buildResumeHtml(data: any): string {
   if (hasVal(p.email)) contactParts.push(wrap(`<a href="mailto:${esc(p.email.trim())}">${esc(p.email)}</a>`));
 
   // Render all link fields dynamically (linkedin, github, portfolio, website, blog, etc.).
-  // Every URL-shaped field becomes a clickable <a href> — recruiters expect
+  // Every URL-shaped field becomes a clickable <a href> - recruiters expect
   // to click portfolio links the same way they click GitHub or LinkedIn.
   const skipFields = new Set(["name", "phone", "email", "location"]);
   for (const [key, value] of Object.entries(p)) {
@@ -119,7 +119,7 @@ function buildResumeHtml(data: any): string {
     if (bp.accepted && bp.improved) return esc(bp.improved);
     // Explicit rejection (accepted === false) is authoritative: render the
     // ORIGINAL only. For an AI-added bullet (empty original) this yields ""
-    // and the line is filtered out below — so "Reject" in the editor truly
+    // and the line is filtered out below - so "Reject" in the editor truly
     // removes an added bullet instead of falling back to the improved text.
     // `accepted === false` (not just falsy) preserves legacy behavior for
     // bullets that never carried the flag.
@@ -168,7 +168,7 @@ function buildResumeHtml(data: any): string {
     projectsHtml = `<div class="section"><div class="section-title">PROJECTS</div>`;
     for (const proj of projects) {
       // Project repo/demo links were previously dropped from the PDF
-      // entirely. Render the title as a clickable link when one exists —
+      // entirely. Render the title as a clickable link when one exists - 
       // recruiters expect to click straight into the repo, and the
       // text layer still carries the plain title for ATS parsing.
       const titleHtml = hasVal(proj.link)
@@ -186,7 +186,7 @@ function buildResumeHtml(data: any): string {
     projectsHtml += `</div>`;
   }
 
-  // Skills — render whatever category names the AI returns (not hardcoded)
+  // Skills - render whatever category names the AI returns (not hardcoded)
   let skillsHtml = "";
   const skillLines: string[] = [];
   for (const [category, value] of Object.entries(skills)) {
@@ -267,7 +267,7 @@ function buildResumeHtml(data: any): string {
     line-height: 1.4;
     /* Flex + wrap so tokens break cleanly between items (at separators)
        instead of mid-URL. Only triggers when content is wider than the
-       body — otherwise renders as a single centered line like before. */
+       body - otherwise renders as a single centered line like before. */
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -443,7 +443,7 @@ export async function generateLocalPdf(
       contentHeight = await measure();
     }
 
-    // Second pass — squeeze section/bullet spacing if still over budget.
+    // Second pass - squeeze section/bullet spacing if still over budget.
     if (contentHeight > budgetPx) {
       await page.evaluate(() => {
         document.querySelectorAll<HTMLElement>(".section").forEach((s) => {
@@ -464,7 +464,7 @@ export async function generateLocalPdf(
       contentHeight = await measure();
     }
 
-    // Third pass — if STILL over, one more uniform shrink to the floor.
+    // Third pass - if STILL over, one more uniform shrink to the floor.
     if (contentHeight > budgetPx) {
       const scale = Math.max(MIN_SCALE, budgetPx / contentHeight);
       await page.evaluate((s) => {

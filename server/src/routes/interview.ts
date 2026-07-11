@@ -82,7 +82,7 @@ const DAILY_QUOTA = {
 /**
  * Detect "I don't know / can't recall / let's skip" answers so the
  * decide step can fast-forward without burning an OpenAI call. Returns
- * true ONLY when the give-up phrase is essentially the WHOLE answer —
+ * true ONLY when the give-up phrase is essentially the WHOLE answer - 
  * an answer like "I'm not sure but here's how I'd approach it..." is
  * NOT a give-up because it pivots into substance after.
  */
@@ -576,7 +576,7 @@ router.post("/tts", async (req: Request, res: Response) => {
 // ── POST /api/interview/stt ────────────────────────────────────────────
 //
 // Body: multipart/form-data with field `audio` containing a recorded
-// audio blob (audio/webm, audio/mp4, audio/ogg, audio/wav — anything
+// audio blob (audio/webm, audio/mp4, audio/ogg, audio/wav - anything
 // Whisper accepts).
 //
 // Why this exists: the browser's built-in SpeechRecognition routes

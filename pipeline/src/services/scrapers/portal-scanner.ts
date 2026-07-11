@@ -1,5 +1,5 @@
 /**
- * Portal Scanner — scrapes target company careers pages directly.
+ * Portal Scanner - scrapes target company careers pages directly.
  * Supports Greenhouse (JSON API), Lever (JSON API), Ashby (HTML), and generic.
  * Inspired by career-ops scan.md.
  */
@@ -27,7 +27,7 @@ function withTimeout(ms: number): AbortSignal {
   return controller.signal;
 }
 
-// Global negative keywords applied to every portal — disqualifies obvious
+// Global negative keywords applied to every portal - disqualifies obvious
 // non-engineering roles (sales, account exec, marketing) before they ever
 // reach the AI relevance pass, where gpt-4o-mini was rubber-stamping them
 // as 8/10 "strong fit for Data Engineer" due to title-word matching.
@@ -38,7 +38,7 @@ const GLOBAL_NEGATIVES = (config.GLOBAL_PORTAL_NEGATIVE_KEYWORDS || "")
 
 function matchesTitleFilter(title: string, keywords: string[], negatives: string[]): boolean {
   const lower = title.toLowerCase();
-  // Global negatives win first — even if the company config positively
+  // Global negatives win first - even if the company config positively
   // matches (e.g. Cloudflare with keyword "engineer" would catch "Sales
   // Engineer"), the global ban on sales/AE titles drops it.
   if (GLOBAL_NEGATIVES.some((k) => lower.includes(k))) return false;
@@ -49,7 +49,7 @@ function matchesTitleFilter(title: string, keywords: string[], negatives: string
   return posMatch && !negMatch;
 }
 
-// Country-name tokens for TARGET_COUNTRIES — used by the portal-side
+// Country-name tokens for TARGET_COUNTRIES - used by the portal-side
 // location filter to drop obviously foreign postings (Cloudflare's
 // "Senior Territory Account Executive - North China" etc.) before they
 // reach the downstream location-filter.ts pass.
@@ -71,7 +71,7 @@ const SELECTED_LOCATION_TOKENS: string[] = (() => {
   return out;
 })();
 
-// "Anywhere / Remote / Worldwide" strings — kept when PORTAL_STRICT_LOCATION
+// "Anywhere / Remote / Worldwide" strings - kept when PORTAL_STRICT_LOCATION
 // is on, because they don't name a foreign office. The downstream
 // location-filter then re-evaluates them.
 const PORTAL_REMOTE_TOKENS = ["remote", "anywhere", "worldwide", "global", "emea", "europe"];
@@ -95,7 +95,7 @@ function isCompanyBanned(name: string): boolean {
   return BANNED_COMPANIES.some((b) => lower === b || lower.includes(b));
 }
 
-// Path segments that are NEVER a real ATS slug — they appear when a user
+// Path segments that are NEVER a real ATS slug - they appear when a user
 // pastes the marketing careers page (e.g. atlassian.com/company/careers)
 // instead of the ATS-internal URL (boards.greenhouse.io/atlassian).
 const NON_SLUG_PATH_PARTS = new Set([
@@ -114,11 +114,11 @@ const KNOWN_ATS_HOSTS: Record<string, string[]> = {
  * Resolve the ATS-internal slug for a target company.
  *
  * Happy path: the careers_url is an ATS URL (boards.greenhouse.io/<slug>,
- * jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>) — take the first
+ * jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>) - take the first
  * non-empty path segment.
  *
  * Fallback: the user pasted a marketing page (atlassian.com/company/
- * careers) — derive a guess by lowercasing the company name with
+ * careers) - derive a guess by lowercasing the company name with
  * non-alphanumeric chars stripped. That's the slug for ~90% of companies
  * (Atlassian → atlassian, Datadog → datadog). We log loudly so the user
  * sees the guess in the pipeline log and can override if the company's
@@ -167,13 +167,13 @@ async function scrapeGreenhouse(company: TargetCompany): Promise<ScrapedJob[]> {
   try {
     const res = await fetch(apiUrl, { signal: withTimeout(FETCH_TIMEOUT) });
     if (!res.ok) {
-      // A 404 means the board doesn't exist — the company isn't on
+      // A 404 means the board doesn't exist - the company isn't on
       // Greenhouse (or the slug is wrong). Say so explicitly instead of
       // letting the run report a misleading "0 matching jobs".
       if (res.status === 404) {
         log.warn(
           `[PortalScanner] ${company.company_name}: no Greenhouse board at slug "${slug}" (HTTP 404). ` +
-          `The company is likely not on Greenhouse — fix ats_type/careers_url in Settings, or re-click "Seed Defaults" to repair the row.`
+          `The company is likely not on Greenhouse - fix ats_type/careers_url in Settings, or re-click "Seed Defaults" to repair the row.`
         );
       }
       return jobs;
@@ -236,18 +236,18 @@ async function scrapeLever(company: TargetCompany): Promise<ScrapedJob[]> {
       if (res.status === 404) {
         log.warn(
           `[PortalScanner] ${company.company_name}: no Lever board at slug "${slug}" (HTTP 404). ` +
-          `The company is likely not on Lever — fix ats_type/careers_url in Settings, or re-click "Seed Defaults" to repair the row.`
+          `The company is likely not on Lever - fix ats_type/careers_url in Settings, or re-click "Seed Defaults" to repair the row.`
         );
       }
       return jobs;
     }
     const data = (await res.json()) as Array<{ text: string; hostedUrl: string; categories?: { location?: string }; createdAt?: number }>;
     // Lever answers missing boards with 200 + {"ok":false,"error":"Document
-    // not found"} instead of a 404 — catch that shape explicitly.
+    // not found"} instead of a 404 - catch that shape explicitly.
     if (!Array.isArray(data)) {
       log.warn(
         `[PortalScanner] ${company.company_name}: Lever returned no board for slug "${slug}" ` +
-        `(${JSON.stringify(data).slice(0, 80)}). The company is likely not on Lever — fix ats_type/careers_url in Settings.`
+        `(${JSON.stringify(data).slice(0, 80)}). The company is likely not on Lever - fix ats_type/careers_url in Settings.`
       );
       return jobs;
     }
@@ -314,12 +314,12 @@ async function scrapeAshby(company: TargetCompany): Promise<ScrapedJob[]> {
     if (res.ok) {
       const data = (await res.json()) as any;
       const postings = data?.data?.jobBoard?.jobPostings;
-      // Ashby answers unknown orgs with 200 + jobBoard:null — flag it
+      // Ashby answers unknown orgs with 200 + jobBoard:null - flag it
       // explicitly rather than reporting a misleading "0 matching jobs".
       if (!Array.isArray(postings)) {
         log.warn(
           `[PortalScanner] ${company.company_name}: no Ashby job board found for slug "${slug}". ` +
-          `The company is likely not on Ashby — fix ats_type/careers_url in Settings.`
+          `The company is likely not on Ashby - fix ats_type/careers_url in Settings.`
         );
         return jobs;
       }
@@ -391,7 +391,7 @@ export async function scanTargetCompanyPortals(): Promise<ScrapedJob[]> {
     return [];
   }
 
-  // Landing-page "Focus company" dropdown — when the user sets this on a
+  // Landing-page "Focus company" dropdown - when the user sets this on a
   // run, we narrow the scan to that one company. Everyone else's active
   // companies stay intact in the database; this is a per-run override.
   const focusId = config.TARGET_COMPANY_ID;
@@ -429,13 +429,13 @@ export async function scanTargetCompanyPortals(): Promise<ScrapedJob[]> {
           jobs = await scrapeAshby(company);
           break;
         default:
-          // Custom/generic — no public ATS API to query, would need a
+          // Custom/generic - no public ATS API to query, would need a
           // headless browser to scrape the marketing careers page. Kept
           // in the target_companies table so the company shows up in the
           // LinkedIn "Focus company" dropdown for narrowing LinkedIn
           // scrapes, but portal-scanner can't fetch jobs from them.
           log.info(
-            `  [PortalScanner] ${company.company_name}: ats_type="custom" — no public API, skipped. ` +
+            `  [PortalScanner] ${company.company_name}: ats_type="custom" - no public API, skipped. ` +
             `(It's still useful as a LinkedIn focus filter.) ` +
             `If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.`
           );

@@ -58,7 +58,7 @@ export async function generateCoverLetter(
       };
     } catch {
       if (attempt === 2) {
-        // Last attempt — return raw text as cover letter, empty fit
+        // Last attempt - return raw text as cover letter, empty fit
         return { coverLetter: text, whyImAFit: "" };
       }
     }

@@ -18,7 +18,7 @@ import { log } from "../logger";
  * cached input tokens at 50%. Every function below is structured so the
  * *system* message holds the static bulk (framework + resume + instructions)
  * and the *user* message holds only the per-job JD. Do not re-inline the
- * resume into the user message — that breaks caching and roughly doubles
+ * resume into the user message - that breaks caching and roughly doubles
  * the input-token bill for Phase 1 scoring.
  */
 
@@ -57,7 +57,7 @@ export async function checkJobRelevance(
 
   // System message = static prefix (framework + resume + target role +
   // preferred seniority). Must be byte-stable across all Phase 1 calls
-  // for prompt caching to hit. User message = just the JD — small,
+  // for prompt caching to hit. User message = just the JD - small,
   // unique per job.
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -97,7 +97,7 @@ export async function checkJobRelevance(
         // Coerce defensively: the model occasionally returns "score": "4"
         // (string), "score": null, or omits the field. Without Number()+
         // isFinite the Math.min/max produces NaN, which then propagates
-        // into weightedSum → weightedScore → letter grade — corrupting
+        // into weightedSum → weightedScore → letter grade - corrupting
         // the whole verdict silently. Fall back to the neutral score of
         // 3 if the value isn't a finite number.
         const raw = dims[dimKey]?.score;
@@ -180,11 +180,11 @@ export async function customizeResume(
       //
       // Model choice scales with intensity. At Level 10 the prompt requires
       // multi-step keyword extraction, verbatim JD mirroring, and fabrication
-      // that stays internally consistent with the candidate's real roles —
+      // that stays internally consistent with the candidate's real roles - 
       // gpt-4o-mini drifts on instructions that complex. Intensities 1-9 stay
       // on mini for cost.
       //
-      // Temperature also scales inversely — Level 10 needs strict rule
+      // Temperature also scales inversely - Level 10 needs strict rule
       // adherence (mirror the JD mechanically), low levels need gentler
       // polish where some variation reads more natural.
       const intensity = config.TAILORING_INTENSITY;
@@ -214,7 +214,7 @@ export async function customizeResume(
 
       // If output was truncated, the JSON is likely incomplete
       if (finishReason === "length") {
-        throw new Error("OpenAI output truncated (max_tokens reached) — retrying");
+        throw new Error("OpenAI output truncated (max_tokens reached) - retrying");
       }
 
       const parsed = JSON.parse(cleaned);
@@ -225,7 +225,7 @@ export async function customizeResume(
       // ── Post-LLM validation: detect dropped data ──
       // Goal: catch hard failures (zero experience, missing links) and
       // retry. Soft mismatches (got 2 education entries when the regex
-      // counted 3 occurrences of "university") get logged but accepted —
+      // counted 3 occurrences of "university") get logged but accepted - 
       // the regex is naive and over-counts when "university" appears in
       // the summary, projects, or as part of an institution name spread
       // across multiple lines, leading to expensive retries that always
@@ -245,10 +245,10 @@ export async function customizeResume(
         const shortBy = expectedEdu - gotEdu;
         const note = `education: expected ~${expectedEdu}, got ${gotEdu}`;
         if (gotEdu === 0 || shortBy >= Math.max(2, Math.ceil(expectedEdu / 2))) {
-          // Hard miss — likely actually dropping degrees, retry helps
+          // Hard miss - likely actually dropping degrees, retry helps
           hardWarnings.push(note);
         } else {
-          // Off-by-one or close — heuristic noise, accept silently
+          // Off-by-one or close - heuristic noise, accept silently
           softWarnings.push(note);
         }
       }
@@ -290,10 +290,10 @@ export async function customizeResume(
         log.warn(`Resume data validation: ${allWarnings.join("; ")}`);
       }
 
-      // Only retry on hard warnings — soft ones don't improve with retries
+      // Only retry on hard warnings - soft ones don't improve with retries
       // and just burn OpenAI tokens for no quality gain.
       if (hardWarnings.length > 0 && attempt < maxAttempts) {
-        throw new Error(`Incomplete resume data (${hardWarnings.join("; ")}) — retrying`);
+        throw new Error(`Incomplete resume data (${hardWarnings.join("; ")}) - retrying`);
       }
 
       // ── Normalize bullet acceptance (deterministic, never trust the LLM) ──
@@ -301,7 +301,7 @@ export async function customizeResume(
       // `improved` when `accepted === true`; otherwise it falls back to
       // `original`. The pipeline generates the PDF straight from this JSON
       // with no human review step, so every improved bullet must ship as
-      // accepted — historically the prompt said `accepted: always false`,
+      // accepted - historically the prompt said `accepted: always false`,
       // which silently rendered the ORIGINAL bullets into "tailored" PDFs.
       for (const section of [rd.experience, rd.projects]) {
         for (const entry of section || []) {

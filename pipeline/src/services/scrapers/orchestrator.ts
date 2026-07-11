@@ -6,7 +6,7 @@ import { scrapeNaukriViaApify, scrapeIndeedViaApify, scrapeTruefetchViaApify, sc
 
 /**
  * Source display names for logging and UI labels. Kept deliberately
- * generic — we don't mention the underlying scraper provider (Apify
+ * generic - we don't mention the underlying scraper provider (Apify
  * actor names like "valig~indeed-jobs-scraper" or "truefetch~best-
  * job-listing"). The user-facing pipeline log shows recognizable job-
  * board brands the candidate would care about, not implementation
@@ -24,11 +24,11 @@ export const SOURCE_LABELS: Record<string, string> = {
 /**
  * Run the enabled Apify-backed scrapers (Naukri, Indeed) in parallel and
  * return deduplicated LinkedInJob[]. LinkedIn itself is scraped separately
- * from index.ts via scrapeLinkedInJobs — it uses a different actor and has
+ * from index.ts via scrapeLinkedInJobs - it uses a different actor and has
  * its own count/URL-building logic.
  *
  * Free scrapers (RemoteOK, Jobicy, Arbeitnow, CareerJet, Glassdoor,
- * Jobs.ie, IrishJobs, GradIreland, Instahyre, etc.) have been removed —
+ * Jobs.ie, IrishJobs, GradIreland, Instahyre, etc.) have been removed - 
  * they were unreliable (HTML scraping breaks constantly) and their
  * low-quality output was polluting the AI relevance scoring step.
  */
@@ -37,7 +37,7 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
   //   1. SEARCH_KEYWORDS (explicit free-scraper config)
   //   2. LINKEDIN_KEYWORDS (filled via the role expander)
   //   3. TARGET_ROLE (the role string the user typed in)
-  //   4. keywords param parsed out of LINKEDIN_SEARCH_URL — covers
+  //   4. keywords param parsed out of LINKEDIN_SEARCH_URL - covers
   //      URL-mode users who never filled any keyword field
   const fromSearch = config.SEARCH_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
   const fromLinkedIn = config.LINKEDIN_KEYWORDS.split(",").map((k) => k.trim()).filter(Boolean);
@@ -62,19 +62,19 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
 
   let keywords = fromSearch;
   if (keywords.length === 0 && fromLinkedIn.length > 0) {
-    log.info(`  SEARCH_KEYWORDS empty — falling back to LINKEDIN_KEYWORDS (${fromLinkedIn.slice(0, 3).join(", ")}...)`);
+    log.info(`  SEARCH_KEYWORDS empty - falling back to LINKEDIN_KEYWORDS (${fromLinkedIn.slice(0, 3).join(", ")}...)`);
     keywords = fromLinkedIn;
   }
   if (keywords.length === 0 && fromTargetRole.length > 0) {
-    log.info(`  SEARCH_KEYWORDS + LINKEDIN_KEYWORDS empty — falling back to TARGET_ROLE ("${fromTargetRole[0]}")`);
+    log.info(`  SEARCH_KEYWORDS + LINKEDIN_KEYWORDS empty - falling back to TARGET_ROLE ("${fromTargetRole[0]}")`);
     keywords = fromTargetRole;
   }
   if (keywords.length === 0 && fromUrl.length > 0) {
-    log.info(`  All keyword fields empty — extracted from pasted URL: ${fromUrl.slice(0, 3).join(", ")}`);
+    log.info(`  All keyword fields empty - extracted from pasted URL: ${fromUrl.slice(0, 3).join(", ")}`);
     keywords = fromUrl;
   }
   if (keywords.length === 0) {
-    log.warn("SEARCH_KEYWORDS, LINKEDIN_KEYWORDS, TARGET_ROLE, and URL keywords are all empty — secondary scrapers can't run. Fill in at least one in your settings.");
+    log.warn("SEARCH_KEYWORDS, LINKEDIN_KEYWORDS, TARGET_ROLE, and URL keywords are all empty - secondary scrapers can't run. Fill in at least one in your settings.");
     return [];
   }
 
@@ -106,7 +106,7 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
     });
   }
 
-  // Indeed always runs — the country flag inside scrapeIndeedViaApify picks
+  // Indeed always runs - the country flag inside scrapeIndeedViaApify picks
   // the right Indeed domain (IE, GB, NL, IN) based on TARGET_COUNTRIES.
   scraperTasks.push(withLog("Indeed", scrapeIndeedViaApify(perSource)));
 
@@ -116,14 +116,14 @@ export async function scrapeAllFreeSources(totalBudget?: number): Promise<Linked
     log.info("  Aggregator enabled (multi-source)");
   }
 
-  // Upwork freelance / contract gigs. Disabled by default — flip
+  // Upwork freelance / contract gigs. Disabled by default - flip
   // SCRAPE_UPWORK=true if hunting contract work.
   if (config.SCRAPE_UPWORK) {
     scraperTasks.push(withLog("Upwork", scrapeUpworkViaApify(perSource)));
     log.info("  Upwork enabled (freelance / contract gigs)");
   }
 
-  // Naukri only runs when India is selected — it's India-specific.
+  // Naukri only runs when India is selected - it's India-specific.
   if (wantsIndia) {
     scraperTasks.push(withLog("Naukri", scrapeNaukriViaApify(perSource)));
     log.info("  Naukri enabled (india in TARGET_COUNTRIES)");

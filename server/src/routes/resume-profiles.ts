@@ -114,7 +114,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
 // ─── PATCH /api/resume-profiles/:id/default ──────────────────────────
 // Sets this profile as default. The update is scoped to this user's
-// rows only — no global wipe.
+// rows only - no global wipe.
 router.patch("/:id/default", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const id = parseInt(String(req.params.id), 10);

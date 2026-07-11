@@ -470,7 +470,7 @@ router.post("/track", async (req: Request, res: Response) => {
 //
 // One-click "add this to my kanban as applied" for jobs the user
 // reached via the extension on a page NOT already tracked in the
-// dashboard. Before this route the extension said "Page not tracked —
+// dashboard. Before this route the extension said "Page not tracked - 
 // open dashboard to add it." and the user had to manually re-type the
 // position title, company, location, etc. via "Add Custom Application".
 //
@@ -510,7 +510,7 @@ router.post("/track-untracked", async (req: Request, res: Response) => {
 
   try {
     // Dedup against existing jobs by URL. If we find a match, just
-    // promote it — saves the user a manual delete-and-readd if they
+    // promote it - saves the user a manual delete-and-readd if they
     // tracked the job earlier in the day.
     const existing = await sql<{ id: number; status: string }[]>`
       SELECT id, status FROM jobs
@@ -538,7 +538,7 @@ router.post("/track-untracked", async (req: Request, res: Response) => {
            WHERE id = ${existing[0].id} AND user_id = ${userId}
         `;
       } else {
-        // Already at or past applied — just stamp the method + attempt.
+        // Already at or past applied - just stamp the method + attempt.
         await sql`
           UPDATE jobs
              SET apply_method = ${applyMethod},
@@ -1150,7 +1150,7 @@ router.post("/assistant-text", answerLimiter, async (req: Request, res: Response
     // System prompt is built from the humanizer SKILL.md ban list (Wikipedia's
     // "Signs of AI writing") so that the model knows the exact patterns to
     // avoid. The previous version produced obvious AI-isms like "hands-on,
-    // data-driven decision-making" — the new prompt names those tells
+    // data-driven decision-making" - the new prompt names those tells
     // explicitly so the model recognises them as forbidden, not just
     // unfashionable.
     const system = [
@@ -1159,7 +1159,7 @@ router.post("/assistant-text", answerLimiter, async (req: Request, res: Response
       "",
       "## Hard style contract (break any of these and the output is wrong)",
       "",
-      "1. NO em-dashes (—) anywhere. Use a comma, period, colon, or split sentences. None of: en-dash (–), two hyphens (--).",
+      "1. NO em-dashes ( - ) anywhere. Use a comma, period, colon, or split sentences. None of: en-dash (–), two hyphens (--).",
       "2. NO curly quotes. Use straight quotes only.",
       "3. NO AI-slop openers. Banned: 'I am writing to', 'I am reaching out', 'I wanted to reach out', 'I hope this finds you well', 'I came across your profile', 'Hope you are well', 'Great question', 'Hope you don't mind'.",
       "4. NO sycophantic / servile praise. Banned: 'huge fan', 'absolutely love', 'truly impressive', 'incredible work', 'amazing post', 'great insights', 'this resonates'.",
@@ -1180,7 +1180,7 @@ router.post("/assistant-text", answerLimiter, async (req: Request, res: Response
       "## Voice contract (positive rules)",
       "",
       "- First person, warm, plain English. Sound like the candidate would actually talk over coffee.",
-      "- Use everyday vocabulary by default. Reach for a technical term ONLY when it carries real weight — and then use ONE precise term, not three near-synonyms.",
+      "- Use everyday vocabulary by default. Reach for a technical term ONLY when it carries real weight - and then use ONE precise term, not three near-synonyms.",
       "- Be specific. Name one concrete detail from the pasted context AND one concrete detail from the candidate's resume / profile. Generic praise is worse than no praise.",
       "- Vary sentence length. Mix short punchy ones with one slightly longer one. Not every sentence the same shape.",
       "- Acknowledge real things. If something is uncertain, say so plainly. Don't pad with confidence theatre.",
@@ -1195,7 +1195,7 @@ router.post("/assistant-text", answerLimiter, async (req: Request, res: Response
       "- Does any sentence start with 'I am writing' or 'I hope' or 'I wanted'? Cut it.",
       "- Are there em-dashes? Replace each with a comma or period.",
       "- Does it sound like a press release or a LinkedIn bio? Rewrite.",
-      "- Does it reference at least one specific detail from the pasted context? If not, you don't have enough material — write the shortest honest version.",
+      "- Does it reference at least one specific detail from the pasted context? If not, you don't have enough material - write the shortest honest version.",
       "",
       "## Candidate profile",
       profileBrief || "(none on file)",
@@ -1259,13 +1259,15 @@ router.post("/assistant-text", answerLimiter, async (req: Request, res: Response
  * meta-talk like "Here is the draft:" or "Let me know if you want...".
  *
  * We intentionally do NOT delete banned WORDS (leverage, holistic, etc.)
- * — replacing them silently would break the sentence. The retry path
+ * - replacing them silently would break the sentence. The retry path
  * regenerates the whole message instead. This scrub only fixes
  * punctuation and shell.
  */
 function scrubAiArtifacts(input: string): string {
   let text = input;
-  text = text.replace(/[—–]/g, ", ");
+  // Strip em-dash (U+2014) and en-dash (U+2013), written as escapes so no
+  // literal dash glyph appears in the source.
+  text = text.replace(/[\u2014\u2013]/g, ", ");
   text = text.replace(/--/g, ", ");
   text = text.replace(/[“”]/g, "\"").replace(/[‘’]/g, "'");
   text = text.replace(/^```[a-z]*\n?/i, "").replace(/```$/i, "").trim();
@@ -1300,7 +1302,7 @@ const BANNED_PHRASE_REGEX = new RegExp(
     "great question",
     "huge fan",
     "this resonates",
-    "—",
+    " - ",
   ].join("|"),
   "i"
 );

@@ -45,7 +45,7 @@ const DEFAULT_CONFIG = {
   APIFY_MAX_POLL_MINUTES: 10,
   MAX_TAILOR_COUNT: 20,
   MAX_AGE_DAYS: 14,
-  // Keyword fields start empty — they're filled by the role-expander on
+  // Keyword fields start empty - they're filled by the role-expander on
   // the landing page once the user types their target role. Hardcoding
   // "data engineer,..." here meant every new user saw a software-job
   // pipeline regardless of what they actually wanted (management
@@ -106,7 +106,7 @@ const EDITABLE_KEYS = new Set(Object.keys(DEFAULT_CONFIG));
 // path `{userId}/resume.txt`. See server/src/storage.ts for the helper
 // functions. No filesystem writes anywhere.
 
-// Multer config — accept PDF, DOCX, TXT
+// Multer config - accept PDF, DOCX, TXT
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -269,7 +269,7 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
         await uploadResumeOriginal(userId, req.file.buffer, ext, "text/plain");
       } else if (ext === ".docx" || ext === ".doc") {
         // Mammoth handles .docx fine; .doc (legacy binary format, pre-2007)
-        // is unsupported by mammoth — we still try, and if it fails we
+        // is unsupported by mammoth - we still try, and if it fails we
         // return a clear error rather than the previous "coming soon" lie.
         try {
           const result = await parseDocxWithLinks(req.file.buffer);
@@ -324,7 +324,7 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
 // Natural-language search parser. Takes a free-form sentence like
 //   "AI engineer or data engineer in Dublin, entry level, remote-friendly"
 // and returns a structured config the client can apply to the pipeline
-// settings panel. Pure parser — does NOT mutate user_settings; the
+// settings panel. Pure parser - does NOT mutate user_settings; the
 // client decides which fields to persist.
 {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -352,7 +352,7 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
             role: "system",
             content:
               "You convert a casual job-search description into a structured search config for a LinkedIn-style job board. " +
-              "Return ONLY a JSON object — no prose, no markdown, no code fences. Schema:\n" +
+              "Return ONLY a JSON object - no prose, no markdown, no code fences. Schema:\n" +
               "{\n" +
               `  "keywords": [array of 1-6 generic ROLE-TITLE strings only],\n` +
               `  "country": "ireland" | "uk" | "netherlands" | "india" | "newzealand" | null,\n` +
@@ -360,11 +360,11 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
               `  "work_type": "1" | "2" | "3" | null  (1=on-site, 2=remote, 3=hybrid; null if not specified),\n` +
               `  "time_filter": "r86400" | "r604800" | "r2592000" | null  (24h | 1week | 1month; null if not specified)\n` +
               "}\n\n" +
-              "CRITICAL — keywords MUST be generic role titles, never company names:\n" +
+              "CRITICAL - keywords MUST be generic role titles, never company names:\n" +
               "- ALLOWED in keywords: 'Software Engineer', 'AI Engineer', 'Data Scientist', 'Frontend Developer', 'Product Manager', 'Backend Engineer', 'DevOps Engineer', 'ML Engineer', 'Solutions Architect', etc.\n" +
               "- FORBIDDEN in keywords: any company name (Agoda, Google, Amazon, Stripe, Shopify, Booking.com, Microsoft, Apple, etc.) and any product/brand name. The keyword field on LinkedIn matches BOTH job title AND company name, so 'Agoda' as a keyword silently restricts the entire search to Agoda jobs only.\n" +
               "- If the user mentions a company they want to work at, IGNORE it for the keywords field. Only the role title matters for the search. (Future feature: company-specific filtering, not now.)\n" +
-              "- If the user types only a company name with no role ('I want jobs at Stripe'), return keywords=[] — the parser couldn't extract a role to search for.\n\n" +
+              "- If the user types only a company name with no role ('I want jobs at Stripe'), return keywords=[] - the parser couldn't extract a role to search for.\n\n" +
               "Other rules:\n" +
               "- Map any city/region to country code (Dublin → ireland, London → uk, Amsterdam → netherlands, Bangalore → india, Auckland → newzealand). Unsupported country → null.\n" +
               "- Split role titles on conjunctions ('or', 'and', 'also'), commas. Drop filler words.\n" +
@@ -377,7 +377,7 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
               "Output: {\"keywords\":[\"AI Engineer\",\"Data Engineer\"],\"country\":\"ireland\",\"experience_levels\":[\"2\"],\"work_type\":null,\"time_filter\":null}\n\n" +
               "Input: 'remote backend roles at Stripe or Shopify'\n" +
               "Output: {\"keywords\":[\"Backend Engineer\"],\"country\":null,\"experience_levels\":[],\"work_type\":\"2\",\"time_filter\":null}\n" +
-              "(Stripe and Shopify dropped — they're company names, not role titles.)",
+              "(Stripe and Shopify dropped - they're company names, not role titles.)",
           },
           { role: "user", content: text },
         ],
@@ -394,7 +394,7 @@ router.post("/resume", requireAuth, upload.single("resume"), async (req: Request
       }
       // Defensive list of common company/brand names. The prompt tells
       // the AI not to put these in keywords, but models occasionally
-      // slip — so we strip them server-side as a second line of defence.
+      // slip - so we strip them server-side as a second line of defence.
       // This is non-exhaustive on purpose: covers the obvious cases
       // (FAANG + popular tech employers) and the brand the user just
       // got bitten by. Better-quality role titles compose two+ words

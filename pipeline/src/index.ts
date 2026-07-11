@@ -31,7 +31,7 @@ import { scanTargetCompanyPortals } from "./services/scrapers/portal-scanner";
 
 // Tailored PDFs are uploaded to Supabase Storage via the tracker's
 // /api/jobs/upload-pdf endpoint (see uploadTailoredPdf in job-tracker.ts).
-// No local filesystem writes anymore — this file used to maintain a
+// No local filesystem writes anymore - this file used to maintain a
 // server/resumes/ directory but the SaaS migration moved everything to
 // cloud storage.
 
@@ -86,7 +86,7 @@ function detectJobCategory(title: string, description: string): string | null {
  * can reason about. Returns undefined when no preference was set, in
  * which case the scorer falls back to inferring level from the resume.
  *
- * Multi-select case: the config stores a CSV ("2,3") — we join the
+ * Multi-select case: the config stores a CSV ("2,3") - we join the
  * labels with " or " so the AI knows either is acceptable.
  */
 function seniorityLabelFromConfig(raw: string | undefined): string | undefined {
@@ -153,7 +153,7 @@ async function main() {
   // Truefetch, LinkedIn URL builder, Naukri) picks up the broader set.
   //
   // Disabled by EXPAND_KEYWORDS=false for users who want strict literal
-  // matching. Falls back to the raw input on any LLM failure — never
+  // matching. Falls back to the raw input on any LLM failure - never
   // blocks the pipeline.
   if (config.EXPAND_KEYWORDS) {
     const rawSource = (config.SEARCH_KEYWORDS || config.TARGET_ROLE || "").trim();
@@ -179,7 +179,7 @@ async function main() {
   const targetRelevantJobs = config.APIFY_JOB_COUNT;
   const effectiveScrapeCount = Math.ceil(targetRelevantJobs * OVERSCRAPE_MULTIPLIER);
   // User-facing log lines deliberately avoid mentioning "Apify" or
-  // specific actor identifiers — those are implementation details the
+  // specific actor identifiers - those are implementation details the
   // job seeker doesn't need to think about. They see recognizable
   // job-board brands instead (LinkedIn / Indeed / Aggregator / etc.).
   log.step(`Scraping LinkedIn (target ${targetRelevantJobs} relevant → requesting ${effectiveScrapeCount} raw, ${OVERSCRAPE_MULTIPLIER}× over-scrape)...`);
@@ -202,7 +202,7 @@ async function main() {
     freeJobs = await scrapeAllFreeSources(effectiveScrapeCount);
     log.success(`Other boards: ${freeJobs.length} unique jobs (post-dedup within source group)`);
   } catch (err: any) {
-    log.warn(`Other job boards failed: ${err.message} — continuing with LinkedIn only`);
+    log.warn(`Other job boards failed: ${err.message} - continuing with LinkedIn only`);
   }
 
   // ── Step 1b.2: Scan target company portals (Feature 4) ──
@@ -230,7 +230,7 @@ async function main() {
     }));
     log.success(`Company Careers: ${portalJobs.length} jobs`);
   } catch (err: any) {
-    log.warn(`Company portals failed: ${err.message} — continuing without portal jobs`);
+    log.warn(`Company portals failed: ${err.message} - continuing without portal jobs`);
   }
 
   // ── Step 1b.3: Per-source summary ──
@@ -261,11 +261,11 @@ async function main() {
   // ── Step 1c: Merge LinkedIn + free sources + portal jobs (deduped) ──
   const mergedRaw = mergeWithLinkedIn(allJobs, [...freeJobs, ...portalJobs]);
 
-  // ── Step 1c.1: Freshness cutoff — reject jobs older than configured max days ──
+  // ── Step 1c.1: Freshness cutoff - reject jobs older than configured max days ──
   const MAX_AGE_DAYS = config.MAX_AGE_DAYS;
   const cutoffMs = Date.now() - MAX_AGE_DAYS * 86400000;
   const mergedJobs = mergedRaw.filter((j) => {
-    if (!j.postedAt) return true; // unknown date — keep
+    if (!j.postedAt) return true; // unknown date - keep
     try {
       const posted = new Date(j.postedAt);
       return isNaN(posted.getTime()) || posted.getTime() >= cutoffMs;
@@ -274,7 +274,7 @@ async function main() {
   const staleDropped = mergedRaw.length - mergedJobs.length;
   log.success(`Merged total: ${mergedJobs.length} fresh jobs (${mergedRaw.length} raw, ${staleDropped} older than ${MAX_AGE_DAYS} days dropped)`);
 
-  // ── Step 1c.2: Batch duplicate check — remove jobs already in tracker ──
+  // ── Step 1c.2: Batch duplicate check - remove jobs already in tracker ──
   //
   // Two matching surfaces:
   //   1. URL match (job_link)
@@ -297,7 +297,7 @@ async function main() {
   const dupResult = await checkDuplicatesBatch(probePayload);
   let dedupedJobs: LinkedInJob[];
   if (dupResult === null) {
-    log.warn("Tracker unreachable for batch dedup — skipping all jobs to prevent duplicates");
+    log.warn("Tracker unreachable for batch dedup - skipping all jobs to prevent duplicates");
     log.summary(stats);
     return;
   }
@@ -305,7 +305,7 @@ async function main() {
 
   // Two matching surfaces:
   //  - URL match (job_link exact)
-  //  - normalized (title|company) match — handles re-published or
+  //  - normalized (title|company) match - handles re-published or
   //    cross-source dupes where the URL differs but it's clearly
   //    the same posting (e.g. user applied via the company's careers
   //    page yesterday, today the same role surfaces on Indeed).
@@ -313,17 +313,17 @@ async function main() {
   // SAFETY: the title+company match is on the JOINED key
   // `${title}|${company}`, NOT on title OR company alone. So
   //   "Software Engineer" @ Google  vs  "Software Engineer" @ Stripe
-  // never collide — they produce different keys ("software engineer|
+  // never collide - they produce different keys ("software engineer|
   // google" vs "software engineer|stripe"). The server's SQL returns
   // the (title, company) PAIRS for each stored row, and the pipeline
-  // checks `dupTcKeys.has(joinedKey)` on the SCRAPED job — so even
+  // checks `dupTcKeys.has(joinedKey)` on the SCRAPED job - so even
   // if the server query is over-permissive across rows (it ANDs two
   // ANY() arrays for index-friendliness), the client-side filter is
   // strict per-pair. Same role at different companies stays through.
   //
   // We log each filtered duplicate inline so the user can verify in
   // the run log exactly which "new" candidates got blocked by which
-  // matching surface — the most-asked debugging question last week.
+  // matching surface - the most-asked debugging question last week.
   const filteredOut: Array<{ job: LinkedInJob; reason: "url" | "title_company" }> = [];
   dedupedJobs = mergedJobs.filter((j) => {
     if (j.link && dupLinks.has(j.link)) {
@@ -366,7 +366,7 @@ async function main() {
       body: JSON.stringify({ jobs: archivePayload }),
     });
     // Previously we logged success unconditionally, so a 500 from the
-    // server still printed "Archived N jobs" — making stale skills
+    // server still printed "Archived N jobs" - making stale skills
     // trends extremely hard to debug. Now the success log only fires
     // when the archive actually succeeded.
     if (!archiveRes.ok) {
@@ -379,7 +379,7 @@ async function main() {
     log.warn(`Job archive failed: ${err.message}`);
   }
 
-  // ── Step 1e: Scrape career events — country-scoped ──
+  // ── Step 1e: Scrape career events - country-scoped ──
   // Each scraper is gated on the user's TARGET_COUNTRIES so a user on
   // India doesn't get flooded with Dublin-only events and vice versa.
   // GradIreland stays Ireland-only (it's a brand, not a source that
@@ -503,11 +503,11 @@ async function main() {
   let completedCount = 0;
 
   // Phase 1a: score EVERY job in parallel. No budget cap inside this
-  // loop — that was the old bug. The previous code applied the cap
+  // loop - that was the old bug. The previous code applied the cap
   // inline, so the FIRST N jobs to finish in the concurrent pool got
   // persisted while later (potentially higher-scoring) jobs were
   // discarded as "Daily budget reached". With the loop completing in
-  // a non-deterministic order, the final 50 weren't the best 50 —
+  // a non-deterministic order, the final 50 weren't the best 50 - 
   // they were the first 50 to win the race. Same OpenAI cost either
   // way, so we now score everything, THEN sort + take the top N below.
   await mapConcurrent(locationFiltered, PHASE1_CONCURRENCY, async (job) => {
@@ -522,7 +522,7 @@ async function main() {
         seniorityLabelFromConfig(config.LINKEDIN_EXPERIENCE),
       );
 
-      // Log completion order (not input order) — jobs finish out-of-order
+      // Log completion order (not input order) - jobs finish out-of-order
       // due to concurrency, so we count completions and show `n/total`.
       const n = ++completedCount;
       log.job(n, locationFiltered.length, job.title, job.companyName);
@@ -575,7 +575,7 @@ async function main() {
   scoredJobs.push(...topScored);
 
   // Phase 1c: persist the kept top-N to the tracker + fire telegram
-  // alerts. Sequential intentionally — the tracker endpoint serialises
+  // alerts. Sequential intentionally - the tracker endpoint serialises
   // per-user inserts behind a unique-link constraint, so hammering it
   // in parallel just generates lock contention.
   for (const { job, verdict, jobCategory } of topScored) {
@@ -611,7 +611,7 @@ async function main() {
 
   // Always log the score distribution so the user can decide whether to
   // lower the threshold or refine their keywords. This is the actionable
-  // diagnostic that was missing — previously the user just saw "Only 1
+  // diagnostic that was missing - previously the user just saw "Only 1
   // passed" with no way to know whether to drop threshold by 1 or 5.
   if (allScores.length > 0) {
     const buckets = {
@@ -629,7 +629,7 @@ async function main() {
       const pctCapped = Math.round((gateCappedCount / allScores.length) * 100);
       log.info(
         `  ${gateCappedCount} of ${allScores.length} jobs (${pctCapped}%) were gate-capped at 4/10 ` +
-        "(role_match AND skills_alignment both scored 1 — the job is in a fundamentally different field, e.g. sales/marketing/HR for a tech candidate)."
+        "(role_match AND skills_alignment both scored 1 - the job is in a fundamentally different field, e.g. sales/marketing/HR for a tech candidate)."
       );
     }
 
@@ -646,11 +646,11 @@ async function main() {
         // Majority of jobs were gate-capped → keyword problem, not threshold.
         log.warn(
           `  Most scraped jobs (${Math.round(gateCapRatio * 100)}%) were fundamentally off-role. ` +
-          "Lowering the Minimum match score won't help — those gate-capped jobs would still be rejected as bad matches. " +
+          "Lowering the Minimum match score won't help - those gate-capped jobs would still be rejected as bad matches. " +
           "Tighten your LINKEDIN_KEYWORDS or paste a more specific search URL so LinkedIn returns on-target listings."
         );
       } else if (borderline > 0 && config.RELEVANCE_SCORE_THRESHOLD > 5) {
-        // Plenty of borderline jobs sitting at 5-6 — lowering threshold
+        // Plenty of borderline jobs sitting at 5-6 - lowering threshold
         // to 5 would unlock them.
         const wouldPassAt5 = allScores.filter((s) => s >= 5).length;
         log.info(
@@ -706,7 +706,7 @@ async function main() {
   if (resumeProfiles.length > 0) {
     log.success(`Loaded ${resumeProfiles.length} resume profile(s): ${resumeProfiles.map(p => `${p.name} (${p.role_type})`).join(", ")}`);
   } else {
-    log.info("  No resume profiles found — using default resume for all jobs");
+    log.info("  No resume profiles found - using default resume for all jobs");
   }
 
   log.step(`\nPhase 2: Tailoring top ${topN.length} of ${scoredJobs.length} relevant jobs (tailoring: ${intensityLabel} ${config.TAILORING_INTENSITY}/10, max: ${config.MAX_TAILOR_COUNT})...\n`);
@@ -714,7 +714,7 @@ async function main() {
   for (let i = 0; i < topN.length; i++) {
     const { job, verdict, jobCategory } = topN[i];
     log.job(i + 1, topN.length, job.title, job.companyName);
-    log.info(`  Score: ${verdict.score}/10 — ${verdict.reason}`);
+    log.info(`  Score: ${verdict.score}/10 - ${verdict.reason}`);
 
     // ── Feature 2: Select best resume profile for this job's detected role type ──
     const detectedRole = verdict.detected_role_type || "Other";
@@ -777,7 +777,7 @@ async function main() {
       const pdfFileName = `${nameParts.join("_")}_${roleClean}_${companyClean}_RESUME.pdf`;
       const uploadedUrl = await uploadTailoredPdf(pdfFileName, pdfBuffer, job.link);
       if (!uploadedUrl) {
-        log.error(`PDF upload failed for ${pdfFileName} — skipping asset attach`);
+        log.error(`PDF upload failed for ${pdfFileName} - skipping asset attach`);
         stats.errors++;
         continue;
       }
@@ -822,7 +822,7 @@ async function main() {
 
       // Cover letter + why-I'm-a-fit are STRICTLY on-demand now. The
       // pipeline never auto-generates these regardless of config.
-      // ENABLE_COVER_LETTER / ENABLE_WHY_FIT settings — the user clicks
+      // ENABLE_COVER_LETTER / ENABLE_WHY_FIT settings - the user clicks
       // "Generate" inside the JobDetailModal when they actually want
       // them. Reasons:
       //   - Most users only care about CL/why-fit for jobs they're

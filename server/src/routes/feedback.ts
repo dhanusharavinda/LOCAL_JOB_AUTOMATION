@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { sql } from "../db";
 
 /**
- * Feedback capture (public — no auth).
+ * Feedback capture (public - no auth).
  * ────────────────────────────────────
  * Backs the floating "Contact" button. Stores every bug report / feature
  * request / note server-side so nothing is lost (the old mailto-only flow

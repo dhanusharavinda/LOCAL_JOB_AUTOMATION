@@ -292,7 +292,7 @@ app.use("/api/free-tailor", llmLimiter, freeTailorRouter);
 // AI Career Coach. The /generate endpoint hits OpenAI, so the whole
 // router gets the tight llmLimiter (the GET is cheap and rarely called).
 app.use("/api/career-coach", llmLimiter, careerCoachRouter);
-// Realtime job matching — a read-only curated view over already-scored
+// Realtime job matching - a read-only curated view over already-scored
 // jobs, so it rides the normal apiLimiter (no LLM call here).
 app.use("/api/job-matches", jobMatchesRouter);
 // Auto-apply endpoints. The router itself applies llmLimiter to the

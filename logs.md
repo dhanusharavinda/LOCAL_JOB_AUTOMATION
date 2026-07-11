@@ -86,13 +86,13 @@ started
  ✓22:24:35 ✓ Other boards: 85 unique jobs (post-dedup within source group)
 >>>22:24:35 >>> Scanning company careers portals...
 22:24:37 [PortalScanner] Scanning 20 target company portals...
-22:24:37 [PortalScanner] Adobe: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:37 [PortalScanner] Adobe: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
  ⚠22:24:37 ⚠ [PortalScanner] Airbnb: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "airbnb" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:37 [PortalScanner] Airbnb: dropped 189 non-targeted-country postings (PORTAL_STRICT_LOCATION=on)
 22:24:37 [PortalScanner] Airbnb: 44 matched, capped to 15 freshest (raise MAX_JOBS_PER_PORTAL_COMPANY to widen)
  ✓22:24:37 ✓ [PortalScanner] Airbnb: 15 relevant jobs found
-22:24:39 [PortalScanner] Amazon: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
-22:24:39 [PortalScanner] Apple: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:39 [PortalScanner] Amazon: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:39 [PortalScanner] Apple: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
  ⚠22:24:39 ⚠ [PortalScanner] Atlassian: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "atlassian" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:39 [PortalScanner] Atlassian: 0 matching jobs
  ⚠22:24:40 ⚠ [PortalScanner] Cloudflare: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "cloudflare" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
@@ -104,23 +104,23 @@ started
  ⚠22:24:44 ⚠ [PortalScanner] Figma: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "figma" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:45 [PortalScanner] Figma: dropped 97 non-targeted-country postings (PORTAL_STRICT_LOCATION=on)
  ✓22:24:45 ✓ [PortalScanner] Figma: 2 relevant jobs found
-22:24:46 [PortalScanner] Google: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:46 [PortalScanner] Google: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
  ⚠22:24:46 ⚠ [PortalScanner] HubSpot: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "hubspot" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:47 [PortalScanner] HubSpot: 0 matching jobs
  ⚠22:24:48 ⚠ [PortalScanner] Linear: careers_url "[search url]" doesn't look like a ashby ATS endpoint. Guessing slug = "linear" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:49 [PortalScanner] Linear: 0 matching jobs
-22:24:50 [PortalScanner] Meta: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
-22:24:50 [PortalScanner] Microsoft: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:50 [PortalScanner] Meta: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:50 [PortalScanner] Microsoft: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
  ⚠22:24:50 ⚠ [PortalScanner] Netflix: careers_url "[search url]" doesn't look like a lever ATS endpoint. Guessing slug = "netflix" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:51 [PortalScanner] Netflix: 0 matching jobs
  ⚠22:24:53 ⚠ [PortalScanner] Notion: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "notion" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:53 [PortalScanner] Notion: 0 matching jobs
-22:24:55 [PortalScanner] Salesforce: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:55 [PortalScanner] Salesforce: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
  ⚠22:24:55 ⚠ [PortalScanner] Shopify: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "shopify" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:55 [PortalScanner] Shopify: 0 matching jobs
  ⚠22:24:57 ⚠ [PortalScanner] Spotify: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "spotify" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:57 [PortalScanner] Spotify: 0 matching jobs
-22:24:59 [PortalScanner] Stripe: ats_type="custom" — no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
+22:24:59 [PortalScanner] Stripe: ats_type="custom" - no public API, skipped. (It's still useful as a source focus filter.) If they actually use Greenhouse/Lever/Ashby, edit the row to set the right ats_type.
  ⚠22:24:59 ⚠ [PortalScanner] Vercel: careers_url "[search url]" doesn't look like a greenhouse ATS endpoint. Guessing slug = "vercel" from company name. If this is wrong, update the careers_url to e.g. [search url]<real-slug>.
 22:24:59 [PortalScanner] Vercel: dropped 41 non-targeted-country postings (PORTAL_STRICT_LOCATION=on)
 22:24:59 [PortalScanner] Vercel: 16 matched, capped to 15 freshest (raise MAX_JOBS_PER_PORTAL_COMPANY to widen)
@@ -151,21 +151,21 @@ started
 >>>22:27:04 >>> Filtering by location (per TARGET_COUNTRIES / LOCATION_REGIONS)...
 >>>
 22:27:04 [debug] Sample location values: ["Dublin, County Dublin, Ireland","Dublin, County Dublin, Ireland","Dublin, County Dublin, Ireland","Greater Dublin","Mullingar, County Westmeath, Ireland"]
-22:27:04 [dropped] "Senior Software Engineer, Data Authoring Platform" @ "Airbnb" — location names a non-selected country: "Remote USA"
-22:27:04 [dropped] "Staff Software Engineer, Communication Products" @ "Airbnb" — location names a non-selected country: "Remote - USA"
-22:27:04 [dropped] "Staff Software Engineer, Build" @ "Airbnb" — location names a non-selected country: "Remote - USA"
-22:27:04 [dropped] "Senior Staff Machine Learning Engineer, Post Training" @ "Airbnb" — location names a non-selected country: "Remote - USA"
-22:27:04 [dropped] "Software Engineer, Guest & Host" @ "Airbnb" — location names a non-selected country: "Remote, USA "
-22:27:04 [dropped] "Senior Backend Software Engineer, Media Ingestion & Serving" @ "Airbnb" — location names a non-selected country: "Remote - USA"
-22:27:04 [dropped] "Director, Major Accounts" @ "Datadog" — location names a non-selected country: "Texas, USA, Remote"
-22:27:04 [dropped] "Key Accounts Executive" @ "Datadog" — location names a non-selected country: "Illinois, USA, Remote; Michigan, USA, Remote; Minnesota, USA, Remote; Ohio, USA, Remote; Texas, USA, Remote"
-22:27:04 [dropped] "Key Accounts Executive" @ "Datadog" — location names a non-selected country: "California, USA, Remote; Colorado, USA, Remote; Washington, USA, Remote"
-22:27:04 [dropped] "Major Account Manager" @ "Datadog" — location names a non-selected country: "Florida, USA, Remote; North Carolina, USA, Remote"
-22:27:04 [dropped] "Major Account Manager (UK)" @ "Datadog" — location names a non-selected country: "United Kingdom, Remote"
-22:27:04 [dropped] "Senior Developer Advocate - Data Observability" @ "Datadog" — location names a non-selected country: "California, USA, Remote; Colorado, USA, Remote; Illinois, USA, Remote; New York, USA, Remote; Washington, USA, Remote"
-22:27:04 [dropped] "Staff AI Engineer - Notebooks " @ "Datadog" — location names a non-selected country: "Portugal, Remote"
-22:27:04 [dropped] "Technical Account Manager 2 (Thai Speaking)" @ "Datadog" — location names a non-selected country: "Thailand, Remote"
-22:27:04 [dropped] "Senior Customer Support Engineer" @ "Vercel" — location names a non-selected country: "Remote - Japan"
+22:27:04 [dropped] "Senior Software Engineer, Data Authoring Platform" @ "Airbnb" - location names a non-selected country: "Remote USA"
+22:27:04 [dropped] "Staff Software Engineer, Communication Products" @ "Airbnb" - location names a non-selected country: "Remote - USA"
+22:27:04 [dropped] "Staff Software Engineer, Build" @ "Airbnb" - location names a non-selected country: "Remote - USA"
+22:27:04 [dropped] "Senior Staff Machine Learning Engineer, Post Training" @ "Airbnb" - location names a non-selected country: "Remote - USA"
+22:27:04 [dropped] "Software Engineer, Guest & Host" @ "Airbnb" - location names a non-selected country: "Remote, USA "
+22:27:04 [dropped] "Senior Backend Software Engineer, Media Ingestion & Serving" @ "Airbnb" - location names a non-selected country: "Remote - USA"
+22:27:04 [dropped] "Director, Major Accounts" @ "Datadog" - location names a non-selected country: "Texas, USA, Remote"
+22:27:04 [dropped] "Key Accounts Executive" @ "Datadog" - location names a non-selected country: "Illinois, USA, Remote; Michigan, USA, Remote; Minnesota, USA, Remote; Ohio, USA, Remote; Texas, USA, Remote"
+22:27:04 [dropped] "Key Accounts Executive" @ "Datadog" - location names a non-selected country: "California, USA, Remote; Colorado, USA, Remote; Washington, USA, Remote"
+22:27:04 [dropped] "Major Account Manager" @ "Datadog" - location names a non-selected country: "Florida, USA, Remote; North Carolina, USA, Remote"
+22:27:04 [dropped] "Major Account Manager (UK)" @ "Datadog" - location names a non-selected country: "United Kingdom, Remote"
+22:27:04 [dropped] "Senior Developer Advocate - Data Observability" @ "Datadog" - location names a non-selected country: "California, USA, Remote; Colorado, USA, Remote; Illinois, USA, Remote; New York, USA, Remote; Washington, USA, Remote"
+22:27:04 [dropped] "Staff AI Engineer - Notebooks " @ "Datadog" - location names a non-selected country: "Portugal, Remote"
+22:27:04 [dropped] "Technical Account Manager 2 (Thai Speaking)" @ "Datadog" - location names a non-selected country: "Thailand, Remote"
+22:27:04 [dropped] "Senior Customer Support Engineer" @ "Vercel" - location names a non-selected country: "Remote - Japan"
 22:27:04 29 total jobs dropped (outside ireland or restricted remote)
  ✓22:27:04 ✓ 138 jobs in target locations (filtered out 29)
 >>>22:27:04 >>> Fetching uploaded resume from tracker...
@@ -470,76 +470,76 @@ started
  ✓22:30:11 ✓ Relevant (score: 6/10): The candidate's experience level does not meet the requirements for the Full-Stack AI Engineer role.
  ✓22:30:12 ✓ Posted: Full Stack AI Engineer @ Nicoll Curtin
 22:30:12 Score distribution (out of 138): 9-10: 1 · 7-8: 9 · 5-6: 12 · 3-4: 88 · 0-2: 28
-22:30:12 116 of 138 jobs (84%) were gate-capped at 4/10 (role_match or skills_alignment scored 1 — the job's function is fundamentally different from your target role).
+22:30:12 116 of 138 jobs (84%) were gate-capped at 4/10 (role_match or skills_alignment scored 1 - the job's function is fundamentally different from your target role).
 >>>22:30:12 >>> Fetching resume profiles for role-type matching...
-22:30:13 No resume profiles found — using default resume for all jobs
+22:30:13 No resume profiles found - using default resume for all jobs
 22:30:13 >>>
 Phase 2: Tailoring top 10 of 20 relevant jobs (tailoring: HIGH 8/10, max: 10)...
 >>>
 22:30:13 [1/10] Intern - (System Verification Group) @ Cadence
-22:30:13 Score: 9/10 — The internship at Cadence is a strong fit for the candidate's skills and preferences, particularly in ML and AI.
+22:30:13 Score: 9/10 - The internship at Cadence is a strong fit for the candidate's skills and preferences, particularly in ML and AI.
  ✓22:31:02 ✓ Resume customized
  ✓22:31:04 ✓ PDF generated (230KB)
  ✓22:31:07 ✓ PDF uploaded: DHANUSH_ARAVIND_INTERN_SYSTEM_VERIFICATION_GROUP_CADENCE_RESUME.pdf
  ⚠22:31:08 ⚠ CV Sync Check: 0% keyword match (0/1). Missing: ml
  ✓22:31:10 ✓ Resume, cover letter, and fit summary attached to tracker
 22:31:12 [2/10] Software Development Apprenticeship, Engineering, October 2026 Start @ Google
-22:31:12 Score: 8/10 — While the apprenticeship aligns well with the candidate's skills and preferences, the geographic fit is a significant barrier.
+22:31:12 Score: 8/10 - While the apprenticeship aligns well with the candidate's skills and preferences, the geographic fit is a significant barrier.
  ✓22:31:57 ✓ Resume customized
  ✓22:31:59 ✓ PDF generated (230KB)
  ✓22:32:02 ✓ PDF uploaded: DHANUSH_ARAVIND_SOFTWARE_DEVELOPMENT_APPRENTICESHIP_ENGINEERING_OCTOBER_2026_START_GOOGLE_RESUME.pdf
  ✓22:32:05 ✓ Resume, cover letter, and fit summary attached to tracker
 22:32:07 [3/10] Python Developer (Fast API / FinTech Project) @ Resourceful Talent Group
-22:32:07 Score: 8/10 — The candidate's skills and experience align well with the Python Developer role in a FinTech project.
+22:32:07 Score: 8/10 - The candidate's skills and experience align well with the Python Developer role in a FinTech project.
  ✓22:32:39 ✓ Resume customized
  ✓22:32:41 ✓ PDF generated (230KB)
  ✓22:32:44 ✓ PDF uploaded: DHANUSH_ARAVIND_PYTHON_DEVELOPER_FAST_API_FINTECH_PROJECT_RESOURCEFUL_TALENT_GROUP_RESUME.pdf
  ⚠22:32:44 ⚠ CV Sync Check: 60% keyword match (3/5). Missing: react, mysql
  ✓22:32:47 ✓ Resume, cover letter, and fit summary attached to tracker
 22:32:49 [4/10] Junior Python Engineer (Test Automation) - Cork, Ireland @ Qualcomm
-22:32:49 Score: 8/10 — The candidate is a strong fit for the Test Automation Engineer role due to relevant skills and experience.
+22:32:49 Score: 8/10 - The candidate is a strong fit for the Test Automation Engineer role due to relevant skills and experience.
  ✓22:33:24 ✓ Resume customized
  ✓22:33:26 ✓ PDF generated (230KB)
  ✓22:33:29 ✓ PDF uploaded: DHANUSH_ARAVIND_JUNIOR_PYTHON_ENGINEER_TEST_AUTOMATION_CORK_IRELAND_QUALCOMM_RESUME.pdf
  ✓22:33:30 ✓ CV Sync Check: 80% keyword match (8/10)
  ✓22:33:33 ✓ Resume, cover letter, and fit summary attached to tracker
 22:33:35 [5/10] Data Engineer @ K&K Talents
-22:33:35 Score: 8/10 — The candidate is a strong fit for the Data Engineer role based on relevant skills and experience.
+22:33:35 Score: 8/10 - The candidate is a strong fit for the Data Engineer role based on relevant skills and experience.
  ✓22:34:13 ✓ Resume customized
  ✓22:34:15 ✓ PDF generated (230KB)
  ✓22:34:18 ✓ PDF uploaded: DHANUSH_ARAVIND_DATA_ENGINEER_K_K_TALENTS_RESUME.pdf
  ✓22:34:19 ✓ CV Sync Check: 71% keyword match (5/7)
  ✓22:34:22 ✓ Resume, cover letter, and fit summary attached to tracker
 22:34:24 [6/10] Software Engineering Graduate - 12 month Fixed Term Contract @ Valeo
-22:34:24 Score: 7/10 — While the candidate has relevant skills, the geographic fit is a significant concern, impacting overall suitability.
+22:34:24 Score: 7/10 - While the candidate has relevant skills, the geographic fit is a significant concern, impacting overall suitability.
  ✓22:34:56 ✓ Resume customized
  ✓22:34:59 ✓ PDF generated (231KB)
  ✓22:35:02 ✓ PDF uploaded: DHANUSH_ARAVIND_SOFTWARE_ENGINEERING_GRADUATE_12_MONTH_FIXED_TERM_CONTRACT_VALEO_RESUME.pdf
  ⚠22:35:02 ⚠ CV Sync Check: 50% keyword match (1/2). Missing: linux
  ✓22:35:05 ✓ Resume, cover letter, and fit summary attached to tracker
 22:35:07 [7/10] Graduate - Software Engineer - 12 month FTC @ Valeo
-22:35:07 Score: 7/10 — While the candidate fits well for the R&D Trainee role, the geographic fit is a significant concern.
+22:35:07 Score: 7/10 - While the candidate fits well for the R&D Trainee role, the geographic fit is a significant concern.
  ✓22:35:39 ✓ Resume customized
  ✓22:35:42 ✓ PDF generated (231KB)
  ✓22:35:45 ✓ PDF uploaded: DHANUSH_ARAVIND_GRADUATE_SOFTWARE_ENGINEER_12_MONTH_FTC_VALEO_RESUME.pdf
  ✓22:35:45 ✓ CV Sync Check: 100% keyword match (1/1)
  ✓22:35:48 ✓ Resume, cover letter, and fit summary attached to tracker
 22:35:50 [8/10] Full-Stack Developer @ Arup
-22:35:50 Score: 7/10 — The candidate has relevant skills and experience for the Full-Stack Developer role, making them a reasonable fit.
+22:35:50 Score: 7/10 - The candidate has relevant skills and experience for the Full-Stack Developer role, making them a reasonable fit.
  ✓22:36:19 ✓ Resume customized
  ✓22:36:21 ✓ PDF generated (231KB)
  ✓22:36:24 ✓ PDF uploaded: DHANUSH_ARAVIND_FULL_STACK_DEVELOPER_ARUP_RESUME.pdf
  ✓22:36:25 ✓ CV Sync Check: 80% keyword match (8/10)
  ✓22:36:28 ✓ Resume, cover letter, and fit summary attached to tracker
 22:36:30 [9/10] Python Developer - Back End (Jun/Mid level) @ Solas IT Recruitment
-22:36:30 Score: 7/10 — While the candidate has strong skills, the mid-level seniority requirement does not align with their entry-level preference.
+22:36:30 Score: 7/10 - While the candidate has strong skills, the mid-level seniority requirement does not align with their entry-level preference.
  ✓22:37:01 ✓ Resume customized
  ✓22:37:03 ✓ PDF generated (228KB)
  ✓22:37:06 ✓ PDF uploaded: DHANUSH_ARAVIND_PYTHON_DEVELOPER_BACK_END_JUN_MID_LEVEL_SOLAS_IT_RECRUITMENT_RESUME.pdf
  ✓22:37:06 ✓ CV Sync Check: 86% keyword match (6/7)
  ✓22:37:09 ✓ Resume, cover letter, and fit summary attached to tracker
 22:37:11 [10/10] Senior Data Scraping Engineer (Python) @ Mindrift
-22:37:11 Score: 7/10 — While the candidate has relevant skills, the seniority requirement exceeds their current experience level.
+22:37:11 Score: 7/10 - While the candidate has relevant skills, the seniority requirement exceeds their current experience level.
  ✓22:37:47 ✓ Resume customized
  ✓22:37:49 ✓ PDF generated (230KB)
  ✓22:37:52 ✓ PDF uploaded: DHANUSH_ARAVIND_SENIOR_DATA_SCRAPING_ENGINEER_PYTHON_MINDRIFT_RESUME.pdf

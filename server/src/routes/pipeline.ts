@@ -32,7 +32,7 @@ import {
  *
  * A proper multi-node implementation would move the Map to a
  * `pipeline_runs` Postgres table + a Supabase Realtime broadcast for logs
- * — noted in MIGRATION_STATUS.md as future hardening.
+ * - noted in MIGRATION_STATUS.md as future hardening.
  */
 
 const router = Router();
@@ -41,7 +41,7 @@ interface PipelineLog {
   time: string;
   type: string;
   // Optional because step-transition events broadcast `step` only, with no
-  // message body — the corresponding visible log line was already emitted
+  // message body - the corresponding visible log line was already emitted
   // just before. Keeping this required caused the panel to render every
   // phase header twice.
   message?: string;
@@ -68,7 +68,7 @@ function stripAnsi(s: string): string {
   return s.replace(ANSI_SGR_RE, "");
 }
 
-// Scraper / vendor names we never want to expose to the client — even in
+// Scraper / vendor names we never want to expose to the client - even in
 // SSE log lines that originate from pipeline subprocess stdout. The
 // redaction runs on every broadcast so a devtools Network tab watcher
 // can't read off our scraping stack.
@@ -82,7 +82,7 @@ const SCRAPER_NAME_RE = new RegExp(
 // log panel that a user could copy and wonder why it 404s).
 const URL_RE = /https?:\/\/[^\s<>"']+/gi;
 function redactSensitive(s: string): string {
-  // 1. Drop URLs first — debug-style search URLs in the log reveal the
+  // 1. Drop URLs first - debug-style search URLs in the log reveal the
   //    scraper anyway (geoId, host, path), and replacing scraper names
   //    inside a URL produces a working-looking but bogus link.
   // 2. THEN apply the user-friendly phrase substitutions.
@@ -164,7 +164,7 @@ function getRun(userId: string): RunState {
 function broadcast(userId: string, log: PipelineLog) {
   const state = getRun(userId);
   // Redact vendor/scraper names in the user-facing payload. The raw log
-  // is still available in server stdout for debugging — only what we
+  // is still available in server stdout for debugging - only what we
   // hand to the browser goes through the filter.
   const safe: PipelineLog = {
     ...log,
@@ -246,7 +246,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
     }
   };
 
-  // Load user config and resolve plan/tier once — we need these both for the
+  // Load user config and resolve plan/tier once - we need these both for the
   // budget check AND for clamping. Doing it in one block keeps the two
   // consistent (same tier applied to gate + clamp).
   let configEnv: Record<string, string> = {};
@@ -268,7 +268,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
 
   // Server-side mirror of the client validation: refuse to start a run
   // with zero searchable input. The client already blocks this, but the
-  // server enforcement is the source of truth — guards against curl users
+  // server enforcement is the source of truth - guards against curl users
   // and stale client builds.
   const trimmedUrl = String(userConfig.LINKEDIN_SEARCH_URL || "").trim();
   const trimmedLinkedInKw = String(userConfig.LINKEDIN_KEYWORDS || "").trim();
@@ -309,7 +309,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
   // Same enforcement for MAX_TAILOR_COUNT: the pipeline reports back the
   // number of resumes it actually tailored (see /report-tailored), so if
   // the user already used all 25 of their Pro-tier tailor slots today,
-  // this run is capped at 0 — no sneaking past the cap by running twice.
+  // this run is capped at 0 - no sneaking past the cap by running twice.
   try {
     const tailorBudget = await checkResumesTailoredBudget(userId, plan, enterpriseTier, candidateId);
 
@@ -326,7 +326,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
     userConfig.MAX_TAILOR_COUNT = Math.max(0, Number(userConfig.MAX_TAILOR_COUNT));
 
     // Stringify everything for the subprocess env. Skip null/undefined so
-    // they don't serialize to the literal strings "null"/"undefined" — the
+    // they don't serialize to the literal strings "null"/"undefined" - the
     // pipeline's config.ts uses `optional(key, "")` fallbacks that would
     // treat those as present values and break downstream comparisons
     // (e.g. TARGET_COMPANY_ID === "null" can't match any real id).
@@ -373,7 +373,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
   const pipelineEntry = path.join("src", "index.ts");
 
   // Spawn the pipeline as a subprocess. Env is an ALLOWLIST, not the full
-  // `process.env` — a prompt-injection or exfil bug in the pipeline must
+  // `process.env` - a prompt-injection or exfil bug in the pipeline must
   // not be able to exfiltrate unrelated secrets (Supabase service-role key,
   // Gmail client secret, DB URL, etc.). Only what the pipeline actually
   // needs to run ships through.
@@ -394,7 +394,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
   childEnv.FORCE_COLOR = "0";
   // Always point the pipeline at THIS server on localhost. On Railway the
   // server's listen port is whatever $PORT resolves to (Railway randomizes
-  // it), not 3001 — so we cannot rely on the pipeline's default fallback
+  // it), not 3001 - so we cannot rely on the pipeline's default fallback
   // or an inherited JOB_TRACKER_URL that was set for local dev. Overriding
   // here makes the spawn work on any host without additional config.
   childEnv.JOB_TRACKER_URL = `http://127.0.0.1:${process.env.PORT || 3001}`;
@@ -431,7 +431,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
       // Also emit a structured step event if this line marks a step
       // transition, so the client's progress tracker advances past "init".
       //
-      // IMPORTANT: do NOT include `message` on this second broadcast — the
+      // IMPORTANT: do NOT include `message` on this second broadcast - the
       // first broadcast above already carried the full text. Sending it
       // again caused every `>>> Phase X ...` line to render twice in the
       // log panel (once with the normal step style, once with the step-
@@ -470,7 +470,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
     // ...then ALWAYS emit a `complete` event regardless of success so
     // the client's SSE handler resets `running=false`. The previous
     // behaviour broadcast `{type: "error"}` only on failure, which the
-    // client treated as just another log line — the Stop button stayed
+    // client treated as just another log line - the Stop button stayed
     // visible and the user couldn't start a fresh run without reloading.
     broadcast(userId, {
       time: new Date().toISOString(),
@@ -546,7 +546,7 @@ router.get("/logs", requireAuth, (req: Request, res: Response) => {
 // Called by the pipeline subprocess when a run finishes. The pipeline
 // reports the ACTUAL number of jobs it scraped (stats.scraped) and we
 // charge that against the user's daily budget. Authenticated via the
-// internal M2M token (Authorization: Internal <token>:<userId>) — the
+// internal M2M token (Authorization: Internal <token>:<userId>) - the
 // shared requireAuth middleware handles both Supabase JWTs and internal
 // tokens, and since req.user.id is trusted from whichever mechanism
 // matched, no separate route is needed.

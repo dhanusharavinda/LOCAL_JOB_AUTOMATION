@@ -4,7 +4,7 @@ import { log } from "../logger";
 /**
  * Keyword expansion service.
  *
- * Job boards do substring matching — typing "data engineer" misses
+ * Job boards do substring matching - typing "data engineer" misses
  * postings titled "ETL Engineer", "Analytics Engineer", "Data Platform
  * Engineer" even though those are the same job. This service runs one
  * LLM call per pipeline run to expand the candidate's raw role search
@@ -42,7 +42,7 @@ const cache = new Map<string, string[]>();
  * that recruiters actually use for the same role.
  *
  * Returns the expanded list. Falls back to the original list (split
- * by comma) on any failure — never throws.
+ * by comma) on any failure - never throws.
  *
  * @param raw - the user's raw SEARCH_KEYWORDS / TARGET_ROLE input
  * @param perInputVariants - how many alt-titles to generate per input role
@@ -82,7 +82,7 @@ export async function expandKeywords(
     "Rules:\n" +
     "- Stick CLOSE to the original role. The expansion is for the SAME job, " +
     "not adjacent roles. Don't suggest 'Data Analyst' for a 'Data Engineer' " +
-    "search — they're different jobs with different hiring criteria.\n" +
+    "search - they're different jobs with different hiring criteria.\n" +
     "- Output ONLY job titles. No descriptions, no commentary.\n" +
     "- Do NOT include seniority words ('Junior X', 'Senior X', 'Lead X', " +
     "'Staff X', 'Principal X', 'I/II/III'). Seniority is filtered separately.\n" +
@@ -90,7 +90,7 @@ export async function expandKeywords(
     "- Prefer titles that are common in job postings, not academic / niche.\n" +
     `- For each input role, include the original + ${perInputVariants} closely ` +
     "related variants. If the input already has multiple roles, expand each " +
-    "and merge — total output should be roughly the number of input roles × " +
+    "and merge - total output should be roughly the number of input roles × " +
     `(${perInputVariants} + 1).\n` +
     "- Return STRICT JSON: { \"titles\": [\"title 1\", \"title 2\", ...] }";
 
@@ -140,7 +140,7 @@ export async function expandKeywords(
       if (cleaned.length >= 12) break;
     }
 
-    // Always keep the user's original literal keywords at the FRONT — if
+    // Always keep the user's original literal keywords at the FRONT - if
     // the LLM somehow drops them, the user's stated intent stays intact.
     const merged: string[] = [];
     const finalSeen = new Set<string>();
@@ -163,7 +163,7 @@ export async function expandKeywords(
     return merged;
   } catch (err: any) {
     // Never block the pipeline on expansion failures. Apify scrapes work
-    // fine with just the literal user input — we'd just miss the
+    // fine with just the literal user input - we'd just miss the
     // ETL-Engineer-shaped jobs.
     log.warn(`  Keyword expansion failed: ${err?.message || err}. Using raw input.`);
     cache.set(key, literalKeywords);

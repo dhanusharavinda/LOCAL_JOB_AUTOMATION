@@ -4,7 +4,7 @@ import { config } from "../../config";
 import { COUNTRY_REGISTRY } from "../../countries";
 
 /**
- * HN Who's Hiring — scrapes the latest monthly thread via Algolia API.
+ * HN Who's Hiring - scrapes the latest monthly thread via Algolia API.
  *
  * Country-aware: the Algolia query and the post-filter regex are both
  * derived from the user's current TARGET_COUNTRIES so a user looking for
@@ -63,7 +63,7 @@ export async function scrapeHNHiring(keywords: string[]): Promise<ScrapedJob[]> 
       // Try to extract company | role | location from first line of HN comment.
       // If the title can't be parsed, fall back to the user's first keyword
       // (so nurse users get "Registered Nurse", consultants get "Consultant",
-      // etc.) — NEVER to a hardcoded "Software Engineer".
+      // etc.) - NEVER to a hardcoded "Software Engineer".
       const firstLine = text.replace(/<[^>]+>/g, "").split("\n")[0].trim();
       const parts = firstLine.split(/[|,·]/);
       const company = parts[0]?.trim() || "Company (HN)";

@@ -79,7 +79,7 @@ BANNED WORDS AND PHRASES:
 - "Additionally", "Furthermore", "It's not just about X, it's about Y"
 - "commitment to excellence", "cutting-edge", "innovative solutions", "dynamic environment"
 - "I believe I would be a valuable addition", "I am eager to contribute"
-- ZERO em dashes (—). Use commas, periods, or parentheses. The em dash is the loudest tell of AI writing — never include one.
+- ZERO em dashes ( - ). Use commas, periods, or parentheses. The em dash is the loudest tell of AI writing - never include one.
 
 STYLE REQUIREMENTS:
 - Vary sentence length. Short punchy ones. Then longer ones that breathe.
@@ -134,9 +134,9 @@ BANNED WORDS AND PHRASES:
 - "highly motivated", "results-driven", "passionate about", "leveraged", "transformative"
 - "delve", "foster", "enhance", "underscore", "showcase", "pivotal", "crucial", "vital"
 - "commitment to excellence", "cutting-edge", "innovative solutions", "dynamic environment"
-- ZERO em dashes (—). Use commas, periods, or parentheses. The em dash is the loudest tell of AI writing — never include one.
+- ZERO em dashes ( - ). Use commas, periods, or parentheses. The em dash is the loudest tell of AI writing - never include one.
 
-=== TRUTHFULNESS RULES (CRITICAL — read twice) ===
+=== TRUTHFULNESS RULES (CRITICAL - read twice) ===
 You only know the candidate through the CANDIDATE SKILLS list below. You do NOT know the candidate's full work history.
 - NEVER say "I haven't used X" or "I haven't worked with X" or "while I'm new to X" or any negative-knowledge claim.
   You don't know what they haven't done. Inventing a gap is a hallucination that gets the candidate filtered out.
@@ -155,7 +155,7 @@ This section is read by the hiring team. They already know their company. Write 
 - Format per point: name the JD requirement, then the concrete match from the candidate's skills.
 - Pick the 3-4 STRONGEST positive matches. Do not list every JD requirement.
 - NO generic points like "Strong communication skills" or "Team player"
-- NO negative claims (see TRUTHFULNESS RULES above) — most common failure, instant filter-out for the candidate.
+- NO negative claims (see TRUTHFULNESS RULES above) - most common failure, instant filter-out for the candidate.
 - Use plain text only
 
 === JOB DESCRIPTION ===
@@ -316,7 +316,7 @@ router.post("/:id/recruiter-followup", async (req: Request, res: Response) => {
       return;
     }
 
-    // Trim the resume for the prompt — we only need the candidate's
+    // Trim the resume for the prompt - we only need the candidate's
     // skills + projects to ground the body, not the whole document.
     const candidateSkills = resumeText.slice(0, 2000);
     const jd = (job.description || "").length > 4000
@@ -329,18 +329,18 @@ Return this exact JSON:
 { "recruiterFollowup": "the email text here" }
 
 === CONTEXT ===
-This email is sent AFTER the candidate has already submitted their application for the ${job.job_title} role at ${job.company_name}. It's a follow-up nudge to the hiring manager / recruiter — NOT a fresh application. The opening MUST acknowledge this fact (e.g. "I recently applied for X" or "I submitted my application for...").
+This email is sent AFTER the candidate has already submitted their application for the ${job.job_title} role at ${job.company_name}. It's a follow-up nudge to the hiring manager / recruiter - NOT a fresh application. The opening MUST acknowledge this fact (e.g. "I recently applied for X" or "I submitted my application for...").
 
 === STRUCTURE (REQUIRED) ===
 The email has TWO parts separated by a blank line:
 
-PART 1 — "Tldr;" opening (2-4 short sentences):
+PART 1 - "Tldr;" opening (2-4 short sentences):
 - Starts literally with: "Tldr;"
 - Express genuine enthusiasm about the SPECIFIC company / what they're building (use the JD to pick something concrete to admire).
 - Drop a vulnerable personal admission about why the candidate is wired for this work. The sample tone: "I'm not athletic, can't sing or dance, and don't drink. But building, solving real problems with tech, is the one thing I know I'm good at." This is informal, self-aware, attention-grabbing.
 - End with one line about wanting to chase the mission with the team.
 
-PART 2 — formal letter body (3 short paragraphs, ~120 words total):
+PART 2 - formal letter body (3 short paragraphs, ~120 words total):
 - Open with "Dear Hiring Manager,"
 - Para 1: confirm the application is already submitted, name the role + company, mention one concrete thing from the JD.
 - Para 2: connect ACTUAL CANDIDATE SKILLS (from the brief below) to the JD's needs. Concrete examples like "I built X that did Y", grounded in the skills list.
@@ -349,7 +349,7 @@ PART 2 — formal letter body (3 short paragraphs, ~120 words total):
 === ANTI-AI-SLOP RULES (NON-NEGOTIABLE) ===
 BANNED WORDS / PHRASES: "I am writing to express my interest", "I am confident", "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "delve", "foster", "showcase", "pivotal", "crucial", "cutting-edge", "innovative solutions", "synergy", "dynamic environment", "commitment to excellence", "I am eager to contribute", "I would be a valuable addition".
 
-ZERO em-dashes (—). Use commas, periods, or parens. The em-dash is the loudest tell of AI writing.
+ZERO em-dashes ( - ). Use commas, periods, or parens. The em-dash is the loudest tell of AI writing.
 
 NO curly quotes, NO bolding, NO markdown. Plain text only.
 
@@ -357,7 +357,7 @@ NO curly quotes, NO bolding, NO markdown. Plain text only.
 - NEVER name a tool, framework, technology, or experience that does NOT appear in CANDIDATE SKILLS below.
 - NEVER fabricate metrics, dates, employer names, or projects.
 - If the JD asks for X and X isn't in the skills list, write about a different requirement that IS.
-- NEVER say "I haven't done X" — you don't know what the candidate hasn't done.
+- NEVER say "I haven't done X" - you don't know what the candidate hasn't done.
 
 === STYLE ===
 - Vary sentence length. Some short and punchy. Some longer that breathe.
@@ -377,7 +377,7 @@ Return the JSON now.`;
       model: CL_CHAT_MODEL,
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
-      temperature: 0.75, // slightly hotter than cover letter — we want personality
+      temperature: 0.75, // slightly hotter than cover letter - we want personality
       max_tokens: 900,
     });
 
@@ -460,7 +460,7 @@ router.post("/:id/tailor-resume", async (req: Request, res: Response) => {
       return;
     }
 
-    // Mirror free-tailor's heuristics — these are loose hints the prompt
+    // Mirror free-tailor's heuristics - these are loose hints the prompt
     // uses to validate the model's output preserves the candidate's
     // education + experience counts.
     const expectedEducation = (resumeText.match(/\b(?:University|Institute|College|School|Academy|B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D|Bachelor|Master|Doctorate|B\.?Tech|M\.?Tech|MBA)\b/gi) || []).length;

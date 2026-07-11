@@ -16,7 +16,7 @@ export async function sendTelegramAlert(job: LinkedInJob, score: number, reason:
   const link = job.link ? `\n🔗 ${job.link}` : "";
 
   const text = [
-    `🔥 *High-Match Job Alert* — Score: ${score}/10`,
+    `🔥 *High-Match Job Alert* - Score: ${score}/10`,
     ``,
     `*${escapeMarkdown(job.title)}*`,
     `🏢 ${escapeMarkdown(job.companyName)}`,

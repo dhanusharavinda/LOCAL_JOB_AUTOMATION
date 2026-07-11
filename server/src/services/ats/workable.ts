@@ -31,7 +31,7 @@ export async function submitWorkable(input: AtsSubmitInput): Promise<AtsSubmitRe
   }
   // Caller (routes/apply.ts) stamps job.user_id from the authenticated
   // session. Refuse to fall back to an unscoped lookup of the row's
-  // owner — that would risk posting one user's resume to an ATS under
+  // owner - that would risk posting one user's resume to an ATS under
   // a different user's session.
   if (!job.user_id) {
     return { ok: false, error: "Internal: missing user_id on job context" };

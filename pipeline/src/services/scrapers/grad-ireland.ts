@@ -3,7 +3,7 @@ import { politeGet } from "./utils";
 import * as cheerio from "cheerio";
 import { log } from "../../logger";
 
-/** GradIreland — graduate jobs Ireland + career events */
+/** GradIreland - graduate jobs Ireland + career events */
 export async function scrapeGradIreland(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
 
@@ -159,7 +159,7 @@ async function scrapeEventbriteDublin(userKeywords: string[]): Promise<EventResu
             const summary = ev.summary || ev.description?.text || "";
             if (!isRelevant(ev.name, summary, relevanceRegex)) continue;
 
-            // Try multiple date fields — Eventbrite varies across versions
+            // Try multiple date fields - Eventbrite varies across versions
             const startDate = ev.start_date || ev.start_display || ev.startDate
               || ev.start?.local || ev.start?.utc || ev.tickets_by?.date
               || ev.date?.start || ev.when || "";
@@ -213,7 +213,7 @@ async function scrapeEventbriteDublin(userKeywords: string[]): Promise<EventResu
   return events;
 }
 
-/** Scrape career events — tries Eventbrite (GradIreland events page no longer exists).
+/** Scrape career events - tries Eventbrite (GradIreland events page no longer exists).
  *  Accepts the user's SEARCH_KEYWORDS so events are filtered by the user's
  *  actual role / domain instead of a hardcoded tech keyword list. Passing
  *  no keywords falls back to generic career-fair / networking terms. */

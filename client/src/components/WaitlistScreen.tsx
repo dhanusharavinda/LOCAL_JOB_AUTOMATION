@@ -7,14 +7,14 @@ interface Props {
 }
 
 /**
- * WaitlistScreen — shown between AuthPage and the dashboard when a newly
+ * WaitlistScreen - shown between AuthPage and the dashboard when a newly
  * signed-up user hasn't been approved yet. During the private testing
  * phase every signup lands here; the owner vets them from the admin
  * panel (or directly via the Supabase SQL editor) and flips their
  * approval_status to 'approved' to unlock the dashboard.
  *
  * Two flavours: 'pending' (friendly, "we'll email you soon") and
- * 'rejected' (terminal, one-sided sign-out CTA). No auto-refresh — the
+ * 'rejected' (terminal, one-sided sign-out CTA). No auto-refresh - the
  * user has to sign out + sign back in once approved, which gives the
  * server a clean /me read rather than stale client state.
  */

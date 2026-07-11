@@ -1,7 +1,7 @@
 /**
  * Link-aware resume parsing.
  *
- * Problem: resumes routinely carry contact links as HYPERLINKS — the
+ * Problem: resumes routinely carry contact links as HYPERLINKS - the
  * visible text says "GitHub" or "LinkedIn" while the URL lives in a PDF
  * link annotation or a DOCX hyperlink relationship. The default
  * extractors throw those targets away:
@@ -53,7 +53,7 @@ function isUsableLink(url: unknown): url is string {
   if (url.length === 0 || url.length > MAX_LINK_LENGTH) return false;
   // Reject any whitespace (space/newline/tab): a URL containing a newline
   // could smuggle arbitrary non-URL text into the EMBEDDED HYPERLINKS block,
-  // which flows into the LLM prompt — a prompt-injection vector. Legitimate
+  // which flows into the LLM prompt - a prompt-injection vector. Legitimate
   // profile URLs never contain whitespace.
   if (/\s/.test(url)) return false;
   if (!/^https?:\/\//i.test(url)) return false;
@@ -69,7 +69,7 @@ function isUsableLink(url: unknown): url is string {
  * Parse a PDF buffer, extracting both text AND link-annotation targets.
  *
  * Uses pdf-parse's `pagerender` hook, which hands us the underlying
- * pdf.js page proxy — so we can call getAnnotations() (link targets)
+ * pdf.js page proxy - so we can call getAnnotations() (link targets)
  * alongside getTextContent() (visible text). The text assembly below
  * replicates pdf-parse's default renderer line-joining behavior so the
  * extracted text is byte-identical to what the previous code produced.
@@ -90,12 +90,12 @@ export async function parsePdfWithLinks(
     ]);
 
     for (const a of annotations || []) {
-      // Stop accumulating once the cap is hit — a hostile PDF with tens of
+      // Stop accumulating once the cap is hit - a hostile PDF with tens of
       // thousands of link annotations must not grow `links`/`seen` unbounded.
       if (links.length >= MAX_LINKS) break;
       // pdf.js exposes Link annotations with a resolved `url` for
       // external URI actions. Internal jumps (`dest`) have no url and
-      // are skipped. mailto:/tel: are skipped too — emails and phones
+      // are skipped. mailto:/tel: are skipped too - emails and phones
       // are visible text on any sane resume, and the LLM prompt only
       // needs http(s) targets to resolve label-only profile links.
       const url = a && a.subtype === "Link" ? a.url : undefined;
@@ -149,7 +149,7 @@ function decodeEntities(s: string): string {
  * extractRawText() stays the canonical text source (its output feeds
  * length checks and the LLM exactly as before); convertToHtml() runs
  * alongside purely to harvest <a href="..."> targets, which raw text
- * extraction discards. HTML conversion failures are non-fatal — we
+ * extraction discards. HTML conversion failures are non-fatal - we
  * just lose the links, same as the old behavior.
  */
 export async function parseDocxWithLinks(buffer: Buffer): Promise<ParsedDoc> {

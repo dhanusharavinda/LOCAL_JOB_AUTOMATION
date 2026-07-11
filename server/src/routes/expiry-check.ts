@@ -36,7 +36,7 @@ const GONE_BODY_MARKERS = [
 // Return true if an IPv4/IPv6 literal belongs to a private, loopback,
 // link-local, or cloud-metadata range that a server-side fetch should
 // never reach. Any job_link that resolves to one of these ranges is an
-// SSRF attempt — a user trying to pivot the server into reading internal
+// SSRF attempt - a user trying to pivot the server into reading internal
 // services (Railway/AWS/GCP metadata, Supabase private network, etc.).
 function isBlockedIp(ip: string): boolean {
   // IPv4
@@ -71,7 +71,7 @@ function isBlockedIp(ip: string): boolean {
  * Gate an outbound URL before `fetch`. Rejects non-http(s), embedded
  * credentials, and any hostname that resolves to a private / loopback /
  * metadata IP. Resolution happens here AND we pass the URL unchanged to
- * fetch — there's a tiny TOCTOU window where a DNS rebind could swap the
+ * fetch - there's a tiny TOCTOU window where a DNS rebind could swap the
  * IP between our check and fetch's own resolution, but the attacker still
  * needs to control the authoritative DNS and match our first resolution.
  * Acceptable for a job-expiry checker; harden further only if this surface
@@ -91,12 +91,12 @@ async function validateOutboundUrl(raw: string): Promise<{ ok: true; url: URL } 
     return { ok: false, reason: "URL cannot contain credentials" };
   }
   const host = url.hostname;
-  // Literal IPs — check directly
+  // Literal IPs - check directly
   if (net.isIP(host)) {
     if (isBlockedIp(host)) return { ok: false, reason: "Blocked IP range" };
     return { ok: true, url };
   }
-  // Hostname — resolve and check every record. all=true returns A and AAAA.
+  // Hostname - resolve and check every record. all=true returns A and AAAA.
   try {
     const records = await dns.lookup(host, { all: true });
     for (const r of records) {
@@ -123,7 +123,7 @@ async function checkLink(jobLink: string): Promise<{ status: "live" | "expired" 
       signal: AbortSignal.timeout(10000),
     });
 
-    // Manual redirect handling — each redirect target must also pass the
+    // Manual redirect handling - each redirect target must also pass the
     // outbound-URL gate so attackers can't set a public URL that 302s to
     // http://169.254.169.254/. Follow up to 3 hops.
     let hops = 0;
@@ -175,7 +175,7 @@ async function checkLink(jobLink: string): Promise<{ status: "live" | "expired" 
 
     return { status: "live", reason: null };
   } catch {
-    // Swallow the underlying error — it can leak internal hostnames or
+    // Swallow the underlying error - it can leak internal hostnames or
     // TLS details that help attackers fingerprint our infra.
     return { status: "unknown", reason: "fetch failed" };
   }

@@ -25,7 +25,7 @@ function maskSource(src: string | null | undefined): string | null {
 function maskJobRow<T extends { source?: string | null; sources?: unknown }>(row: T): T {
   const masked: any = { ...row };
   masked.source = maskSource(row.source ?? null);
-  // `sources` is stored as JSONB — it can arrive as an array, a JSON
+  // `sources` is stored as JSONB - it can arrive as an array, a JSON
   // string, or null depending on how the row was inserted.
   if (Array.isArray(row.sources)) {
     masked.sources = Array.from(new Set((row.sources as any[]).map((s: any) => maskSource(String(s))))).filter(Boolean);
@@ -35,7 +35,7 @@ function maskJobRow<T extends { source?: string | null; sources?: unknown }>(row
       if (Array.isArray(arr)) {
         masked.sources = Array.from(new Set(arr.map((s: any) => maskSource(String(s))))).filter(Boolean);
       } else {
-        // JSON parsed but was not an array — safest behaviour is to
+        // JSON parsed but was not an array - safest behaviour is to
         // collapse to null rather than leak the raw DB value.
         masked.sources = null;
       }
@@ -54,7 +54,7 @@ const router = Router();
 
 // Whitelisted fields for PATCH + INSERT. Keeping this in one place
 // prevents drift between the two handlers. Any field the pipeline sends
-// must be in here — otherwise the PATCH route silently drops it and
+// must be in here - otherwise the PATCH route silently drops it and
 // pipeline-generated assets (cover letters, tailored PDFs, score
 // breakdowns) never land on the kanban card.
 const EDITABLE_FIELDS = [
@@ -148,7 +148,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 // /exists?job_link=... for every scraped link (hundreds of requests on
 // a normal scrape).
 //
-// IMPORTANT: this route MUST be registered before `/:id` — otherwise
+// IMPORTANT: this route MUST be registered before `/:id` - otherwise
 // Express's router sees the path "exists-batch" and tries to match it
 // against the `/:id` handler, which parseInt()s it to NaN and 400s.
 router.post("/exists-batch", requireAuth, async (req: Request, res: Response) => {
@@ -230,7 +230,7 @@ router.post("/exists-batch", requireAuth, async (req: Request, res: Response) =>
     // The over-permissive ANY(titles) AND ANY(companies) match (rather
     // than a true PAIR match) is OK because the SELECT returns the
     // STORED row's normalized key, and the pipeline filters by exact
-    // key match on the client side — no false dedup positives can
+    // key match on the client side - no false dedup positives can
     // sneak through.
     let pairRows: Array<{ title: string; company: string; flagged: boolean | null }> = [];
     if (normPairs.length > 0) {
@@ -239,7 +239,7 @@ router.post("/exists-batch", requireAuth, async (req: Request, res: Response) =>
       // Note: backslashes are doubled (e.g. "\\(") so the JS template
       // produces a single "\(" the Postgres regex engine sees as a
       // literal paren. With a single "\(" in source, JS would drop the
-      // backslash and Postgres would see "(" as a regex group-start —
+      // backslash and Postgres would see "(" as a regex group-start - 
       // silently corrupting the normalization.
       pairRows = await sql<{ title: string; company: string; flagged: boolean | null }[]>`
         SELECT
@@ -329,7 +329,7 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
 // ─── POST /api/jobs ──────────────────────────────────────────────────
 // Create or upsert a job. Called manually from the UI (Add Job button)
 // and by the pipeline subprocess after scoring jobs. Conflict key is
-// (user_id, job_link) — per-user uniqueness, so two users can both
+// (user_id, job_link) - per-user uniqueness, so two users can both
 // track the same job URL.
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -390,7 +390,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const jobLink: string | null = row.job_link;
 
     if (jobLink) {
-      // Upsert path — respect the per-user unique index on (user_id, job_link).
+      // Upsert path - respect the per-user unique index on (user_id, job_link).
       // COALESCE preserves existing resume_url, cover_letter, etc. if the new
       // row doesn't provide them (pipeline re-runs are idempotent).
       const rows = await sql`
@@ -502,7 +502,7 @@ router.patch("/:id", requireAuth, async (req: Request, res: Response) => {
 // it to Supabase Storage under the user's private folder, return a
 // 7-day signed URL, and update the job row (identified by job_link)
 // so the kanban card gets a download link. The pipeline doesn't know
-// numeric job ids — it identifies jobs by their job_link — so we look
+// numeric job ids - it identifies jobs by their job_link - so we look
 // them up server-side.
 router.post("/upload-pdf", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;

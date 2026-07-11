@@ -2,7 +2,7 @@ import { ScrapedJob } from "../../types";
 import { politeGet } from "./utils";
 import * as cheerio from "cheerio";
 
-/** Indeed UK — mirrors indeed-ie.ts but targets uk.indeed.com with a London default location. */
+/** Indeed UK - mirrors indeed-ie.ts but targets uk.indeed.com with a London default location. */
 export async function scrapeIndeedUK(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
 

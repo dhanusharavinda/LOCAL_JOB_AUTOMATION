@@ -26,7 +26,7 @@ export interface OverlayApi {
    * prompt after the user submits on an untracked page. Pre-fills the
    * four core fields (title, company, location, job_type) with the
    * engine's best-effort heuristic extraction so the user can review-
-   * and-correct rather than re-type. Save is the only action — every
+   * and-correct rather than re-type. Save is the only action - every
    * manual submission must end up on the kanban, so there is no skip
    * path. Returns the confirmed row data when the user clicks Save.
    */
@@ -286,7 +286,7 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
     showKanbanPrompt(prefill) {
       // Build the prompt card. Renders four editable fields preset
       // from the engine's heuristic extraction. Save is the only
-      // action — every manual application must end up on the kanban,
+      // action - every manual application must end up on the kanban,
       // so we deliberately don't expose a skip path. The promise is
       // one-shot: clicking Save removes the card and resolves.
       kanbanPrompt.innerHTML = "";
@@ -329,7 +329,7 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
           const company = companyEl.value.trim();
           if (!title || !company) {
             // Required fields. Surface an inline message rather than
-            // a noisy alert(). Don't resolve — let the user fix it.
+            // a noisy alert(). Don't resolve - let the user fix it.
             saveBtn.textContent = "Title + company required";
             saveBtn.disabled = true;
             setTimeout(() => { saveBtn.textContent = "Save to kanban"; saveBtn.disabled = false; }, 1800);

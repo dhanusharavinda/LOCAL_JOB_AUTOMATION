@@ -1,5 +1,5 @@
 -- ============================================================================
--- GO CANDID8 — Approval gate
+-- GO CANDID8 - Approval gate
 -- ============================================================================
 -- Adds an approval workflow so the owner can manually vet every tester who
 -- signs up before they get dashboard access. New signups land as 'pending'

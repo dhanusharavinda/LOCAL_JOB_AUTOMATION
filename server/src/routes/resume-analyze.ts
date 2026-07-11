@@ -9,7 +9,7 @@ import { fetchBankProjectsForPrompt } from "./free-tailor";
  * Resume analyze + apply (ReWrite flow).
  *
  * The client's ResumeCompareModal expects a richer shape than the old
- * "atsScore + suggestions[]" payload — sections of bullets the user can
+ * "atsScore + suggestions[]" payload - sections of bullets the user can
  * accept/reject one by one, plus a rewritten summary, plus an ATS score
  * for the header. This module now produces that full shape in a single
  * OpenAI call and persists the score back to the job row.
@@ -101,7 +101,7 @@ router.post("/:id/analyze-resume", async (req: Request, res: Response) => {
       return;
     }
 
-    // Trim aggressively for the prompt — the response is the expensive
+    // Trim aggressively for the prompt - the response is the expensive
     // part. 5k of resume + 3k of JD is enough for a good analysis.
     const resumeForPrompt = resumeText.slice(0, 5000);
     const jdForPrompt = jobDescription.slice(0, 3000);
@@ -146,7 +146,7 @@ ${jdForPrompt}
 === CANDIDATE RESUME ===
 ${resumeForPrompt}
 
-=== OUTPUT JSON SHAPE (strict — no extra fields) ===
+=== OUTPUT JSON SHAPE (strict - no extra fields) ===
 {
   "matchScore": 0-100 integer reflecting overall fit + keyword coverage,
   "atsScore": 0-100 integer reflecting ATS keyword density specifically,
@@ -192,9 +192,9 @@ ${resumeForPrompt}
 - Every bullet in optimizations MUST have an "original" pulled verbatim from the resume.
 - "improved" can be null when the original already covers the JD requirement well.
 - Never invent companies, roles, dates, or certifications.
-- Do not echo full JD sentences into the summary or bullets — only individual tool/skill keywords.
+- Do not echo full JD sentences into the summary or bullets - only individual tool/skill keywords.
 - Banned words in any rewrite: leveraged, spearheaded, orchestrated, pioneered, cutting-edge, innovative, dynamic, passionate, results-driven, synergy, transformative, delve, foster, showcase, pivotal, crucial.
-- Banned punctuation: em dashes (—). Use commas/periods/parens.
+- Banned punctuation: em dashes ( - ). Use commas/periods/parens.
 
 Return ONLY the JSON. No markdown. No prose.${bankBlock}`;
 
@@ -214,7 +214,7 @@ Return ONLY the JSON. No markdown. No prose.${bankBlock}`;
       return;
     }
 
-    // Defensive defaults — guarantee the client never receives `undefined`
+    // Defensive defaults - guarantee the client never receives `undefined`
     // for fields it indexes into (the previous shape mismatch caused the
     // ResumeCompareModal to crash on `optimizations.reduce`).
     const matchScore = Number.isFinite(analysis.matchScore) ? Math.round(analysis.matchScore) : 0;
@@ -267,7 +267,7 @@ Return ONLY the JSON. No markdown. No prose.${bankBlock}`;
             },
           }))
           // Drop empty proposals where the model returned the shape
-          // but no content — keeps the UI clean.
+          // but no content - keeps the UI clean.
           .filter((s: any) => s.removeProject && s.addProject.title)
       : [];
 
@@ -293,7 +293,7 @@ Return ONLY the JSON. No markdown. No prose.${bankBlock}`;
 // Accepts the post-review optimizations payload from the client (with
 // `accepted: true` on the bullets the user wants to keep), regenerates
 // the resume profile text by replacing originals with improved bullets,
-// and returns a placeholder resumeUrl. The PDF rebuild is deferred —
+// and returns a placeholder resumeUrl. The PDF rebuild is deferred - 
 // the next pipeline run picks up the new resume_text.
 router.post("/:id/apply-suggestions", async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -349,7 +349,7 @@ router.post("/:id/apply-suggestions", async (req: Request, res: Response) => {
     // Apply: for every accepted bullet, swap original → improved in the
     // resume text. Plain string replace because we don't have a parsed
     // resume tree. If the original isn't found verbatim (because the
-    // model abbreviated it), the bullet is silently skipped — preferable
+    // model abbreviated it), the bullet is silently skipped - preferable
     // to corrupting the rest of the resume.
     let updated = baseText;
     let appliedCount = 0;
@@ -382,7 +382,7 @@ router.post("/:id/apply-suggestions", async (req: Request, res: Response) => {
          WHERE id = ${profileId} AND user_id = ${userId}
       `;
     } else {
-      // No profile row yet — create the user's first one as the default
+      // No profile row yet - create the user's first one as the default
       await sql`
         INSERT INTO resume_profiles (user_id, name, role_type, resume_text, is_default)
         VALUES (${userId}, 'Default', 'general', ${updated}, true)

@@ -69,7 +69,7 @@ export default function CandidatesPage({ user, onNavigateToLanding, onNavigateTo
         { APIFY_JOB_COUNT: tierInfo.scrape, MAX_TAILOR_COUNT: tierInfo.tailor } as any,
         candidateId
       );
-      setError("Pipeline started — check the dashboard for live progress");
+      setError("Pipeline started - check the dashboard for live progress");
       setTimeout(() => setError(null), 5000);
       loadCandidates(); // Refresh to show updated canRunToday
     } catch (err: any) { setError(err.message); }
@@ -127,7 +127,7 @@ export default function CandidatesPage({ user, onNavigateToLanding, onNavigateTo
           <div>
             <h2 className="font-display text-2xl text-[var(--text-primary)]">Manage Candidates</h2>
             <p className="text-sm text-[var(--text-tertiary)] mt-1">
-              {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} — 1 pipeline run per candidate per day
+              {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} - 1 pipeline run per candidate per day
             </p>
           </div>
           <button onClick={() => setShowAdd(true)} className="launch-btn rounded-xl py-2.5 px-5 font-medium text-sm">
@@ -204,7 +204,7 @@ export default function CandidatesPage({ user, onNavigateToLanding, onNavigateTo
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Tier</span>
-                      <span className="text-[10px] text-[var(--accent-blue)] font-medium">{tierInfo.label} — {tierInfo.scrape}/{tierInfo.tailor}</span>
+                      <span className="text-[10px] text-[var(--accent-blue)] font-medium">{tierInfo.label} - {tierInfo.scrape}/{tierInfo.tailor}</span>
                     </div>
                     <div className="flex gap-1">
                       {([1, 2, 3] as const).map((t) => (

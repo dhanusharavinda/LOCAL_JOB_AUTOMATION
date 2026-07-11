@@ -116,7 +116,7 @@ export default function CareerCoachModal({ onClose }: Props) {
               <p className="text-gray-500 text-sm">Loading your roadmap...</p>
             </div>
           ) : error && !roadmap ? (
-            // Load failed — offer a retry (re-fetch the saved roadmap), not
+            // Load failed - offer a retry (re-fetch the saved roadmap), not
             // the onboarding empty state, so a returning user isn't told
             // their roadmap is gone on a transient error.
             <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
@@ -135,7 +135,7 @@ export default function CareerCoachModal({ onClose }: Props) {
               </button>
             </div>
           ) : !roadmap ? (
-            // Empty state — no roadmap yet
+            // Empty state - no roadmap yet
             <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-[#c9a94e]/10 border border-[#c9a94e]/25 flex items-center justify-center">
                 <span className="text-[#c9a94e] text-xl">◆</span>

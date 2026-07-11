@@ -1,12 +1,12 @@
 /**
- * ATS SIMULATION ENGINE — shared prompt block.
+ * ATS SIMULATION ENGINE - shared prompt block.
  *
  * KEEP IN SYNC with server/src/prompts/ats-engine.ts (byte-identical).
  * The server and pipeline are separate packages with no cross-imports,
  * so the block is duplicated; if you edit one copy, edit the other.
  *
  * This block is STATIC (no interpolation) so it is safe inside the
- * pipeline's cacheable system prompt — it never breaks byte-stability.
+ * pipeline's cacheable system prompt - it never breaks byte-stability.
  */
 export const ATS_ENGINE_BLOCK = `=== ATS SIMULATION ENGINE (HOW THE SCREEN ACTUALLY THINKS) ===
 This engine's screening model is patterned on the parsing and ranking behaviour of major commercial applicant tracking platforms. Before rewriting anything, reason like the machine that will read the output.
@@ -46,5 +46,5 @@ LINK INTEGRITY:
 The resume text may end with an "EMBEDDED HYPERLINKS" section listing URLs extracted from the document's link annotations. Use it to resolve label-only links ("GitHub", "LinkedIn", "Portfolio", project names) to their FULL https:// URLs in personalInfo and project links. Never invent a URL that appears in neither the resume body nor that section, and never copy the EMBEDDED HYPERLINKS section itself into any output field.
 
 INTENSITY = HOW HARD YOU OPTIMIZE THE MACHINE GATES:
-The 1-10 intensity setting (defined precisely in the TAILORING INTENSITY block below) controls how aggressively you push through stages 5-8: how many tokens you surface, how exactly you mirror the JD's surface forms and phrasing, and how much you rewrite. The immutable facts never move at any level: employer names, job titles, dates, degrees, certification names, and work-authorization / visa / clearance statements. Whatever the intensity block permits, run the token-matching laws above to make it literally searchable — an optimization the machine can't read is wasted.
+The 1-10 intensity setting (defined precisely in the TAILORING INTENSITY block below) controls how aggressively you push through stages 5-8: how many tokens you surface, how exactly you mirror the JD's surface forms and phrasing, and how much you rewrite. The immutable facts never move at any level: employer names, job titles, dates, degrees, certification names, and work-authorization / visa / clearance statements. Whatever the intensity block permits, run the token-matching laws above to make it literally searchable - an optimization the machine can't read is wasted.
 === END ATS SIMULATION ENGINE ===`;

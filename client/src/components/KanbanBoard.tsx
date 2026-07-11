@@ -7,7 +7,7 @@ import JobCard from "./JobCard";
 // column header so the workflow (Filtered → Saved → Applied → …) is
 // self-explanatory. Drag cards between columns to move a job through it.
 const COLUMN_DESC: Record<JobStatus, string> = {
-  filtered: "AI-approved shortlist — relevant jobs the pipeline scored and tailored a resume for. Review them, then drag to Saved or Applied.",
+  filtered: "AI-approved shortlist - relevant jobs the pipeline scored and tailored a resume for. Review them, then drag to Saved or Applied.",
   saved: "Jobs you liked and plan to apply to. Drag to Applied once you've submitted.",
   applied: "You've applied. Drag to Interviewing when you hear back.",
   interviewing: "You're in the interview process for these.",
@@ -54,7 +54,7 @@ export default function KanbanBoard({
   );
   const [mobileStatus, setMobileStatus] = useState<JobStatus>("filtered");
 
-  // Keep isMobile in sync with viewport — fires on rotation / resize.
+  // Keep isMobile in sync with viewport - fires on rotation / resize.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mql = window.matchMedia("(max-width: 767px)");
@@ -81,7 +81,7 @@ export default function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      {/* Mobile status tab switcher — hidden on md+ */}
+      {/* Mobile status tab switcher - hidden on md+ */}
       {isMobile && (
         <div className="md:hidden flex gap-1.5 overflow-x-auto px-3 pt-2 pb-2 border-b border-[rgba(255,255,255,0.06)]">
           {COLUMNS.map((col) => {
@@ -110,7 +110,7 @@ export default function KanbanBoard({
 
       {/* Single scroll container for the whole board. @hello-pangea/dnd
           requires each Droppable to have exactly ONE scroll parent in its
-          ancestor chain — previously the outer had overflow-x-auto AND
+          ancestor chain - previously the outer had overflow-x-auto AND
           each Droppable had overflow-y-auto, which tripped the nested-
           scroll-container warning and caused the first drag of a card to
           be ignored. Collapsing both axes onto this one element restores
@@ -142,7 +142,7 @@ export default function KanbanBoard({
                     <span className={`font-mono text-xs font-medium px-2.5 py-0.5 rounded-full ${col.countBg}`}>
                       {columnJobs.length}
                     </span>
-                    {/* Select all in column — shown in selection mode for any column with jobs */}
+                    {/* Select all in column - shown in selection mode for any column with jobs */}
                     {selectionMode && columnJobs.length > 0 && onSelectAllInColumn && (
                       (() => {
                         const allSelected = columnJobs.every((j) => selectedIds.has(j.id));
@@ -161,7 +161,7 @@ export default function KanbanBoard({
                         );
                       })()
                     )}
-                    {/* Delete all in column — only for rejected column, visible on hover */}
+                    {/* Delete all in column - only for rejected column, visible on hover */}
                     {col.id === "rejected" && columnJobs.length > 0 && hoveredCol === col.id && (
                       <button
                         onClick={() => onDeleteColumn(col.id, columnJobs.length)}
@@ -177,7 +177,7 @@ export default function KanbanBoard({
                 </div>
               </div>
 
-              {/* Droppable Area — no overflow here. Vertical scrolling
+              {/* Droppable Area - no overflow here. Vertical scrolling
                   for tall columns happens on the board-level container
                   above, because DND only allows one scroll parent per
                   Droppable. */}

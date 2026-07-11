@@ -3,10 +3,10 @@ import { config } from "../config";
 import { log } from "../logger";
 
 /**
- * Location filter — configurable via LOCATION_REGIONS env var.
+ * Location filter - configurable via LOCATION_REGIONS env var.
  *
  * Set LOCATION_REGIONS in pipeline/.env to a comma-separated list of region keys:
- *   LOCATION_REGIONS=ireland,uk,eu          (default — Ireland + UK + EU)
+ *   LOCATION_REGIONS=ireland,uk,eu          (default - Ireland + UK + EU)
  *   LOCATION_REGIONS=us,canada              (North America)
  *   LOCATION_REGIONS=all                    (skip location filter entirely)
  *   LOCATION_REGIONS=custom:london,manchester,remote   (custom city list)
@@ -48,7 +48,7 @@ const NETHERLANDS_LOCATIONS = [
   "enschede", "leiden", "delft", "maastricht",
 ];
 
-// ── EU countries & major cities (excluding NL — it has its own region) ──────
+// ── EU countries & major cities (excluding NL - it has its own region) ──────
 const EU_LOCATIONS = [
   "europe", "eu", "emea",
   "germany", "france", "spain", "italy",
@@ -121,7 +121,7 @@ const REGION_MAP: Record<string, string[]> = {
 /**
  * Derive a LOCATION_REGIONS default from TARGET_COUNTRIES. When the user
  * hasn't explicitly set LOCATION_REGIONS, we previously hardcoded
- * "ireland,uk,eu" — which silently discarded all non-EU matches even
+ * "ireland,uk,eu" - which silently discarded all non-EU matches even
  * when the user had switched to India, UK, or Netherlands. The new
  * default mirrors the country list so the filter respects their
  * selection out of the box.
@@ -135,7 +135,7 @@ function defaultRegionsForCountries(): string {
 
   // Strict single-country mapping. Previously Ireland fanned out to
   // "ireland,uk,eu" which leaked UK and Netherlands jobs into an
-  // Ireland-targeted run. Now each country maps to only itself —
+  // Ireland-targeted run. Now each country maps to only itself - 
   // remote jobs still pass via the isRemote branch in filterByLocation.
   const perCountry: Record<string, string[]> = {
     ireland:     ["ireland"],
@@ -151,7 +151,7 @@ function defaultRegionsForCountries(): string {
 }
 
 /**
- * Resolve the effective regions string. TARGET_COUNTRIES is authoritative —
+ * Resolve the effective regions string. TARGET_COUNTRIES is authoritative - 
  * we only honour a persisted LOCATION_REGIONS when the user explicitly opted
  * into an override ("all" or "custom:..."). Otherwise, the regions are
  * derived strictly from the selected countries, so old stale values like
@@ -190,12 +190,12 @@ function buildAllowedLocations(): string[] | null {
   return allowed;
 }
 
-// All allowed locations — computed once
+// All allowed locations - computed once
 const ALLOWED_LOCATIONS = buildAllowedLocations();
 
 /**
  * Country-specific terms for the SELECTED region(s). Excludes the generic
- * "remote"/"hybrid"/"worldwide" tokens — those don't signal a country.
+ * "remote"/"hybrid"/"worldwide" tokens - those don't signal a country.
  * Used to decide whether a job's location explicitly names the selected
  * country (accept) versus just being tagged remote (handled separately).
  */
@@ -215,7 +215,7 @@ function buildSelectedCountryTerms(): string[] {
 /**
  * Country-specific terms for OTHER regions (not selected). If a job's
  * location contains any of these, we reject it even if it's also tagged
- * remote — "Amsterdam (Remote)" means the company is hiring from the
+ * remote - "Amsterdam (Remote)" means the company is hiring from the
  * Netherlands, not wherever the candidate is.
  */
 function buildOtherCountryTerms(): string[] {
@@ -233,7 +233,7 @@ const OTHER_COUNTRY_TERMS = buildOtherCountryTerms();
 const GENERIC_REMOTE_TERMS = ["remote", "hybrid", "worldwide", "global", "anywhere", "work from home", "wfh"];
 
 /**
- * Build the hard-rejected locations list — regions NOT in the user's allowed set.
+ * Build the hard-rejected locations list - regions NOT in the user's allowed set.
  * If user allows "us", US cities won't be rejected. If they allow "eu", EU stays.
  */
 function buildHardRejected(): string[] {
@@ -280,7 +280,7 @@ const REMOTE_EXCLUDED_PATTERNS = /\b(us[- ]only|usa[- ]only|north america only|c
 const REMOTE_INCLUSIVE_PATTERNS = /\b(worldwide|global|anywhere|emea|europe|eu[- ]based|eu[- ]friendly|eu[- ]timezone|gmt|cet|utc[+-]?[01]|open to all|work from anywhere)\b/i;
 
 /**
- * Normalise the location field — Apify may return a string, an object, or an array.
+ * Normalise the location field - Apify may return a string, an object, or an array.
  */
 function normaliseLocation(raw: unknown): string {
   if (!raw) return "";
@@ -292,7 +292,7 @@ function normaliseLocation(raw: unknown): string {
 }
 
 /**
- * Location filter — priorities Ireland/Dublin first, then UK/EU, then open remote.
+ * Location filter - priorities Ireland/Dublin first, then UK/EU, then open remote.
  *
  * Logic (in order):
  * 1. Hard reject if location explicitly mentions US/India/APAC (unless also has EU)
@@ -308,7 +308,7 @@ function normaliseLocation(raw: unknown): string {
 export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
   // If LOCATION_REGIONS=all, skip filtering entirely
   if (ALLOWED_LOCATIONS === null) {
-    log.info("  Location filter: LOCATION_REGIONS=all — skipping filter, keeping all jobs");
+    log.info("  Location filter: LOCATION_REGIONS=all - skipping filter, keeping all jobs");
     return jobs;
   }
 
@@ -347,7 +347,7 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
     const descSnippet = descFull.slice(0, 2000);
     const empType = (Array.isArray(raw.employmentType) ? raw.employmentType.join(" ") : String(raw.employmentType || "")).toLowerCase();
 
-    // Three-way country check — precedence matters:
+    // Three-way country check - precedence matters:
     //   1. Does the location name the SELECTED country? → ACCEPT
     //   2. Does it name a DIFFERENT country (even tagged remote)? → REJECT
     //   3. Is it a bare "Remote" with no country clue? → ACCEPT
@@ -365,31 +365,31 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
 
     // Step 2: A different country is named → REJECT, even if the job is
     // also tagged remote. "Amsterdam (Remote)" means hiring from the
-    // Netherlands — the user picked a different country.
+    // Netherlands - the user picked a different country.
     if (otherInLoc) {
       droppedCount++;
       if (droppedCount <= 15) {
-        log.info(`  [dropped] "${job.title}" @ "${job.companyName}" — location names a non-selected country: "${raw.location}"`);
+        log.info(`  [dropped] "${job.title}" @ "${job.companyName}" - location names a non-selected country: "${raw.location}"`);
       }
       continue;
     }
 
     // Step 3: Bare "Remote" / "Worldwide" with no country.
-    // Only accepted when the user explicitly opted into INCLUDE_REMOTE —
+    // Only accepted when the user explicitly opted into INCLUDE_REMOTE - 
     // otherwise they picked a specific country and don't want listings
     // with no country tie.
     if (isBareRemote) {
       if (!config.INCLUDE_REMOTE) {
         droppedCount++;
         if (droppedCount <= 15) {
-          log.info(`  [dropped] "${job.title}" @ "${job.companyName}" — bare remote (INCLUDE_REMOTE is off): "${raw.location}"`);
+          log.info(`  [dropped] "${job.title}" @ "${job.companyName}" - bare remote (INCLUDE_REMOTE is off): "${raw.location}"`);
         }
         continue;
       }
       if (REMOTE_EXCLUDED_PATTERNS.test(descSnippet)) {
         droppedCount++;
         if (droppedCount <= 15) {
-          log.info(`  [dropped] "${job.title}" @ "${job.companyName}" — bare remote but description restricts hiring region: "${raw.location}"`);
+          log.info(`  [dropped] "${job.title}" @ "${job.companyName}" - bare remote but description restricts hiring region: "${raw.location}"`);
         }
         continue;
       }
@@ -405,7 +405,7 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
     //     geoId, Indeed country code, Naukri ?location=, etc.). A job
     //     surfacing in a country-scoped scrape with no location string
     //     is far more likely to BE in that country than to be in a
-    //     different one — the scraper would have rejected the latter.
+    //     different one - the scraper would have rejected the latter.
     //   - Many legit postings genuinely don't include a location field
     //     (company portals, recruitment-agency listings, etc.). Dropping
     //     them lost real opportunities the user would have wanted.
@@ -417,7 +417,7 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
     // a country filter.
     const locTrimmed = (raw.location || "").trim();
     if (locTrimmed.length < 3) {
-      // Empty or near-empty (whitespace, "-", "n/a") — pass through.
+      // Empty or near-empty (whitespace, "-", "n/a") - pass through.
       passed.push(job);
       continue;
     }
@@ -426,12 +426,12 @@ export function filterByLocation(jobs: LinkedInJob[]): LinkedInJob[] {
     // country/city patterns AND doesn't name another country. Could
     // be a region we don't recognize ("EMEA", "APAC", "Europe",
     // "Hybrid Office"). Trust the upstream scrape's country filter
-    // and keep it — same reasoning as above.
+    // and keep it - same reasoning as above.
     passed.push(job);
   }
 
   if (droppedCount > 0) {
-    // Replaced the old "outside Ireland/UK/EU" hardcoded string — it
+    // Replaced the old "outside Ireland/UK/EU" hardcoded string - it
     // misled users on UK/India/NZ runs into thinking the filter was
     // wrong. Surface the actual selected regions so the message tracks
     // the user's choice.

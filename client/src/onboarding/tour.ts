@@ -1,5 +1,5 @@
 /**
- * Onboarding tour — first-run product walkthrough.
+ * Onboarding tour - first-run product walkthrough.
  * ──────────────────────────────────────────────────
  * Uses driver.js to spotlight real UI elements and walk the user through
  * the product. Because the tour spans two pages (landing → dashboard),
@@ -21,7 +21,7 @@
  * Elements are targeted via `data-tour="…"` attributes instead of CSS
  * classes, so restyling/refactoring the UI doesn't silently break the
  * tour. If an element is missing, driver.js falls back to a centered
- * popover with no spotlight — still useful, never a hard crash.
+ * popover with no spotlight - still useful, never a hard crash.
  */
 
 import { driver, Driver, DriveStep } from "driver.js";
@@ -45,14 +45,14 @@ function setTourState(v: TourState | null) {
 
 /**
  * Persist "tour is done" to the server so it never re-fires for this
- * account on any device. We swallow errors — the worst case is the
+ * account on any device. We swallow errors - the worst case is the
  * tour shows once more, which is acceptable.
  */
 async function markOnboardedOnServer() {
   try {
     await authMarkOnboarded();
   } catch {
-    // Ignore — non-critical. Next login will re-check /me.
+    // Ignore - non-critical. Next login will re-check /me.
   }
 }
 
@@ -140,7 +140,7 @@ export function startLandingTour(opts: {
 
   const drv = makeDriver(steps, () => {
     // Finished or dismissed. If they made it to the last step, queue
-    // the dashboard tour. Otherwise they bailed — mark onboarded
+    // the dashboard tour. Otherwise they bailed - mark onboarded
     // immediately so we don't nag.
     const active = drv.isActive();
     const idx = drv.getActiveIndex();
@@ -258,7 +258,7 @@ export function startDashboardTour() {
 
   // On mobile the sidebar is off-canvas, so steps anchored to sidebar items
   // (Add Job, Connect Gmail, Back) would spotlight invisible elements at the
-  // screen edge. Drop them on small viewports — those features stay reachable
+  // screen edge. Drop them on small viewports - those features stay reachable
   // via the menu button.
   const isMobileTour = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
   const shownSteps = isMobileTour

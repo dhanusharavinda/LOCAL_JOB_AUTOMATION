@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval } from "../api";
 
 // Small monospace pill for a single usage counter. Keeps the admin row
-// scannable — zero values render greyed out so non-zero activity visually
+// scannable - zero values render greyed out so non-zero activity visually
 // pops. Used inside the activity strip under each user row.
 function UsageChip({
   label,
@@ -43,7 +43,7 @@ interface Props {
 type Tab = "pending" | "approved" | "rejected" | "all";
 
 /**
- * AdminPage — owner-only interface for vetting testers.
+ * AdminPage - owner-only interface for vetting testers.
  *
  * Access rules:
  *  - Client-side check: we only render this page when currentUser.is_admin
@@ -66,7 +66,7 @@ export default function AdminPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Per-user action flag so the row's buttons can show a spinner
-  // independently — approving tester A doesn't freeze the whole table.
+  // independently - approving tester A doesn't freeze the whole table.
   const [actingOn, setActingOn] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
 
@@ -249,12 +249,12 @@ export default function AdminPage({
                 const daysAgo = Math.max(0, Math.floor((Date.now() - signedUp.getTime()) / 86400000));
                 const signedUpText = daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : `${daysAgo}d ago`;
                 // Identifying the current admin's own row lets us hide the
-                // reject/reset buttons — the server also blocks this, but
+                // reject/reset buttons - the server also blocks this, but
                 // showing a disabled button you can't use is worse UX than
                 // hiding it outright.
                 const isSelf = u.email.toLowerCase() === currentUser.email.toLowerCase();
 
-                // "Last seen" — the most recent usage_tracking period.
+                // "Last seen" - the most recent usage_tracking period.
                 // Null means the user has never run a pipeline, which for
                 // a freshly-approved tester is expected.
                 const lastActiveText = (() => {
@@ -341,7 +341,7 @@ export default function AdminPage({
                     </div>
                     </div>
 
-                    {/* Usage strip — per-user activity summary. Shown for
+                    {/* Usage strip - per-user activity summary. Shown for
                         every row regardless of status because "this signup
                         ran 5 pipelines before approval" is something an
                         admin wants to see when triaging. */}

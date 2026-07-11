@@ -56,7 +56,7 @@ function ScoreBadge({ score, breakdown }: { score: number; breakdown: ScoreBreak
   const gradeStyle = grade ? (GRADE_COLORS[grade] || GRADE_COLORS.C) : "";
 
   // Grade-only display. The numeric "X/10" line was removed per UX
-  // request — the letter grade is the only relevance signal kept on
+  // request - the letter grade is the only relevance signal kept on
   // the card. We keep `score` in the tooltip so power users can still
   // see the raw number on hover, and the function signature is
   // unchanged so the existing call sites + sort-by-grade logic in
@@ -197,7 +197,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
                 className="font-body font-semibold text-[15px] text-[#e8eaed] leading-snug break-words"
                 title={job.job_title}
               >
-                {job.flagged ? <span className="text-red-400 mr-1" title="Flagged — excluded from pipeline">🚩</span> : null}
+                {job.flagged ? <span className="text-red-400 mr-1" title="Flagged - excluded from pipeline">🚩</span> : null}
                 {job.job_title}
               </h3>
               <p className="font-mono text-xs text-[#8b8fa3] uppercase tracking-wider truncate mt-0.5">{job.company_name}</p>
@@ -210,7 +210,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
                     ? "text-red-400 bg-red-500/15 hover:bg-red-500/25"
                     : "text-gray-700 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100"
                 }`}
-                title={job.flagged ? "Unflag — include in future pipeline runs" : "Flag — exclude from future pipeline runs"}
+                title={job.flagged ? "Unflag - include in future pipeline runs" : "Flag - exclude from future pipeline runs"}
               >
                 <svg className="w-3.5 h-3.5" fill={job.flagged ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 21V4m0 0l8 4 8-4v13l-8 4-8-4" />
@@ -246,7 +246,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
               )}
               {job.keyword_match_rate != null && job.keyword_match_rate < 0.7 && (
                 <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest font-bold text-[#c9a94e] bg-[#c9a94e]/10 px-1.5 py-0.5 rounded"
-                  title={`Keyword match: ${Math.round(job.keyword_match_rate * 100)}% — review resume`}>
+                  title={`Keyword match: ${Math.round(job.keyword_match_rate * 100)}% - review resume`}>
                   LOW KW
                 </span>
               )}
@@ -340,7 +340,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
               {job.cover_letter && !selectionMode && (
                 <span
                   className="inline-flex items-center gap-1 font-mono text-[11px] text-[#c9a94e] whitespace-nowrap"
-                  title="Cover letter drafted — click card to view"
+                  title="Cover letter drafted - click card to view"
                 >
                   <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -371,7 +371,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
  * defined as inline arrows in App.tsx's render and DO change
  * identity per parent render. If you later want to tighten memoization
  * further, wrap those in useCallback at the parent. For now the
- * `job` object reference stability is enough — React.memo's shallow
+ * `job` object reference stability is enough - React.memo's shallow
  * check skips when ALL props are identity-equal AND the prop
  * shape comparison short-circuits cheaply enough.
  */

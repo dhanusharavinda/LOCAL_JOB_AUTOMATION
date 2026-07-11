@@ -6,13 +6,11 @@ import {
   stopPipeline,
   pipelineStatus,
   uploadResume,
-  fetchTargetCompanies,
   PipelineConfig,
   ResumeStatus,
   UsageInfo,
   LimitsInfo,
   AuthUser,
-  TargetCompany,
   parseSearchText,
 } from "../api";
 import { getCurrentAccessToken } from "../supabaseClient";
@@ -275,8 +273,8 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   const landingTarget = (() => { try { return sessionStorage.getItem("gc8-landing-target"); } catch { return null; } })();
   const [view, setView] = useState<"hero" | "configure">(landingTarget === "hunt" ? "configure" : "hero");
   // During the first-run onboarding tour (driver.js) we render the original
-  // single-scroll layout (hero + config together) so every tour step — the
-  // hero nav AND the #config-start / start-pipeline targets — resolves.
+  // single-scroll layout (hero + config together) so every tour step - the
+  // hero nav AND the #config-start / start-pipeline targets - resolves.
   // Onboarded users never trigger it, so the poll is scoped to new users.
   const [tourActive, setTourActive] = useState<boolean>(() => !!getTourState());
   useEffect(() => {
@@ -305,7 +303,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   // overrides userLimits.jobs_scraped/resumes_tailored client-side so
   // the max input immediately reflects the slider without needing to
   // round-trip /me. Server re-clamps on the actual run, so this is
-  // safe — the tier choice is persisted in user_settings too.
+  // safe - the tier choice is persisted in user_settings too.
   const ENTERPRISE_TIER_CAPS: Record<1 | 2 | 3, { jobs: number; tailor: number }> = {
     1: { jobs: 20, tailor: 10 },
     2: { jobs: 35, tailor: 20 },
@@ -341,7 +339,9 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   // "manual" = keyword builder + filters; "url" = paste a full search URL.
   // Auto-detect mode on load from whether the saved config has a URL;
   // after that the user toggles explicitly.
-  const [searchMode, setSearchMode] = useState<"manual" | "url" | "nl">("manual");
+  // Default to the "Describe it" (AI) mode: it's the friendliest entry
+  // point. Keywords and Paste-URL stay one tap away for power users.
+  const [searchMode, setSearchMode] = useState<"manual" | "url" | "nl">("nl");
   // Natural-language search: free-form sentence the user types, parsed
   // by OpenAI into structured config (keywords, country, experience,
   // etc.) and applied to the saved settings on click. Two-step flow:
@@ -363,10 +363,6 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   } | null>(null);
   // Resume & role state
   const [resumeStatus, setResumeStatus] = useState<ResumeStatus | null>(null);
-  // Active target companies loaded from the user's Portals library. Used
-  // to populate the Focus-company dropdown. Empty for anonymous visitors
-  // and for logged-in users who haven't configured any companies yet.
-  const [targetCompaniesList, setTargetCompaniesList] = useState<TargetCompany[]>([]);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [expectedRole, setExpectedRole] = useState("");
   const [uploadingResume, setUploadingResume] = useState(false);
@@ -396,7 +392,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   // we stop auto-overwriting those fields from the role-expansion logic.
   const userTouchedKeywordsRef = useRef(false);
 
-  // Load settings on mount — only when the viewer is logged in. Anonymous
+  // Load settings on mount - only when the viewer is logged in. Anonymous
   // visitors on the landing page only see the FreeTailor bait; they
   // shouldn't trigger authenticated /api/settings or /api/pipeline calls.
   useEffect(() => {
@@ -417,12 +413,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         if (data.config?.LINKEDIN_SEARCH_URL?.trim()) setSearchMode("url");
       })
       .catch(() => {
-        setError("Server not reachable — start the backend with: npm run dev:server");
+        setError("Server not reachable - start the backend with: npm run dev:server");
         // Fall back to defaults so UI still renders
         setConfig({
           RELEVANCE_SCORE_THRESHOLD: 7, TAILORING_INTENSITY: 5, APIFY_JOB_COUNT: 20,
           BATCH_DELAY_MS: 2000, APIFY_MAX_POLL_MINUTES: 10, MAX_TAILOR_COUNT: 20, MAX_AGE_DAYS: 14,
-          // Keyword fields start empty — populated by the role-expander
+          // Keyword fields start empty - populated by the role-expander
           // when the user types their target role. Hardcoded software
           // defaults previously crowded out non-tech users.
           SEARCH_KEYWORDS: "", LINKEDIN_KEYWORDS: "", LINKEDIN_SKILLS: "", LINKEDIN_SEARCH_URL: "",
@@ -441,12 +437,6 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         } as PipelineConfig);
       })
       .finally(() => setLoading(false));
-
-    // Fetch the user's target-company library so the Focus-company
-    // dropdown can populate. Only active companies are useful here.
-    fetchTargetCompanies()
-      .then((list) => setTargetCompaniesList(list.filter((c) => c.active)))
-      .catch(() => setTargetCompaniesList([]));
 
     // Restore pipeline state (running or completed logs from previous view)
     fetch("/api/pipeline/logs").then((r) => r.json()).then((data: any) => {
@@ -479,7 +469,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   // Auto-clamp persisted config when the effective ceiling (plan × tier)
   // is tighter than what's stored. Fires on config load, plan switch,
   // OR enterprise-tier change. We use maxJobsToScrape / maxResumesToTailor
-  // rather than raw userLimits so enterprise tier downgrades clamp too —
+  // rather than raw userLimits so enterprise tier downgrades clamp too - 
   // e.g. sliding from Tier 3 (50) to Tier 1 (20) trims APIFY_JOB_COUNT.
   useEffect(() => {
     if (!config) return;
@@ -521,7 +511,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           setPipelineComplete(true);
           setShowCompletionToast(true);
           // The "adjust your search" nudge is scheduled by a separate effect
-          // that only fires for under-delivered runs (see below) — not on
+          // that only fires for under-delivered runs (see below) - not on
           // every completion, so a fully successful run isn't told it failed.
           es.close();
           eventSourceRef.current = null;
@@ -536,7 +526,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
 
         if (data.step && data.type === "step") {
           setCurrentStep(data.step);
-          // Step transition events drive the progress tracker only — they
+          // Step transition events drive the progress tracker only - they
           // carry no message body and must NOT be appended to the log
           // panel. The corresponding visible log line (also type "step"
           // but with a message and no `step` field) is broadcast just
@@ -567,7 +557,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
 
     es.onerror = () => {
       // EventSource fires onerror for BOTH transient hiccups (readyState
-      // CONNECTING — the browser will auto-reconnect on its own) and terminal
+      // CONNECTING - the browser will auto-reconnect on its own) and terminal
       // closes (readyState CLOSED). Only tear down + warn on a terminal close,
       // so a brief network blip mid-run doesn't kill the live log/progress and
       // flash a scary banner while the pipeline is still running server-side.
@@ -623,7 +613,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     if (!config) return;
     updateConfig("TARGET_ROLE", role.trim());
 
-    // Skip auto-fill when the user has pasted a LinkedIn search URL —
+    // Skip auto-fill when the user has pasted a LinkedIn search URL - 
     // that URL is the source of truth for the LinkedIn scrape, and
     // touching the keyword fields would just confuse the user.
     if (config.LINKEDIN_SEARCH_URL && config.LINKEDIN_SEARCH_URL.trim()) return;
@@ -635,13 +625,13 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     // Per-field decision: only overwrite a keyword field if it's still
     // either empty, a known stale default ("data engineer,..."), or the
     // exact value we last auto-filled. If the user has hand-edited it,
-    // the value won't match any of those — leave it alone. This handles
+    // the value won't match any of those - leave it alone. This handles
     // both new users (empty field) and existing users with leftover
     // hardcoded defaults persisted in user_settings.
     const linkedinIsAuto = isAutoFillValue(config.LINKEDIN_KEYWORDS || "");
     const searchIsAuto   = isAutoFillValue(config.SEARCH_KEYWORDS || "");
 
-    // The touched-ref is a stronger signal than the value comparison —
+    // The touched-ref is a stronger signal than the value comparison - 
     // if the user has typed in a keyword field this session we respect
     // that immediately, even if their current text happens to coincide
     // with a known auto-fill string.
@@ -660,7 +650,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
     setError(null);
     try {
       const result = await uploadResume(file);
-      // Upload response has {ok, filename, charCount, preview} — normalize to ResumeStatus
+      // Upload response has {ok, filename, charCount, preview} - normalize to ResumeStatus
       setResumeStatus({
         uploaded: true,
         filename: result.filename,
@@ -884,7 +874,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
         >
           <source src="/landing-bg.mp4" type="video/mp4" />
         </video>
-        {/* Thin gradient at top/bottom edges only — NOT a full overlay */}
+        {/* Thin gradient at top/bottom edges only - NOT a full overlay */}
         <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[var(--bg-base)] to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[var(--bg-base)] to-transparent" />
       </div>
@@ -893,7 +883,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       <header className="relative overflow-hidden z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-[rgba(201,169,78,0.04)] to-transparent pointer-events-none" />
         <div className={`w-full px-8 md:px-16 lg:px-24 pt-8 relative flex flex-col ${(view === "hero" || tourActive) ? "min-h-screen" : ""}`}>
-          {/* Nav — edge to edge */}
+          {/* Nav - edge to edge */}
           <div className="flex items-center justify-between relative">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
@@ -902,7 +892,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               <span className="font-display text-xl sm:text-2xl text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
             </div>
 
-            {/* Desktop nav (md+) — inline items */}
+            {/* Desktop nav (md+) - inline items */}
             <nav className="hidden md:flex items-center gap-6" data-tour="landing-nav">
               {currentUser && (
                 <button
@@ -1045,7 +1035,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             )}
           </div>
 
-          {/* Hero — vertically centered, massive type. Page 1 only (hidden on
+          {/* Hero - vertically centered, massive type. Page 1 only (hidden on
               the configure view; shown during the tour for the original flow). */}
           {(view === "hero" || tourActive) && (
           <div className="flex-1 flex flex-col justify-center">
@@ -1245,7 +1235,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                     type="text"
                     value={expectedRole}
                     onChange={(e) => handleRoleChange(e.target.value)}
-                    placeholder={hasUrl ? "Optional — your advanced URL drives the search" : "e.g. Software Engineer, Data Analyst"}
+                    placeholder={hasUrl ? "Optional - your advanced URL drives the search" : "e.g. Software Engineer, Data Analyst"}
                     className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-4 py-3 text-sm text-[var(--text-primary)] placeholder-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
                   <p className="text-xs text-[var(--text-tertiary)] mt-1.5">
@@ -1271,7 +1261,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               {COUNTRY_OPTIONS.map(({ code, label, flag, desc }) => {
                 // Single-select: only the first country in TARGET_COUNTRIES
                 // wins for display. Legacy comma-separated values from older
-                // saved configs still load without error — they collapse to
+                // saved configs still load without error - they collapse to
                 // their first entry.
                 const currentCode = (config.TARGET_COUNTRIES || "ireland").split(",").map(s => s.trim().toLowerCase()).filter(Boolean)[0] || "ireland";
                 const isActive = currentCode === code;
@@ -1279,14 +1269,14 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                   <button
                     key={code}
                     onClick={() => {
-                      // Always replace — clicking a country makes it the
+                      // Always replace - clicking a country makes it the
                       // sole selection. You can't deselect to empty.
                       if (isActive) return;
                       updateConfig("TARGET_COUNTRIES", code);
                       // Strict single-country selection. Selecting Ireland
                       // used to fan out to "ireland,uk,eu" which let UK and
                       // Netherlands jobs through. Now each country maps to
-                      // ONLY itself — remote jobs are still accepted by the
+                      // ONLY itself - remote jobs are still accepted by the
                       // location filter regardless of which country is picked.
                       const regionMap: Record<string, string> = {
                         ireland:     "ireland",
@@ -1330,7 +1320,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
 
             {/* ── Include Remote toggle ── */}
             {/* Off by default. When off, the location filter rejects jobs
-                tagged "Remote" with no country clue — only jobs physically
+                tagged "Remote" with no country clue - only jobs physically
                 located in the selected country pass. Flip on to also accept
                 bare-remote listings that are open to candidates anywhere. */}
             <div className="mt-4 flex items-center justify-between gap-3 p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
@@ -1361,54 +1351,11 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           </div>
         )}
 
-        {/* ── Focus Company (optional, per-run) ── */}
-        {config && targetCompaniesList.length > 0 && (
-          <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-1 h-4 rounded-full bg-[var(--accent)] shrink-0" />
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Focus Company <span className="text-[10px] text-[var(--text-tertiary)] normal-case tracking-normal">(optional)</span></h3>
-            </div>
-            <p className="text-xs text-[var(--text-tertiary)] mb-3">
-              Narrow this run to one company's portal. Leave on "All active" to scan every company in your library.
-            </p>
-            <select
-              value={config.TARGET_COMPANY_ID ?? ""}
-              onChange={(e) => updateConfig("TARGET_COMPANY_ID", e.target.value || (null as any))}
-              className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-            >
-              <option value="">All active target companies ({targetCompaniesList.length})</option>
-              {targetCompaniesList.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.company_name} — {c.ats_type}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-[var(--text-tertiary)] mt-2">
-              Manage your library in <button onClick={() => setShowSettings(true)} className="text-[var(--accent)] hover:underline">Settings → Portals</button>.
-            </p>
-          </div>
-        )}
-
-        {/* Inline hint when no portals are configured yet */}
-        {config && currentUser && targetCompaniesList.length === 0 && (
-          <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-4 mb-6 flex items-center justify-between gap-3">
-            <p className="text-xs text-[var(--text-tertiary)]">
-              Want to focus runs on specific companies? Add them in Settings → Portals.
-            </p>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="text-xs font-medium text-[var(--accent)] hover:underline shrink-0"
-            >
-              Open Settings →
-            </button>
-          </div>
-        )}
-
         {/* ── Config Sections ──
             Stack into a single column until xl so the config + launch panels
             never get cramped in the narrowed (rail-offset) content area. */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-          {/* Left Panel — Config */}
+          {/* Left Panel - Config */}
           <div className="xl:col-span-2 space-y-1">
             {/* Section Tabs */}
             <div className="flex gap-1 p-1 bg-[var(--bg-raised)] rounded-xl border border-[var(--border-subtle)] mb-4">
@@ -1437,52 +1384,44 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                   <div className="space-y-5 landing-section-enter">
                     <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider mb-4">Search Configuration</h3>
 
-                    {/* ── Search mode toggle ── */}
-                    {/* Two mutually-exclusive ways to define the search:
-                        manual = keyword builder + filters, url = paste a full
-                        search URL. Only one mode's inputs (and its Apply
-                        button) are shown at a time to avoid confusion. */}
-                    <div className="flex gap-2 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchMode("manual");
-                          // Don't auto-clear the URL when switching tabs —
-                          // user might just be checking the keyword fields
-                          // and switching back. URL persists; pipeline
-                          // honors whichever (URL OR keywords) is set.
-                        }}
-                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                          searchMode === "manual"
-                            ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm"
-                            : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                        }`}
-                      >
-                        Keywords & Filters
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSearchMode("url")}
-                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                          searchMode === "url"
-                            ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm"
-                            : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                        }`}
-                      >
-                        Paste Search URL
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSearchMode("nl")}
-                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
-                          searchMode === "nl"
-                            ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm"
-                            : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                        }`}
-                        title="Describe your search in plain English — AI populates the filters for you"
-                      >
-                        <span aria-hidden>✨</span> Ask AI
-                      </button>
+                    {/* ── Search mode toggle ──
+                        One question, three ways to answer it. "Describe it"
+                        (AI) leads because it's the friendliest; Keywords and
+                        Paste-URL stay one tap away. Only the active mode's
+                        inputs show, and a single helper line below explains
+                        just that mode, so the panel never feels like three
+                        competing forms. Switching tabs never clears the other
+                        modes' values: the pipeline honors whichever (URL OR
+                        keywords) is set. */}
+                    <div>
+                      <p className="text-xs text-[var(--text-secondary)] mb-2 font-medium">How should we find your jobs?</p>
+                      <div className="flex gap-1.5 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)]">
+                        {([
+                          { id: "nl", label: "✨ Describe it" },
+                          { id: "manual", label: "Keywords" },
+                          { id: "url", label: "Paste URL" },
+                        ] as const).map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setSearchMode(m.id)}
+                            className={`flex-1 py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+                              searchMode === m.id
+                                ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm"
+                                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-[var(--text-tertiary)] mt-2">
+                        {searchMode === "nl"
+                          ? "Type what you want in plain English. AI fills in the keywords and filters for you."
+                          : searchMode === "manual"
+                          ? "Set your job titles and filters by hand."
+                          : "Paste a full job-search URL. It's used as-is, so keywords and filters are skipped."}
+                      </p>
                     </div>
 
                     {/* ── Manual mode: keywords + filters ── */}
@@ -1496,7 +1435,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                             onChange={(e) => {
                               userTouchedKeywordsRef.current = true;
                               updateConfig("LINKEDIN_KEYWORDS", e.target.value);
-                              // Keep the secondary-source keywords in sync —
+                              // Keep the secondary-source keywords in sync - 
                               // they used to be a separate field, but the user
                               // should not have to maintain two keyword lists.
                               updateConfig("SEARCH_KEYWORDS", e.target.value);
@@ -1585,7 +1524,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                             className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)] transition-colors font-body resize-none"
                           />
                           <p className="text-xs text-[var(--text-tertiary)] mt-1.5">
-                            Mention roles, location, experience level, work type. The AI extracts <strong>role titles only</strong> — company names are filtered out (they'd otherwise restrict the search to that company on LinkedIn).
+                            Mention roles, location, experience level, work type. The AI extracts <strong>role titles only</strong> - company names are filtered out (they'd otherwise restrict the search to that company on LinkedIn).
                           </p>
                         </div>
                         {nlError && (
@@ -1599,18 +1538,18 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                           </div>
                         )}
 
-                        {/* Preview pane — shown after Parse, hidden again
+                        {/* Preview pane - shown after Parse, hidden again
                             after Apply. Lets the user remove rogue keywords
                             (e.g. a brand name the AI somehow let through)
                             BEFORE the values land in config + the pipeline
                             silently scrapes only that company. */}
                         {nlParsed && (
                           <div className="px-3 py-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-2.5">
-                            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">Preview — review before applying</div>
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">Preview - review before applying</div>
 
                             {nlParsed.dropped_keywords.length > 0 && (
                               <div className="px-2.5 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]">
-                                Dropped <span className="font-mono">{nlParsed.dropped_keywords.join(", ")}</span> — looked like company name(s). Add a real role title to your description and re-parse if you wanted to search by company.
+                                Dropped <span className="font-mono">{nlParsed.dropped_keywords.join(", ")}</span> - looked like company name(s). Add a real role title to your description and re-parse if you wanted to search by company.
                               </div>
                             )}
 
@@ -1618,7 +1557,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                               <div className="text-[11px] text-[var(--text-secondary)] mb-1">Keywords</div>
                               <div className="flex flex-wrap gap-1.5">
                                 {nlParsed.keywords.length === 0 && (
-                                  <span className="text-[11px] text-[var(--text-ghost)] italic">No role titles extracted — your description should mention at least one role.</span>
+                                  <span className="text-[11px] text-[var(--text-ghost)] italic">No role titles extracted - your description should mention at least one role.</span>
                                 )}
                                 {nlParsed.keywords.map((k, i) => (
                                   <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)] text-[11px]">
@@ -1755,7 +1694,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                             className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                           />
                           <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                            Paste a full job-search URL from your preferred job board. It will be used verbatim for the primary source — keywords and filters are ignored in this mode.
+                            Paste a full job-search URL from your preferred job board. It will be used verbatim for the primary source - keywords and filters are ignored in this mode.
                           </p>
                         </div>
                       </div>
@@ -1976,7 +1915,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             )}
           </div>
 
-          {/* Right Panel — Launch */}
+          {/* Right Panel - Launch */}
           <div className="space-y-4">
             {/* Daily Usage Card */}
             {usage && limits && (
@@ -2045,7 +1984,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
 
               {pipelineComplete && (
                 <p className="text-xs text-[var(--text-tertiary)] mt-3 text-center">
-                  Pipeline finished — save config or re-run.
+                  Pipeline finished - save config or re-run.
                 </p>
               )}
             </div>
@@ -2104,9 +2043,9 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             {/* Dashboard CTA after completion */}
             {pipelineComplete && (() => {
               // Three completion states, in priority order:
-              //   noMatch         — pipeline found zero relevant jobs
-              //   limitedMatches  — fewer than the target survived the filter
-              //   success         — target met (or no target comparison available)
+              //   noMatch         - pipeline found zero relevant jobs
+              //   limitedMatches  - fewer than the target survived the filter
+              //   success         - target met (or no target comparison available)
               const noMatch = logs.some((l) => {
                 const m = l.message || "";
                 // The pipeline's actual zero-result emits (the old
@@ -2186,7 +2125,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                 <div className="bg-gradient-to-br from-[rgba(201,169,78,0.06)] to-[rgba(201,169,78,0.02)] border border-[rgba(201,169,78,0.15)] rounded-2xl p-6 landing-section-enter">
                   <h4 className="text-sm font-semibold text-[var(--accent)] mb-2">Jobs are ready!</h4>
                   <p className="text-xs text-[var(--text-secondary)] mb-4">
-                    {completeMsg.includes("relevant") ? completeMsg.replace("Pipeline completed successfully — ", "") + "." : "Your scored and tailored jobs are now in the Kanban dashboard."} Drag them through your application workflow.
+                    {completeMsg.includes("relevant") ? completeMsg.replace("Pipeline completed successfully - ", "") + "." : "Your scored and tailored jobs are now in the Kanban dashboard."} Drag them through your application workflow.
                   </p>
                   <button
                     onClick={onNavigateToDashboard}

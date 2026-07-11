@@ -1,5 +1,5 @@
 /**
- * Instahyre scraper — popular India tech hiring platform.
+ * Instahyre scraper - popular India tech hiring platform.
  * Scrapes from their public job listings page.
  */
 

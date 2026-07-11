@@ -1,5 +1,5 @@
 /**
- * Indeed India scraper — indeed.co.in
+ * Indeed India scraper - indeed.co.in
  * Same approach as Indeed IE but targeting India domain.
  */
 

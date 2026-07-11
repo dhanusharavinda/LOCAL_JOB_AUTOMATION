@@ -1,7 +1,7 @@
 import { ScrapedJob } from "../../types";
 import { politeGet, isLocationRelevant, isRecentJob } from "./utils";
 
-/** dev.to job listings API — https://dev.to/api/listings?category=jobs */
+/** dev.to job listings API - https://dev.to/api/listings?category=jobs */
 export async function scrapeDevTo(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
   try {

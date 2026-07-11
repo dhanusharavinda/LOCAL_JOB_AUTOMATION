@@ -155,7 +155,7 @@ export default function PricingPage({
 
   async function handleSelectPlan(planId: PlanId) {
     // Block disabled plans at the callsite in addition to the button's
-    // disabled attribute — belt-and-suspenders against a stray click event.
+    // disabled attribute - belt-and-suspenders against a stray click event.
     const target = PLANS.find((p) => p.id === planId);
     if (target?.disabled) {
       setFlash({ kind: "err", msg: target.disabledReason || "This plan isn't available yet." });
@@ -444,13 +444,13 @@ export default function PricingPage({
                   ))}
                 </ul>
 
-                {/* Enterprise tier picker — only rendered inside the Enterprise
+                {/* Enterprise tier picker - only rendered inside the Enterprise
                     card, and only for users already on the Enterprise plan.
                     Switching tiers is a pricing decision (each tier has its
                     own usage cap) so it lives here rather than on the
                     landing-page limits panel. */}
                 {plan.id === "enterprise" && currentPlan === "enterprise" && (() => {
-                  // Single source of truth for enterprise tier caps — slide
+                  // Single source of truth for enterprise tier caps - slide
                   // the slider and these numbers update live.
                   const TIER_CAPS: Record<1 | 2 | 3, { jobs: number; tailor: number }> = {
                     1: { jobs: 20, tailor: 10 },
@@ -469,7 +469,7 @@ export default function PricingPage({
                         </span>
                       </div>
 
-                      {/* Big live-updating cap display — changes as the user
+                      {/* Big live-updating cap display - changes as the user
                           drags the slider, so the plan impact is immediate. */}
                       <div className="mb-3 p-3 rounded-lg bg-[rgba(103,117,160,0.12)] border border-[rgba(103,117,160,0.25)] text-center">
                         <div className="font-display text-2xl font-bold tabular-nums" style={{ color: plan.accent }}>

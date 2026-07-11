@@ -1,5 +1,5 @@
 -- ============================================================================
--- GO CANDID8 — Initial Supabase Postgres schema (idempotent)
+-- GO CANDID8 - Initial Supabase Postgres schema (idempotent)
 -- ============================================================================
 -- Safe to re-run. Every policy is dropped before being recreated, so
 -- partial / retried applies won't fail with "already exists".

@@ -69,7 +69,7 @@ export default function CareerEventsModal({ onClose }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  // Active country from user settings — drives the city filter dropdown
+  // Active country from user settings - drives the city filter dropdown
   // + modal title + export filename. Falls back to "ireland" if settings
   // fails to load, matching the server-side default.
   const [activeCountry, setActiveCountry] = useState<string>("ireland");
@@ -141,7 +141,7 @@ export default function CareerEventsModal({ onClose }: Props) {
     return sorted;
   }, [countryFilteredEvents, sortBy]);
 
-  // Build a map of date → events for the calendar — use the country-
+  // Build a map of date → events for the calendar - use the country-
   // filtered list so the calendar highlights and counts only reflect
   // events in the user's selected country.
   const eventsByDate = useMemo(() => {
@@ -229,7 +229,7 @@ export default function CareerEventsModal({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800/60 shrink-0">
           <div>
-            <h2 className="text-base font-bold text-gray-50">Tech Events — {countryLabel}</h2>
+            <h2 className="text-base font-bold text-gray-50">Tech Events - {countryLabel}</h2>
             <p className="text-xs text-gray-500 mt-0.5">Career fairs, meetups, conferences &amp; workshops</p>
           </div>
           <div className="flex items-center gap-2">
@@ -422,7 +422,7 @@ export default function CareerEventsModal({ onClose }: Props) {
               {selectedDate && selectedDateEvents.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    {formatEventDate(selectedDate)} — {selectedDateEvents.length} event{selectedDateEvents.length !== 1 ? "s" : ""}
+                    {formatEventDate(selectedDate)} - {selectedDateEvents.length} event{selectedDateEvents.length !== 1 ? "s" : ""}
                   </h4>
                   {selectedDateEvents.map((ev) => (
                     <div key={ev.id} className="p-3 rounded-xl bg-[#0f1115] border border-gray-800/60 flex items-start justify-between gap-2">

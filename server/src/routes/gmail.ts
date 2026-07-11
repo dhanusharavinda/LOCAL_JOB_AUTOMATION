@@ -15,7 +15,7 @@ import { requireAuth } from "../middleware/auth";
  * OAuth flow:
  *   1. Client calls GET /api/gmail/auth (authenticated). We generate an
  *      HMAC-signed `state` parameter carrying the user id + a short TTL
- *      timestamp so the callback (which is NOT authenticated — it's the
+ *      timestamp so the callback (which is NOT authenticated - it's the
  *      browser redirect from Google) can safely determine which user
  *      just authorized.
  *   2. User approves in Google's consent screen. Google redirects back
@@ -29,11 +29,34 @@ const router = Router();
 const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-function getOAuth2Client() {
+// Origin of the incoming request, honoring the reverse-proxy headers a
+// hosted deploy sits behind. Returns e.g. "https://app.yourdomain.com".
+function requestOrigin(req?: Request): string | null {
+  if (!req) return null;
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0].trim()
+    || req.protocol || "http";
+  const host = (req.headers["x-forwarded-host"] as string | undefined)?.split(",")[0].trim()
+    || req.get("host");
+  return host ? `${proto}://${host}` : null;
+}
+
+// Resolve the OAuth callback URL. An explicit GMAIL_REDIRECT_URI always wins
+// (it must EXACTLY match the "Authorized redirect URI" registered in the
+// Google Cloud OAuth client). When it isn't set we derive the callback from
+// the request's own origin instead of hard-defaulting to localhost, so a
+// deployed server sends users back to itself. Both /auth and /callback pass
+// the same request host, so the two legs of the flow always agree.
+function computeRedirectUri(req?: Request): string {
+  if (process.env.GMAIL_REDIRECT_URI) return process.env.GMAIL_REDIRECT_URI;
+  const origin = requestOrigin(req);
+  return origin ? `${origin}/api/gmail/callback` : "http://localhost:3001/api/gmail/callback";
+}
+
+function getOAuth2Client(req?: Request) {
   return new google.auth.OAuth2(
     process.env.GMAIL_CLIENT_ID,
     process.env.GMAIL_CLIENT_SECRET,
-    process.env.GMAIL_REDIRECT_URI || "http://localhost:3001/api/gmail/callback"
+    computeRedirectUri(req)
   );
 }
 
@@ -120,7 +143,7 @@ router.get("/auth", requireAuth, (req: Request, res: Response) => {
     });
     return;
   }
-  const oAuth2Client = getOAuth2Client();
+  const oAuth2Client = getOAuth2Client(req);
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
@@ -145,7 +168,7 @@ router.get("/callback", async (req: Request, res: Response) => {
     return;
   }
   try {
-    const oAuth2Client = getOAuth2Client();
+    const oAuth2Client = getOAuth2Client(req);
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
@@ -188,7 +211,12 @@ router.get("/callback", async (req: Request, res: Response) => {
     // for multi-environment deploys) and validate it's a plain http(s) URL
     // before interpolating into inline JS. Anything suspicious falls back to
     // localhost so a malformed env var can never land as executable script.
-    const rawClientUrl = (process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim();
+    // Prefer the configured CLIENT_URL; if unset, fall back to the request's
+    // own origin (frontend and API often share a host in production) rather
+    // than localhost, so the "Gmail connected" page returns to the deployed
+    // app instead of a dev URL.
+    const clientUrlFallback = requestOrigin(req) || "http://localhost:5173";
+    const rawClientUrl = (process.env.CLIENT_URL || clientUrlFallback).split(",")[0].trim();
     const isSafeUrl = /^https?:\/\/[a-z0-9.\-:]+(?:\/[^\s"'<>]*)?$/i.test(rawClientUrl);
     const clientUrl = isSafeUrl ? rawClientUrl : "http://localhost:5173";
     // JSON.stringify handles quote/backslash/unicode escaping for JS string
@@ -227,7 +255,7 @@ router.post("/disconnect", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// ── Helpers (email classification — unchanged from SQLite version) ──
+// ── Helpers (email classification - unchanged from SQLite version) ──
 
 type JobStatusUpdate = "applied" | "interviewing" | "offer" | "rejected";
 

@@ -54,7 +54,7 @@ export async function batchDeleteJobs(ids: number[]): Promise<{ deleted: number 
 }
 
 export async function toggleJobFlag(id: number, flagged: boolean): Promise<Job> {
-  // PATCH /api/jobs/:id (the generic editable-fields route) — there is no
+  // PATCH /api/jobs/:id (the generic editable-fields route) - there is no
   // dedicated /:id/flag endpoint on the server. The old client URL hit a
   // 404 silently, so flagging never persisted and the pipeline's
   // duplicate check never excluded user-blocked jobs. The generic PATCH
@@ -709,7 +709,7 @@ export async function checkFreeTailorStatus(): Promise<FreeTailorStatus> {
   return res.json();
 }
 
-// Thrown when /api/free-tailor returns 401 — FreeTailorSection catches
+// Thrown when /api/free-tailor returns 401 - FreeTailorSection catches
 // this and re-opens the AuthModal instead of surfacing a red error banner.
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication required") {
@@ -753,7 +753,7 @@ export async function freeTailorResume(
 // Re-render a PDF from (possibly user-edited) structured resume data.
 // Used by the live review editor: the user accepts/rejects/edits the
 // AI's changes, then we regenerate the PDF server-side WITHOUT another
-// LLM call — so it never burns the daily tailor quota. Returns base64
+// LLM call - so it never burns the daily tailor quota. Returns base64
 // so the download path matches the original tailor result.
 export async function renderResumePdf(
   resumeData: any,
@@ -806,7 +806,7 @@ export async function generateFreeTailorCoverLetter(
 
 // Patch window.fetch once to auto-inject the current Supabase access token
 // on every /api/* request (except /api/auth/* which the server mounts
-// before the auth middleware — those routes are reached either by the
+// before the auth middleware - those routes are reached either by the
 // auth middleware itself or are public). The token comes from the
 // in-memory cache in supabaseClient.ts, which is kept in sync with
 // supabase-js via onAuthStateChange.
@@ -837,7 +837,7 @@ function attachAuthHeader(init: RequestInit, token: string): RequestInit {
   return next;
 }
 
-// Deduplicate concurrent refresh attempts — if five API calls all 401
+// Deduplicate concurrent refresh attempts - if five API calls all 401
 // at once (e.g. when the user returns to a tab after the token expired),
 // we only hit supabase.auth.refreshSession() once and all five retries
 // use the new token together.
@@ -874,16 +874,16 @@ window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
 
   const firstResponse = await _origFetch.call(this, input, preparedInit);
 
-  // Happy path — token was valid (or route didn't need auth).
+  // Happy path - token was valid (or route didn't need auth).
   if (firstResponse.status !== 401) return firstResponse;
 
-  // 401 path — one retry after forcing a token refresh. Supabase's
+  // 401 path - one retry after forcing a token refresh. Supabase's
   // autoRefreshToken normally handles this in the background, but the
   // refresh can fail silently (network blip, clock drift, etc.) and the
   // cached in-memory token stays stale. Rather than making the user
   // re-login, we give the refresh flow one explicit push here.
   //
-  // Only refresh when the request was authenticated to begin with —
+  // Only refresh when the request was authenticated to begin with - 
   // unauth'd routes that reject with 401 (rare) shouldn't trigger
   // unnecessary Supabase traffic.
   if (!token) return firstResponse;
@@ -891,7 +891,7 @@ window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
   const freshToken = await refreshTokenOnce();
   if (!freshToken) return firstResponse; // refresh failed; let caller see the 401
 
-  // Retry with the new token. Only one retry — if it still 401s, the
+  // Retry with the new token. Only one retry - if it still 401s, the
   // session is genuinely invalid (revoked, deleted user, etc.) and the
   // caller should treat it as a real auth failure.
   const retriedInit = attachAuthHeader(init || {}, freshToken);
@@ -935,7 +935,7 @@ export interface MeResponse {
 }
 
 // NOTE: email/password signup + signin no longer go through our Express
-// backend — they run entirely on the client via supabase.auth in
+// backend - they run entirely on the client via supabase.auth in
 // AuthPage.tsx. The server only exposes GET /api/auth/me and
 // PUT /api/auth/plan now. See middleware/auth.ts for details.
 
@@ -980,7 +980,7 @@ export interface AdminUserRow {
   approval_status: "pending" | "approved" | "rejected";
   approved_at: string | null;
   created_at: string;
-  // Usage aggregates — populated server-side from usage_tracking +
+  // Usage aggregates - populated server-side from usage_tracking +
   // free_tailor_log + jobs + gmail_tokens in a single query.
   jobs_scraped_today: number;
   resumes_tailored_today: number;
@@ -1281,7 +1281,7 @@ export async function interviewTtsBlob(text: string): Promise<Blob> {
 /**
  * Whisper-backed STT. Avoids Chrome's SpeechRecognition (which routes
  * through Google's servers and fails on corp / slow networks). The
- * blob is whatever MediaRecorder produced — typically audio/webm in
+ * blob is whatever MediaRecorder produced - typically audio/webm in
  * Chrome, audio/mp4 in Safari. Server uses the mimetype to pick the
  * right extension when forwarding to OpenAI.
  *

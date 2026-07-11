@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { sql } from "../db";
 
 /**
- * Plan limits — DAILY for Free, per-run for Pro, per-candidate-per-day for Enterprise.
+ * Plan limits - DAILY for Free, per-run for Pro, per-candidate-per-day for Enterprise.
  *
  * Free:       5 jobs scraped/day,  1 tailored resume/day
  * Pro:       50 jobs scraped,     25 tailored resumes (per run, once daily pipeline)
@@ -142,7 +142,7 @@ export async function incrementUsage(
   }
 }
 
-// Enterprise plan is disabled during the public test phase — Stripe + the
+// Enterprise plan is disabled during the public test phase - Stripe + the
 // per-candidate tier flow haven't shipped. Legacy enterprise accounts get
 // pro-level caps until then so nobody gets a bigger budget than advertised.
 export const ENTERPRISE_ENABLED = false;
@@ -150,7 +150,7 @@ export const ENTERPRISE_ENABLED = false;
 /**
  * Normalize a raw plan string read from the DB. While ENTERPRISE_ENABLED
  * is off, any legacy 'enterprise' row is presented as 'pro' to downstream
- * code and UI — prevents the "logged in on pro but shown as enterprise"
+ * code and UI - prevents the "logged in on pro but shown as enterprise"
  * bug when a profile was flipped to enterprise before the tier shipped.
  */
 export function coercePlan(plan: string | null | undefined): "free" | "pro" | "enterprise" {
@@ -162,7 +162,7 @@ export function coercePlan(plan: string | null | undefined): "free" | "pro" | "e
 export function getLimitsForUser(plan: string, candidateId?: number | null, tier?: EnterpriseTier) {
   if (plan === "enterprise") {
     if (!ENTERPRISE_ENABLED) {
-      // Collapse to pro caps, not free — testers on legacy enterprise rows
+      // Collapse to pro caps, not free - testers on legacy enterprise rows
       // should at least get the pro experience.
       void candidateId; void tier;
       return {
@@ -187,7 +187,7 @@ export function getLimitsForUser(plan: string, candidateId?: number | null, tier
 }
 
 // Plan quotas are enforced by default. Set PIPELINE_LIMIT_DISABLED=true ONLY
-// in local dev when iterating on the pipeline — never in production. Default
+// in local dev when iterating on the pipeline - never in production. Default
 // is false so a missing env var cannot accidentally open the gate.
 const PIPELINE_LIMIT_DISABLED =
   (process.env.PIPELINE_LIMIT_DISABLED ?? "false").toLowerCase() === "true";
@@ -237,7 +237,7 @@ export async function checkJobsScrapedBudget(
   const limits = getLimitsForUser(plan, candidateId, tier);
   const dailyCap = limits.jobs_scraped;
 
-  // Testing escape hatch — skip the quota check entirely.
+  // Testing escape hatch - skip the quota check entirely.
   if (PIPELINE_LIMIT_DISABLED) {
     return { canRun: true, remaining: dailyCap, limit: dailyCap };
   }

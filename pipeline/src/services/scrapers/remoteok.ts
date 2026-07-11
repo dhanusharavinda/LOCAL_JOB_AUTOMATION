@@ -1,7 +1,7 @@
 import { ScrapedJob } from "../../types";
 import { politeGet, isLocationRelevant, isRecentJob } from "./utils";
 
-/** RemoteOK free public API — https://remoteok.com/api */
+/** RemoteOK free public API - https://remoteok.com/api */
 export async function scrapeRemoteOK(keywords: string[]): Promise<ScrapedJob[]> {
   try {
     const res = await politeGet("https://remoteok.com/api");

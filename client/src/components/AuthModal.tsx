@@ -16,7 +16,7 @@ interface Props {
 }
 
 /**
- * AuthModal — overlay-style sign in / sign up dialog.
+ * AuthModal - overlay-style sign in / sign up dialog.
  *
  * Reuses the same Supabase auth flow as AuthPage but renders as a
  * dismissable popup so the visitor stays on the landing page. The app's
@@ -93,7 +93,7 @@ export default function AuthModal({
           return;
         }
 
-        // Email confirmation disabled — they're already signed in.
+        // Email confirmation disabled - they're already signed in.
         // Confirm the profile loads, then hand control back to the caller.
         await authMe();
         onSuccess?.();
@@ -161,7 +161,7 @@ export default function AuthModal({
 
         {/* Body */}
         <div className="px-6 py-5">
-          {/* Tabs — hidden in forgot-password mode */}
+          {/* Tabs - hidden in forgot-password mode */}
           {mode !== "forgot" && (
             <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] mb-5">
               <button

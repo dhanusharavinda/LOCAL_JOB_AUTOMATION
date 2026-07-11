@@ -52,7 +52,7 @@ export async function submitGreenhouse(input: AtsSubmitInput): Promise<AtsSubmit
 
   // Caller (routes/apply.ts) is responsible for stamping job.user_id from
   // the authenticated session. Refuse to proceed if it's missing rather
-  // than silently looking up the row's owner — that path would let a
+  // than silently looking up the row's owner - that path would let a
   // future caller accidentally post one user's resume to an ATS while
   // authenticated as someone else.
   if (!job.user_id) {

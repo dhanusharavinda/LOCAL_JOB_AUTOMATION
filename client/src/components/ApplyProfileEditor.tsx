@@ -112,7 +112,7 @@ export default function ApplyProfileEditor({ onClose }: Props) {
               Auto-Apply Profile
               <span style={betaBadge}>BETA</span>
             </h2>
-            <p style={muted}>Fill this once. The browser extension uses these answers to fill every supported job site. Auto-apply is in beta — review every submission before sending.</p>
+            <p style={muted}>Fill this once. The browser extension uses these answers to fill every supported job site. Auto-apply is in beta - review every submission before sending.</p>
           </div>
           <button onClick={onClose} style={closeBtn} aria-label="Close">×</button>
         </div>

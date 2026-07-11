@@ -99,7 +99,7 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
       const result = await analyzeResume(job.id, opts);
       setAnalysis(result);
       setPhase("results");
-      // Cover letter + hiring message are saved to DB by the server —
+      // Cover letter + hiring message are saved to DB by the server - 
       // notify parent to refresh the job so they appear in job detail
       if (onResumeUpdated && (result.coverLetter || result.hiringMessage)) {
         onResumeUpdated("");
@@ -146,7 +146,7 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
     });
   }, []);
 
-  // Defensive — if the server ever returns a malformed analysis (e.g.
+  // Defensive - if the server ever returns a malformed analysis (e.g.
   // OpenAI hits its token limit and truncates JSON), reduce on undefined
   // would crash the entire modal. Treat missing arrays as empty.
   const acceptedCount = (analysis?.optimizations ?? []).reduce(
@@ -191,7 +191,7 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
                   {analysis.atsScore ?? analysis.matchScore}/100
                 </span>
                 {/* When the model returns separate match + ATS scores
-                    (it often does — match is overall fit, ATS is keyword
+                    (it often does - match is overall fit, ATS is keyword
                     density), surface both so the user can tell whether
                     a borderline JD is missing keywords or genuinely a
                     weak fit. */}
@@ -470,14 +470,14 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
                 </div>
               )}
 
-              {/* Cover Letter + Hiring Message saved to job — shown in Job Detail modal */}
+              {/* Cover Letter + Hiring Message saved to job - shown in Job Detail modal */}
               {(analysis.coverLetter || analysis.hiringMessage) && (
                 <div className="px-6 py-3">
                   <p className="text-xs text-emerald-400 flex items-center gap-1.5">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                    Cover letter & "Why I'm a Fit" saved — view them in the job detail panel
+                    Cover letter & "Why I'm a Fit" saved - view them in the job detail panel
                   </p>
                 </div>
               )}

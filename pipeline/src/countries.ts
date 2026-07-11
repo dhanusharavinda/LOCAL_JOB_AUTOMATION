@@ -1,5 +1,5 @@
 /**
- * Country Registry — defines scrapers, LinkedIn geoId, location terms per country.
+ * Country Registry - defines scrapers, LinkedIn geoId, location terms per country.
  * When adding a new country, add an entry here and implement its scrapers.
  */
 
@@ -17,7 +17,7 @@ export interface CountryConfig {
 // Bare-remote handling lives in the filter (services/location-filter.ts
 // uses GENERIC_REMOTE_TERMS + the user's INCLUDE_REMOTE flag to decide
 // whether tagless "Remote" jobs pass). DO NOT add "remote"/"hybrid"/
-// "worldwide" into country locationRegions here — that would short-
+// "worldwide" into country locationRegions here - that would short-
 // circuit the INCLUDE_REMOTE check and let bare-remote jobs through
 // even when the user explicitly turned it off.
 
@@ -161,7 +161,7 @@ export function getLocationRegions(countryCodes: string[]): string[] {
   return [...new Set(regions)];
 }
 
-/** Get LinkedIn geoId — uses first selected country's geoId */
+/** Get LinkedIn geoId - uses first selected country's geoId */
 export function getLinkedInGeoId(countryCodes: string[]): string {
   for (const code of countryCodes) {
     const country = COUNTRY_REGISTRY[code.toLowerCase()];

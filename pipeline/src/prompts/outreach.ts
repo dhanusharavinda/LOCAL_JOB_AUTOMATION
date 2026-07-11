@@ -17,7 +17,7 @@ Return this exact JSON structure:
 }
 
 === ANTI-AI-SLOP RULES (CRITICAL) ===
-BANNED WORDS AND PHRASES — do NOT use any of these:
+BANNED WORDS AND PHRASES - do NOT use any of these:
 - "I am writing to express my interest", "I am confident", "Thank you for your time and consideration"
 - "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "groundbreaking"
 - "delve", "foster", "enhance", "underscore", "showcase", "pivotal", "crucial", "vital", "vibrant"
@@ -26,7 +26,7 @@ BANNED WORDS AND PHRASES — do NOT use any of these:
 - "nestled", "in the heart of", "stands as", "serves as", "marks a shift"
 - "commitment to excellence", "cutting-edge", "innovative solutions", "dynamic environment"
 - "I believe I would be a valuable addition", "I am eager to contribute"
-- ZERO em dashes (—). Use commas, periods, or parentheses. The em dash is the loudest tell of AI writing — never include one.
+- ZERO em dashes ( - ). Use commas, periods, or parentheses. The em dash is the loudest tell of AI writing - never include one.
 - Any rule-of-three patterns ("X, Y, and Z" appearing more than once)
 
 STYLE REQUIREMENTS:
@@ -39,10 +39,10 @@ STYLE REQUIREMENTS:
 - No curly quotes. Use straight quotes only.
 - No bolding. Plain text.
 
-=== TRUTHFULNESS RULES (CRITICAL — read twice) ===
+=== TRUTHFULNESS RULES (CRITICAL - read twice) ===
 You only know the candidate through the CANDIDATE SKILLS list below. You do NOT know the candidate's full work history. Therefore:
 - NEVER say "I haven't used X" or "I haven't worked with X" or "while I'm new to X" or any negative-knowledge claim.
-  You don't know what they haven't done. Inventing a gap to look modest is a hallucination — it gets the candidate filtered out for being underqualified on something they may actually know.
+  You don't know what they haven't done. Inventing a gap to look modest is a hallucination - it gets the candidate filtered out for being underqualified on something they may actually know.
 - NEVER speculate about gaps. If a JD requirement isn't covered by the skills list, just don't mention that requirement. Pick a different requirement to address.
 - NEVER name a specific tool, framework, or technology that does not appear in CANDIDATE SKILLS as something the candidate hasn't used. The skills list is your only source of truth for what they know.
 - Only make positive claims grounded in the skills list. If the JD asks for "Spark" and the skills list says "Spark", make the match. If the JD asks for "LangGraph" and the skills list doesn't say LangGraph, talk about a DIFFERENT JD requirement that DOES match.
@@ -52,7 +52,7 @@ You only know the candidate through the CANDIDATE SKILLS list below. You do NOT 
 - 3 short paragraphs, under 150 words total. Tight, not chatty.
 - Start with "Dear Hiring Team," (or "Hi [Team]," for startups)
 - First paragraph (1-2 sentences): mention the ${jobTitle} role and reference something concrete from the JD (a specific tech, product, or problem they're solving). Not generic praise.
-- Second paragraph (2-3 sentences): connect YOUR skills (from CANDIDATE SKILLS only) to THEIR needs. Use real examples like "I built X that did Y", not "I have experience with X". Stay grounded in the skills list — never name a tool you can't see in the list as something you've used.
+- Second paragraph (2-3 sentences): connect YOUR skills (from CANDIDATE SKILLS only) to THEIR needs. Use real examples like "I built X that did Y", not "I have experience with X". Stay grounded in the skills list - never name a tool you can't see in the list as something you've used.
 - Third paragraph (1-2 sentences): one specific thing about this role that interests you, tied to the JD. Then sign off.
 - Sign off: "Best regards,\\n${signOff}"
 - Double space between paragraphs (use \\n\\n)
@@ -68,7 +68,7 @@ This section is read by the hiring team. They already know what their company do
 - Pick the 3-4 STRONGEST positive matches. Do not list every JD requirement.
 - Example of a good point: "Apache Spark for large-scale ETL is a core requirement. I built a Spark pipeline processing 2M+ records daily at my last role, handling schema evolution and late-arriving data."
 - NO generic points like "Strong communication skills" or "Team player"
-- NO negative claims (see TRUTHFULNESS RULES above) — this is the most common failure mode and it's an instant filter-out for the candidate.
+- NO negative claims (see TRUTHFULNESS RULES above) - this is the most common failure mode and it's an instant filter-out for the candidate.
 - Use plain text only
 
 === JOB DESCRIPTION ===

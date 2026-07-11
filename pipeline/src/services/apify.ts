@@ -8,7 +8,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Apify is the upstream we cannot control — it returns 502/503/504/429
+// Apify is the upstream we cannot control - it returns 502/503/504/429
 // often enough that ONE bad-gateway response shouldn't abort the whole
 // pipeline run. Retry transient failures with exponential backoff before
 // surfacing the error to the caller.
@@ -22,26 +22,26 @@ async function apifyFetch(path: string, options?: RequestInit): Promise<any> {
     // deliberate "non-retryable status" throw below isn't swallowed by the
     // network-error catch. (Previous version threw the 4xx error inside the
     // same try block, its own catch caught it, and 404s got retried twice
-    // for nothing — "Apify API error: 404 Not Found — retrying (2/3)".)
+    // for nothing - "Apify API error: 404 Not Found - retrying (2/3)".)
     let res: Response | null = null;
     try {
       res = await fetch(url, options);
     } catch (err: any) {
-      // fetch() rejection (DNS/network/timeout) — retryable
+      // fetch() rejection (DNS/network/timeout) - retryable
       lastErr = err instanceof Error ? err : new Error(String(err));
     }
     if (res) {
       if (res.ok) return res.json();
       const httpErr = new Error(`Apify API error: ${res.status} ${res.statusText}`);
-      // Non-retryable (4xx other than 429) — a 404/401/403 won't heal on
+      // Non-retryable (4xx other than 429) - a 404/401/403 won't heal on
       // retry; bail immediately instead of burning 7s of backoff.
       if (!RETRYABLE_STATUSES.has(res.status)) throw httpErr;
       lastErr = httpErr;
     }
     if (attempt < MAX_RETRIES) {
-      // 1s, 2s, 4s — total worst-case 7s before giving up.
+      // 1s, 2s, 4s - total worst-case 7s before giving up.
       const backoff = 1000 * Math.pow(2, attempt);
-      log.warn(`  Apify request failed (${lastErr?.message}) — retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      log.warn(`  Apify request failed (${lastErr?.message}) - retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
       await delay(backoff);
     }
   }
@@ -53,7 +53,7 @@ async function apifyFetch(path: string, options?: RequestInit): Promise<any> {
  * Normalizes case + dedups so "AI Engineer", "ai engineer", and
  * "  Ai Engineer  " collapse to one search term. Caps at
  * MAX_KEYWORDS_PER_SCRAPER (default 3) so a 10-keyword config doesn't
- * fan out into 10 Apify calls per scraper — that's a Apify-cost
+ * fan out into 10 Apify calls per scraper - that's a Apify-cost
  * disaster.
  *
  * Why this exists: every non-LinkedIn scraper used to take only
@@ -70,8 +70,8 @@ export function pickScraperKeywords(raw: string): string[] {
     const trimmed = k.trim();
     if (!trimmed) continue;
     // Case-insensitive dedup. Indeed/Naukri/Truefetch all do
-    // case-insensitive matching server-side — "AI" and "ai" return
-    // the same listings — so running both is pure waste.
+    // case-insensitive matching server-side - "AI" and "ai" return
+    // the same listings - so running both is pure waste.
     const key = trimmed.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -104,7 +104,7 @@ async function runApifyActorMultiKeyword(
   const perKwBudget = Math.max(10, Math.ceil(totalBudget / keywords.length));
   log.info(`  ${baseLabel}: fanning out across ${keywords.length} keyword(s) @ ${perKwBudget} jobs each`);
 
-  // Parallel — same wall-clock time as one call. Individual failures
+  // Parallel - same wall-clock time as one call. Individual failures
   // don't sink the whole scraper; allSettled lets partial successes
   // bubble through.
   const settled = await Promise.allSettled(
@@ -137,7 +137,7 @@ async function runApifyActorMultiKeyword(
 /**
  * Generic Apify actor runner. Starts the actor with the given input,
  * polls until the run terminates, then returns the dataset items.
- * Used by LinkedIn, Naukri, and Indeed scrapers — each passes its own
+ * Used by LinkedIn, Naukri, and Indeed scrapers - each passes its own
  * actor-specific input payload.
  */
 async function runApifyActor(
@@ -235,7 +235,7 @@ async function runLinkedInScrape(searchUrl: string, count: number, label: string
 export async function scrapeLinkedInJobs(explicitCount?: number): Promise<LinkedInJob[]> {
   // Step 1: Start the actor run
   const searchUrl = buildLinkedInUrl();
-  // Caller can override the scrape volume — the pipeline uses this to
+  // Caller can override the scrape volume - the pipeline uses this to
   // over-scrape 3× the user's target so the AI relevance filter has enough
   // raw candidates to hit the target after filtering. Falls back to the
   // user-facing APIFY_JOB_COUNT when called without an argument.
@@ -258,13 +258,13 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
         const exp = u.searchParams.get("f_E") || "(none)";
         log.warn(
           `LinkedIn returned 0 jobs with experience filter f_E=${exp}. ` +
-          "Retrying with experience filter removed — the AI scorer will still penalise non-matching seniority."
+          "Retrying with experience filter removed - the AI scorer will still penalise non-matching seniority."
         );
         u.searchParams.delete("f_E");
         const broadenedUrl = u.toString();
         dataset = await runLinkedInScrape(broadenedUrl, count, "Retrying without experience filter");
         if (dataset.length === 0) {
-          // Still nothing — fall through to the generic 0-result diagnostic.
+          // Still nothing - fall through to the generic 0-result diagnostic.
           const kw = u.searchParams.get("keywords") || "(none)";
           const geo = u.searchParams.get("geoId") || "(none)";
           const tpr = u.searchParams.get("f_TPR") || "(none)";
@@ -317,7 +317,7 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
   // Sanitize fields that Apify may return as objects/arrays instead of
   // strings. The TypeScript type says employmentType is a string, but
   // the actor occasionally returns an array (e.g. ["Full-time","Remote"])
-  // — cast to any so the runtime check + array-flatten doesn't fight
+  // - cast to any so the runtime check + array-flatten doesn't fight
   // the narrowed type.
   for (const j of validJobs) {
     const job = j as any;
@@ -342,7 +342,7 @@ export async function scrapeLinkedInJobs(explicitCount?: number): Promise<Linked
   // (graduate / junior / intern / entry / etc.) are stripped out
   // because they match anything ("Graduate Veterinary Nurse"). If
   // strong tokens can't be extracted (user's keywords are all
-  // seniority words), we skip the filter — better to over-include
+  // seniority words), we skip the filter - better to over-include
   // than to silently zero-out the run.
   const filtered = applyTitleKeywordFilter(validJobs);
   return filtered as LinkedInJob[];
@@ -396,7 +396,7 @@ function applyTitleKeywordFilter(jobs: any[]): any[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Naukri (India) — Apify actor muhammetakkurtt~naukri-job-scraper
+// Naukri (India) - Apify actor muhammetakkurtt~naukri-job-scraper
 // ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -412,7 +412,7 @@ export async function scrapeNaukriViaApify(count: number): Promise<LinkedInJob[]
   }
 
   // Naukri actor expects `keyword` + `maxJobs` (min 50). `fetchDetails: true`
-  // is required to get the job description text — without it the actor only
+  // is required to get the job description text - without it the actor only
   // returns title + company and the AI relevance step has nothing to score.
   return runApifyActorMultiKeyword(
     config.APIFY_NAUKRI_ACTOR_ID,
@@ -429,7 +429,7 @@ export async function scrapeNaukriViaApify(count: number): Promise<LinkedInJob[]
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Indeed — Apify actor valig~indeed-jobs-scraper
+// Indeed - Apify actor valig~indeed-jobs-scraper
 // ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -445,7 +445,7 @@ export async function scrapeIndeedViaApify(count: number): Promise<LinkedInJob[]
 
   // Indeed country codes are lowercase ISO-3166-1 alpha-2 on this actor.
   // When a new country gets added to the dashboard picker, add its code
-  // here too — the previous silent fallback to "ie" meant unknown
+  // here too - the previous silent fallback to "ie" meant unknown
   // countries scraped Ireland, with no log line saying so.
   const countryCodeMap: Record<string, string> = {
     ireland: "ie",
@@ -458,7 +458,7 @@ export async function scrapeIndeedViaApify(count: number): Promise<LinkedInJob[]
   const country = countryCodeMap[firstCountry];
   if (!country) {
     log.warn(
-      `  Indeed: TARGET_COUNTRIES="${firstCountry}" has no country-code mapping — skipping Indeed scrape rather than silently scraping the wrong country. ` +
+      `  Indeed: TARGET_COUNTRIES="${firstCountry}" has no country-code mapping - skipping Indeed scrape rather than silently scraping the wrong country. ` +
       "Supported: ireland, uk, netherlands, india, newzealand."
     );
     return [];
@@ -466,7 +466,7 @@ export async function scrapeIndeedViaApify(count: number): Promise<LinkedInJob[]
 
   // valig/indeed-jobs-scraper expects `title` (not `position`) and `limit`
   // (not `maxItems`). Output items have nested employer/location/description
-  // objects — normalized in normalizeIndeedJob below.
+  // objects - normalized in normalizeIndeedJob below.
   return runApifyActorMultiKeyword(
     config.APIFY_INDEED_ACTOR_ID,
     keywords,
@@ -547,7 +547,7 @@ function hasRequiredFields(job: LinkedInJob): boolean {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Upwork — Apify actor upwork-vibe~upwork-job-scraper
+// Upwork - Apify actor upwork-vibe~upwork-job-scraper
 //
 // Different beast from Indeed/LinkedIn: Upwork has freelance / contract
 // gigs, not full-time roles. Useful for users hunting contract work
@@ -588,7 +588,7 @@ export async function scrapeUpworkViaApify(count: number): Promise<LinkedInJob[]
   }
 
   const experienceLevels = upworkExperienceFromConfig(config.LINKEDIN_EXPERIENCE);
-  // Upwork supports a `fromDate` ISO filter — mirror LINKEDIN_TIME_FILTER
+  // Upwork supports a `fromDate` ISO filter - mirror LINKEDIN_TIME_FILTER
   // so the user's "last week" preference flows here too.
   let fromDate: string | undefined;
   if (config.LINKEDIN_TIME_FILTER === "r86400")  fromDate = new Date(Date.now() - 86_400_000).toISOString();
@@ -623,7 +623,7 @@ export async function scrapeUpworkViaApify(count: number): Promise<LinkedInJob[]
 /**
  * Normalize an upwork-vibe/upwork-job-scraper item.
  *
- * The "company" concept doesn't quite map — Upwork clients are often
+ * The "company" concept doesn't quite map - Upwork clients are often
  * anonymous individuals. We synthesize a readable companyName from
  * the client's industry + country so the kanban card has something
  * informative to display. Falls back to "Upwork Client" if neither
@@ -666,7 +666,7 @@ function normalizeUpworkJob(item: any): LinkedInJob {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Truefetch best-job-listing — aggregator across Indeed/LinkedIn/Glassdoor
+// Truefetch best-job-listing - aggregator across Indeed/LinkedIn/Glassdoor
 // Actor:  truefetch~best-job-listing
 // Docs:   https://apify.com/truefetch/best-job-listing
 //
@@ -688,7 +688,7 @@ function normalizeUpworkJob(item: any): LinkedInJob {
 
 /**
  * Maps the dashboard's TARGET_COUNTRIES code to the human country name
- * truefetch expects. We do this conservatively (whitelist) — if the user
+ * truefetch expects. We do this conservatively (whitelist) - if the user
  * picks a country we haven't mapped, skip the scrape rather than guess.
  */
 function truefetchCountryName(code: string): string | null {
@@ -714,7 +714,7 @@ export async function scrapeTruefetchViaApify(count: number): Promise<LinkedInJo
   const countryName = truefetchCountryName(firstCountry);
   if (!countryName) {
     log.warn(
-      `  Truefetch: TARGET_COUNTRIES="${firstCountry}" has no country-name mapping — skipping. ` +
+      `  Truefetch: TARGET_COUNTRIES="${firstCountry}" has no country-name mapping - skipping. ` +
       "Supported: ireland, uk, netherlands, india, newzealand, usa."
     );
     return [];

@@ -27,7 +27,7 @@ const CURRENCY_CODES = ["USD", "EUR", "GBP", "INR", "AUD", "CAD", "NZD", "CHF", 
 
 /** Detect currency from a 3-letter code or a symbol anywhere in the string.
  *  Explicit ISO codes are checked FIRST because "$" is ambiguous (USD, CAD,
- *  AUD, NZD, SGD all use it) — so "$90,000 CAD" resolves to CAD, not USD. */
+ *  AUD, NZD, SGD all use it) - so "$90,000 CAD" resolves to CAD, not USD. */
 function detectCurrency(raw: string): string {
   const upper = raw.toUpperCase();
   for (const code of CURRENCY_CODES) {

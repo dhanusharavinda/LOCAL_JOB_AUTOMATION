@@ -57,14 +57,14 @@ export function mergeWithLinkedIn(linkedInJobs: LinkedInJob[], freeJobs: LinkedI
     const hash = freeJob.contentHash || contentHash(freeJob.title, freeJob.companyName, freeJob.location);
     const existing = linkedInByHash.get(hash);
     if (existing) {
-      // Same job found on LinkedIn AND free source — merge sources
+      // Same job found on LinkedIn AND free source - merge sources
       existing.sources = [...new Set([...(existing.sources || ["linkedin"]), ...(freeJob.sources || [freeJob.source || "free"])])];
       // If free source has richer description, supplement
       if (!existing.descriptionText && freeJob.descriptionText) {
         existing.descriptionText = freeJob.descriptionText;
       }
     } else {
-      // Net-new job from free source — add to pipeline
+      // Net-new job from free source - add to pipeline
       freeJob.contentHash = hash;
       merged.push(freeJob);
     }

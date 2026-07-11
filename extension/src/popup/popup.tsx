@@ -16,7 +16,7 @@ type View = "main" | "assistant";
 
 // When the popup HTML is loaded inside the standalone pop-out window
 // (chrome.windows.create with #assistant), skip the main view entirely
-// and render the assistant directly. Read once at module load — the
+// and render the assistant directly. Read once at module load - the
 // hash never changes during the lifetime of the window.
 const LAUNCH_IN_ASSISTANT =
   typeof window !== "undefined" && window.location.hash === "#assistant";
@@ -326,7 +326,7 @@ const ACTIONS: ActionDef[] = [
 ];
 
 // Chrome popups close the moment the user clicks anywhere outside the
-// popup — that's a platform constraint we can't override. Two mitigations:
+// popup - that's a platform constraint we can't override. Two mitigations:
 //   1. Persist every input field + the last output to chrome.storage.local
 //      so reopening the popup restores everything (no lost paste, no lost
 //      draft).
@@ -360,7 +360,7 @@ function loadAssistantState(): Promise<AssistantState | null> {
 function saveAssistantState(s: AssistantState) {
   try {
     chrome.storage.local.set({ [ASSISTANT_STATE_KEY]: s });
-  } catch { /* storage quota / private mode — best effort */ }
+  } catch { /* storage quota / private mode - best effort */ }
 }
 
 function clearAssistantState() {

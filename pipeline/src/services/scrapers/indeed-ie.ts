@@ -2,7 +2,7 @@ import { ScrapedJob } from "../../types";
 import { politeGet } from "./utils";
 import * as cheerio from "cheerio";
 
-/** Indeed IE — extracts structured job data from mosaic-provider-jobcards script tag */
+/** Indeed IE - extracts structured job data from mosaic-provider-jobcards script tag */
 export async function scrapeIndeedIE(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
 

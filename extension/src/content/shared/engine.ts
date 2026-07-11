@@ -343,7 +343,7 @@ async function fillNow(adapter: AtsAdapter): Promise<void> {
     //     (React-Select, Material-UI Select, Workday's "Add" pickers,
     //     etc.). Without this check, the engine falls through to the
     //     AI-drafting branch below and writes a full sentence into a
-    //     slot meant for an option pick — the candidate sees "I have
+    //     slot meant for an option pick - the candidate sees "I have
     //     5 years of experience with..." in a "Country" dropdown.
     //
     //     Detection signals (any one is enough):
@@ -355,7 +355,7 @@ async function fillNow(adapter: AtsAdapter): Promise<void> {
     //         role="option" children
     //
     //     Per the user's explicit instruction: "if auto fill can
-    //     select option make it do or else dont fill out texts" — so
+    //     select option make it do or else dont fill out texts" - so
     //     when we can't safely extract the option list, we SKIP the
     //     field rather than draft a sentence. The user can fill it
     //     manually post-fill.
@@ -374,7 +374,7 @@ async function fillNow(adapter: AtsAdapter): Promise<void> {
         }
       }
       // Container hint: parent/grandparent contains a listbox role
-      // OR multiple [role="option"] children — common in custom
+      // OR multiple [role="option"] children - common in custom
       // dropdowns where the input doesn't expose ARIA but the popup
       // does.
       let p: HTMLElement | null = el.parentElement;
@@ -399,7 +399,7 @@ async function fillNow(adapter: AtsAdapter): Promise<void> {
       // Combobox-shaped input. Don't drift the AI-drafting branch into
       // writing a sentence here. We could attempt to extract options
       // from aria-controls listboxes, but each ATS implements them
-      // differently — better to skip cleanly and let the user pick.
+      // differently - better to skip cleanly and let the user pick.
       unfilled++;
       continue;
     }
@@ -696,7 +696,7 @@ function installSubmitWatcher(adapter: AtsAdapter) {
 
     // Tracked-job path: PATCH the existing kanban row to applied.
     // Untracked-page path: surface a review card with heuristic-pre-
-    // filled fields. Save is the ONLY action — every manual submission
+    // filled fields. Save is the ONLY action - every manual submission
     // is added to the kanban. The earlier fire-and-forget auto-create
     // produced wrong-looking rows when heuristics misfired, so the
     // review step lets the user correct title/company in place before
@@ -790,7 +790,7 @@ function guessUntrackedJobMetadata(): { title: string; company: string; location
   let title = (ogTitle || h1 || docTitle).slice(0, 200);
   // Strip a trailing " - Company" / " | Company" if it looks like one.
   // We won't be perfect; the user can edit the card.
-  title = title.replace(/\s+[|\-–—]\s+[^|\-–—]{2,80}$/, "").trim();
+  title = title.replace(/\s+[|\-\u2013\u2014]\s+[^|\-\u2013\u2014]{2,80}$/, "").trim();
 
   // ── company ──
   let company =
@@ -798,8 +798,8 @@ function guessUntrackedJobMetadata(): { title: string; company: string; location
     "";
   if (!company && docTitle) {
     // Try " at Company" / " | Company" / " - Company" patterns.
-    const m = docTitle.match(/\s+at\s+([^|\-–—]{2,80})\s*$/i)
-      || docTitle.match(/\s+[|\-–—]\s+([^|\-–—]{2,80})\s*$/);
+    const m = docTitle.match(/\s+at\s+([^|\-\u2013\u2014]{2,80})\s*$/i)
+      || docTitle.match(/\s+[|\-\u2013\u2014]\s+([^|\-\u2013\u2014]{2,80})\s*$/);
     if (m) company = m[1].trim();
   }
   if (!company) {
@@ -821,7 +821,7 @@ function guessUntrackedJobMetadata(): { title: string; company: string; location
   // ── location (best effort) ──
   let location = "";
   const bodyText = document.body?.innerText?.slice(0, 4000) || "";
-  // City, Country / Country / "Remote" / "Hybrid" — pick the first match
+  // City, Country / Country / "Remote" / "Hybrid" - pick the first match
   // near the top of the page.
   const locMatch = bodyText.match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?),\s*(?:[A-Z][a-zA-Z]+|[A-Z]{2,3})\b/);
   if (locMatch) location = locMatch[0].slice(0, 120);

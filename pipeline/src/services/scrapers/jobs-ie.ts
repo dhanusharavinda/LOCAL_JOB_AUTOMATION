@@ -2,7 +2,7 @@ import { ScrapedJob } from "../../types";
 import { politeGet } from "./utils";
 import * as cheerio from "cheerio";
 
-/** Jobs.ie HTML scraper — Irish job board */
+/** Jobs.ie HTML scraper - Irish job board */
 export async function scrapeJobsIe(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
 

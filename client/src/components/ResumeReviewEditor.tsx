@@ -7,12 +7,12 @@ import { useMemo, useState } from "react";
  * bullet rewrite is shown as a green-highlighted change the user can
  * accept, reject, or hand-edit; every other field (contact info, summary,
  * skills, dates, links) is directly editable too. Confirming re-renders
- * the PDF from the edited JSON server-side — no extra LLM call, no
+ * the PDF from the edited JSON server-side - no extra LLM call, no
  * quota burn, and no DOCX round-trip to mangle the formatting.
  *
  * Data model: bulletPoints carry { original, improved, accepted }. The
  * PDF renderer prints `improved` only when `accepted` is true, else
- * `original` — so accept/reject here maps 1:1 onto what prints.
+ * `original` - so accept/reject here maps 1:1 onto what prints.
  */
 
 interface Props {
@@ -29,7 +29,7 @@ function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v));
 }
 
-/** The pristine AI suggestion for a bullet, if any — survives hand-edits. */
+/** The pristine AI suggestion for a bullet, if any - survives hand-edits. */
 function aiSuggestionOf(bp: any): string | null {
   if (!bp) return null;
   if (typeof bp.aiSuggested === "string") return bp.aiSuggested;
@@ -64,7 +64,7 @@ function BulletRow({ bp, onChange }: { bp: any; onChange: (next: any) => void })
   const original: string = bp?.original || "";
   const accepted: boolean = bp?.accepted === true;
   // `improved` is what prints when accepted; it may be an empty string (the
-  // user deleted the text), which is a legitimate edit — do NOT coerce empty
+  // user deleted the text), which is a legitimate edit - do NOT coerce empty
   // back to the original.
   const improved: string | null = typeof bp?.improved === "string" ? bp.improved : null;
   const ai = aiSuggestionOf(bp);
@@ -157,7 +157,7 @@ function BulletRow({ bp, onChange }: { bp: any; onChange: (next: any) => void })
 export default function ResumeReviewEditor({ initialData, rendering, error, onConfirm, onSkip }: Props) {
   const [data, setData] = useState<any>(() => clone(initialData || {}));
   // Skills are held as an ORDERED [name, value] array while editing, not
-  // derived from the object each keystroke — otherwise renaming one category
+  // derived from the object each keystroke - otherwise renaming one category
   // to match another collapses them via Object.fromEntries key-collision and
   // silently deletes a whole row. Rebuilt into an object only at confirm time.
   const [skillRows, setSkillRows] = useState<[string, string][]>(() =>
@@ -233,7 +233,7 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
           </h3>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5">
             <span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500/60 mr-1.5 align-[-1px]" />
-            Green = changed text that will print. Accept, reject, or edit anything — then generate the PDF.
+            Green = changed text that will print. Accept, reject, or edit anything - then generate the PDF.
           </p>
         </div>
         {changeStats.total > 0 && (
@@ -465,7 +465,7 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
             disabled={rendering}
             className="font-mono text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-2.5 rounded-xl transition-colors disabled:opacity-50"
           >
-            Skip — use as-is
+            Skip - use as-is
           </button>
           <button
             type="button"

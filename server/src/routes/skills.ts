@@ -76,7 +76,7 @@ const SKILLS = [
 ];
 
 // Pre-compiled word-boundary regexes for each skill. Short tokens like
-// "r" and "go" must match as whole words — plain `.includes("r")` hits
+// "r" and "go" must match as whole words - plain `.includes("r")` hits
 // the letter "r" inside "required", "experience", etc. and falsely puts
 // R-language at the top of every dashboard.
 const SKILL_PATTERNS: RegExp[] = SKILLS.map((s) => {

@@ -14,7 +14,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [intensity, setIntensity] = useState(5);
-  // Optional cover-letter generation. Off by default — only flipped on
+  // Optional cover-letter generation. Off by default - only flipped on
   // when the user explicitly checks the box. Server treats this as
   // opt-in too so the OpenAI cost stays flat for users who only want
   // a tailored resume.
@@ -63,7 +63,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     const ext = file.name.split(".").pop()?.toLowerCase();
 
     // Legacy .doc (pre-2007 binary format) isn't reliably extractable
-    // by mammoth — when it half-extracts, the AI receives thin text and
+    // by mammoth - when it half-extracts, the AI receives thin text and
     // emits placeholder JSON that renders as "string or null" all over
     // the PDF. Reject up front and tell the user to re-save as .docx
     // or PDF.
@@ -132,7 +132,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     setError(null);
 
     if (resumeText.trim().length < 50) {
-      setError("Add your resume first — upload a PDF/DOCX or paste the text.");
+      setError("Add your resume first - upload a PDF/DOCX or paste the text.");
       return;
     }
     if (jobDescription.length < 30) {
@@ -140,7 +140,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
       return;
     }
 
-    // Auth gate — the form itself is the marketing bait. Before we
+    // Auth gate - the form itself is the marketing bait. Before we
     // actually call OpenAI, pop the auth modal; once the user signs up
     // or logs in, the `pendingTailor` effect below runs the tailor for
     // them automatically so they don't lose their filled-in form.
@@ -212,7 +212,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
   // Signal to App.tsx's onboarding tour effect that the FreeTailor flow
   // is actively mid-transition. We only block the tour while the auth
   // modal is open, a signup-triggered tailor is queued, or the tailor
-  // is running — NOT while the form sits idle in "input" phase, because
+  // is running - NOT while the form sits idle in "input" phase, because
   // otherwise we'd block the tour forever for users who never use the
   // bait. The "result" phase doesn't block either; the tour can start
   // once the PDF is delivered.
@@ -228,7 +228,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
 
   // Confirm handler for the live review editor: re-render the PDF from the
   // user-edited resume JSON (accept/reject/manual edits applied). Pure
-  // Puppeteer render server-side — no LLM call, so it never burns quota.
+  // Puppeteer render server-side - no LLM call, so it never burns quota.
   async function handleApplyEdits(edited: any) {
     setRendering(true);
     setReviewError(null);
@@ -255,9 +255,9 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
       if (err instanceof AuthRequiredError) {
         // Session expired mid-review. Stay in the review phase so the user's
         // accept/reject/edit decisions survive, and reopen the auth modal.
-        // Deliberately do NOT set pendingTailor — that would replay the whole
+        // Deliberately do NOT set pendingTailor - that would replay the whole
         // tailor (burning a quota run) and discard the edits.
-        setReviewError("Your session expired. Sign in again, then click Apply & Generate PDF — your edits are preserved.");
+        setReviewError("Your session expired. Sign in again, then click Apply & Generate PDF - your edits are preserved.");
         setShowAuthModal(true);
         return;
       }
@@ -271,12 +271,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     if (!result) return;
     // Preserve the uploaded resume's filename and prefix with MODIFIED_
     // so the user can tell the tailored copy apart from the original on
-    // disk. Strip any existing extension before appending .pdf — the
+    // disk. Strip any existing extension before appending .pdf - the
     // backend always produces PDFs regardless of the source format.
     const base = (uploadedFileName || "tailored-resume").replace(/\.(pdf|docx?|rtf|txt)$/i, "");
     const outName = `MODIFIED_${base}.pdf`;
     if (result.pdfUrl) {
-      // Signed URL path — open in a new tab. Browsers honour the Content-
+      // Signed URL path - open in a new tab. Browsers honour the Content-
       // Disposition the server sent, so filename control is server-side.
       window.open(result.pdfUrl, "_blank");
       return;
@@ -333,7 +333,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
           onClose={() => {
             setShowAuthModal(false);
             // Cancel the pending tailor if the user dismissed the modal
-            // without signing in — otherwise the effect would retry once
+            // without signing in - otherwise the effect would retry once
             // they sign in later from somewhere else.
             setPendingTailor(false);
           }}
@@ -355,7 +355,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
           </h2>
           <p className="text-[var(--text-secondary)] text-base max-w-xl mx-auto leading-relaxed">
             Upload your resume and paste a job description. Our AI rewrites your bullets, optimizes keywords, and generates a PDF ready to submit.
-            {!currentUser && <span className="text-[#c9a94e]"> Free to try — just create an account.</span>}
+            {!currentUser && <span className="text-[#c9a94e]"> Free to try - just create an account.</span>}
           </p>
         </div>
 
@@ -383,7 +383,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                 />
 
                 {editingResume ? (
-                  /* Live resume-text editor — the exact text below is what the
+                  /* Live resume-text editor - the exact text below is what the
                      AI reads. Add, remove, or replace anything. */
                   <div className="flex flex-col h-[280px]">
                     <textarea
@@ -485,7 +485,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                       <button
                         onClick={() => setEditingResume(true)}
                         className="text-[10px] font-semibold text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-3 py-1.5 rounded-md transition-colors"
-                        title="View and edit the extracted resume text — add, remove, or replace anything before tailoring"
+                        title="View and edit the extracted resume text - add, remove, or replace anything before tailoring"
                       >
                         Edit text
                       </button>
@@ -590,12 +590,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               </div>
               {intensity === 10 && (
                 <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
-                  <strong className="font-semibold">Full Mirror mode.</strong> Intensity 10 simulates how an ATS screens you (modeled on the logic of a major commercial ATS platform) and pushes for 90%+ keyword match — mirroring the JD's exact wording <em>and</em> fabricating plausible metrics, tools, and projects to get there. Your machine ATS score goes way up, but every added line is something you must be ready to defend in an interview, and heavy mirroring is visible to human recruiters. Use the review editor to check each change. 7-9 gives aggressive tailoring without the fabrication. (Employers, titles, dates, and certifications are never altered, at any level.)
+                  <strong className="font-semibold">Full Mirror mode.</strong> Intensity 10 simulates how an ATS screens you (modeled on the logic of a major commercial ATS platform) and pushes for 90%+ keyword match - mirroring the JD's exact wording <em>and</em> fabricating plausible metrics, tools, and projects to get there. Your machine ATS score goes way up, but every added line is something you must be ready to defend in an interview, and heavy mirroring is visible to human recruiters. Use the review editor to check each change. 7-9 gives aggressive tailoring without the fabrication. (Employers, titles, dates, and certifications are never altered, at any level.)
                 </div>
               )}
             </div>
 
-            {/* Custom instructions add-on. Collapsed by default —
+            {/* Custom instructions add-on. Collapsed by default - 
                 clicking the header expands a 500-char textarea that
                 lets the user steer keyword emphasis ("lean on
                 Databricks, drop GCP", "weave Airflow into the
@@ -806,7 +806,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               </div>
             </div>
 
-            {/* Cover letter card — shown when EITHER the user opted in
+            {/* Cover letter card - shown when EITHER the user opted in
                 up front and the server produced one (result.coverLetter)
                 OR the user clicked "Generate cover letter" on this
                 result panel (generatedCoverLetter). The card mirrors
@@ -848,7 +848,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
             })()}
 
             {/* Post-tailor cover-letter CTA. Shown when no cover letter
-                exists yet — either because the user didn't opt in, or
+                exists yet - either because the user didn't opt in, or
                 because the inline cover-letter call failed. Gives them
                 a way to generate one without re-tailoring (which would
                 burn another daily quota). */}
@@ -894,12 +894,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               </div>
             )}
 
-            {/* Quota + Upsell Card — copy adapts to plan and remaining runs */}
+            {/* Quota + Upsell Card - copy adapts to plan and remaining runs */}
             {(() => {
               const remaining = result.remaining ?? 0;
               const rawPlan = (result.plan ?? "free") as "free" | "pro" | "enterprise";
               // Enterprise is disabled during testing, so collapse it to pro
-              // for copy purposes — users on legacy enterprise accounts see
+              // for copy purposes - users on legacy enterprise accounts see
               // pro-level messaging until Stripe wiring ships.
               const plan: "free" | "pro" = rawPlan === "free" ? "free" : "pro";
               const canTailorMore = remaining > 0;
@@ -920,7 +920,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                   ? "Upgrade to automatically tailor resumes for every job the pipeline finds. Bulk scrape, score, and tailor in one click."
                   : "Come back anytime today to tailor another resume.";
 
-              // Upgrade CTA: free users always see it; pro users don't —
+              // Upgrade CTA: free users always see it; pro users don't - 
               // there's nothing to upgrade to during testing.
               const showUpgradeCta = plan === "free";
 

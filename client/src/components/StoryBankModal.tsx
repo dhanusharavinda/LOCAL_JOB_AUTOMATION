@@ -13,7 +13,7 @@ export default function StoryBankModal({ onClose }: Props) {
   const [filter, setFilter] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   // Manual add-story form (previously stories could only appear via
-  // auto-generation from an Interviewing job — this lets users build the
+  // auto-generation from an Interviewing job - this lets users build the
   // bank directly).
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -127,10 +127,10 @@ export default function StoryBankModal({ onClose }: Props) {
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {([
-                ["situation", "Situation — the context"],
-                ["task", "Task — what you had to do"],
-                ["action", "Action — what you did"],
-                ["result", "Result — the outcome (with numbers)"],
+                ["situation", "Situation - the context"],
+                ["task", "Task - what you had to do"],
+                ["action", "Action - what you did"],
+                ["result", "Result - the outcome (with numbers)"],
               ] as const).map(([key, ph]) => (
                 <textarea
                   key={key}
@@ -144,13 +144,13 @@ export default function StoryBankModal({ onClose }: Props) {
             <input
               value={form.reflection}
               onChange={(e) => setForm((f) => ({ ...f, reflection: e.target.value }))}
-              placeholder="Reflection (optional) — what you learned"
+              placeholder="Reflection (optional) - what you learned"
               className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
             />
             <input
               value={form.tags}
               onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
-              placeholder="Tags (optional), comma-separated — e.g. leadership, teamwork"
+              placeholder="Tags (optional), comma-separated - e.g. leadership, teamwork"
               className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
             />
             {addErr && <p className="text-xs text-red-400">{addErr}</p>}

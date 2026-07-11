@@ -443,7 +443,7 @@ export default function SettingsModal({ onClose }: Props) {
                             // IMPORTANT: For greenhouse/lever/ashby companies, the URL
                             // must be the ATS-INTERNAL board URL (e.g.
                             // boards.greenhouse.io/<slug>), not the company's marketing
-                            // careers page — the portal scanner extracts the slug from
+                            // careers page - the portal scanner extracts the slug from
                             // the URL path and calls the public ATS API. Marketing URLs
                             // give a wrong slug ("company" / "careers") and the API
                             // returns 404 for every job. See portal-scanner.ts.
@@ -458,13 +458,13 @@ export default function SettingsModal({ onClose }: Props) {
                             { company_name: "Stripe", careers_url: "https://stripe.com/jobs", ats_type: "custom" },
                             { company_name: "Salesforce", careers_url: "https://careers.salesforce.com", ats_type: "custom" },
                             { company_name: "Adobe", careers_url: "https://careers.adobe.com", ats_type: "custom" },
-                            // Netflix left Lever (empty [] board) — they run their own
+                            // Netflix left Lever (empty [] board) - they run their own
                             // portal (explore.jobs.netflix.net) with no public API.
                             { company_name: "Netflix", careers_url: "https://explore.jobs.netflix.net/careers", ats_type: "custom" },
                             // Shopify isn't on Greenhouse/Lever/SmartRecruiters (all
-                            // probed 404/empty) — own careers site, no public API.
+                            // probed 404/empty) - own careers site, no public API.
                             { company_name: "Shopify", careers_url: "https://www.shopify.com/careers", ats_type: "custom" },
-                            // Atlassian: Greenhouse 404, Lever board empty — own site.
+                            // Atlassian: Greenhouse 404, Lever board empty - own site.
                             { company_name: "Atlassian", careers_url: "https://www.atlassian.com/company/careers/all-jobs", ats_type: "custom" },
                             // Lever (verified live via api.lever.co/v0/postings/<slug>)
                             { company_name: "Spotify", careers_url: "https://jobs.lever.co/spotify", ats_type: "lever" },

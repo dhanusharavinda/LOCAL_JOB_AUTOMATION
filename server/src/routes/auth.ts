@@ -4,10 +4,10 @@ import { requireAuth } from "../middleware/auth";
 import { getUsage, getLimitsForUser, PLAN_LIMITS } from "../middleware/gate";
 
 /**
- * Auth routes — Postgres edition.
+ * Auth routes - Postgres edition.
  * Returns profile + usage + plan limits; lets the user change plan and name.
  * Tables: public.profiles, public.user_settings, public.candidates,
- *         public.usage_tracking — all gated by RLS on user_id.
+ *         public.usage_tracking - all gated by RLS on user_id.
  */
 
 const router = Router();
@@ -29,7 +29,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
 
     // Admin status is server-determined from ADMIN_EMAILS (CSV env).
     // Computing it here means the client never has to know the admin list
-    // — it just reads `is_admin` from /me and shows/hides the admin UI.
+    // - it just reads `is_admin` from /me and shows/hides the admin UI.
     const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
     const admins = adminCsv ? adminCsv.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean) : [];
     const isAdmin = admins.includes(user.email.toLowerCase());
@@ -87,7 +87,7 @@ router.post("/onboarded", requireAuth, async (req: Request, res: Response) => {
 });
 
 // ─── PUT /api/auth/plan ──────────────────────────────────────────────
-// Test-phase plan switching. Enterprise is NOT available to test users —
+// Test-phase plan switching. Enterprise is NOT available to test users - 
 // only free and pro. Stripe wiring replaces this endpoint entirely later.
 router.put("/plan", requireAuth, async (req: Request, res: Response) => {
   const { plan } = req.body;
@@ -222,7 +222,7 @@ router.post("/admin/approve/:userId", requireAuth, async (req: Request, res: Res
     return;
   }
   // Prevent an admin from accidentally rejecting or suspending themselves
-  // — that would lock them out of the very panel they're using. If they
+  // - that would lock them out of the very panel they're using. If they
   // really need to change their own status, have another admin do it or
   // edit the row from the Supabase SQL editor.
   if (userId === req.user!.id && next !== "approved") {

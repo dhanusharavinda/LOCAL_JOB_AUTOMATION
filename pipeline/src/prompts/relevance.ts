@@ -1,4 +1,4 @@
-// Kept for backward compatibility — the full framework now lives in
+// Kept for backward compatibility - the full framework now lives in
 // buildRelevanceSystemPrompt() so it becomes a cacheable prefix (see
 // openai.ts comments re: OpenAI automatic prompt caching).
 export const RELEVANCE_SYSTEM_PROMPT =
@@ -34,7 +34,7 @@ export interface ScoreBreakdown {
   dimensions: Record<ScoringDimensionKey, DimensionScore>;
   weighted_score: number;   // 1-5 weighted average
   letter_grade: string;     // A-F
-  detected_role_type: string; // dynamic — LLM classifies into standard industry role types
+  detected_role_type: string; // dynamic - LLM classifies into standard industry role types
   gate_capped: boolean;     // true if a gate-pass dimension capped the score
 }
 
@@ -90,16 +90,16 @@ ${seniorityContext}
 If the candidate's target role is engineering/data/AI/developer (anything in: engineer, developer, scientist, analyst, devops, sre, ml, ai, data, software, backend, frontend, fullstack), the following job CATEGORIES MUST score role_match = 1 and skills_alignment = 1 (gate-cap to 2.0/D, final 4/10):
   - Sales / Account Executive / Named Account / Territory Account / Majors Account / Commercial Account / Strategic Account / Enterprise Sales
   - Sales Manager / Sales Director / SDR / BDR / Sales Development Representative
-  - Solutions Engineer / Solutions Architect / Solutions Consultant / Field Solutions / Pre-sales (these are CUSTOMER-FACING sales roles, NOT software engineering — do NOT be fooled by the word "Engineer")
+  - Solutions Engineer / Solutions Architect / Solutions Consultant / Field Solutions / Pre-sales (these are CUSTOMER-FACING sales roles, NOT software engineering - do NOT be fooled by the word "Engineer")
   - GTM / Go-to-Market / Partner Strategy / Partner Manager / Channel Manager
   - Marketing (any flavor: Product Marketing, Brand, Community, Developer Marketing)
   - Customer Success / Customer Support / Technical Support / Front Desk / Executive Assistant
   - Recruiter / Talent Acquisition / HR / People Operations
   - Finance / Accounting / Legal / Operations Manager (non-technical)
 
-These categories share NO transferable skills with engineering work — a Python+SQL data engineer brings ZERO of the skills a Named Account Executive needs (quota carrying, pipeline management, enterprise selling, contract negotiation). DO NOT score these as "transferable" — they are FUNDAMENTALLY DIFFERENT job functions and the user's resume has nothing to offer them.
+These categories share NO transferable skills with engineering work - a Python+SQL data engineer brings ZERO of the skills a Named Account Executive needs (quota carrying, pipeline management, enterprise selling, contract negotiation). DO NOT score these as "transferable" - they are FUNDAMENTALLY DIFFERENT job functions and the user's resume has nothing to offer them.
 
-DO NOT generate boilerplate reasoning like "strong fit for the Data Engineer role" when the job is "Named Account Executive". Read the actual job title and JD. If the job is sales, say "this is a sales role, not engineering — fundamental category mismatch" and score it 4/10.
+DO NOT generate boilerplate reasoning like "strong fit for the Data Engineer role" when the job is "Named Account Executive". Read the actual job title and JD. If the job is sales, say "this is a sales role, not engineering - fundamental category mismatch" and score it 4/10.
 
 ### SCORING CALIBRATION (read this AFTER the category bans above)
 The user's relevance threshold is set on a 1-10 scale where **5 = "plausibly relevant, worth a look"**. Be LENIENT WITHIN THE RIGHT JOB CATEGORY, not across categories:
@@ -113,15 +113,15 @@ The user's relevance threshold is set on a 1-10 scale where **5 = "plausibly rel
 
 1. **role_match** (GATE-PASS): Does the job title, function, and daily work match the candidate's target role?
    - 5: exact role match. 4: same domain, slightly different title. 3: adjacent role with transferable scope. 2: tangentially related (different function, overlapping tools). 1: completely different field.
-   - GATE RULE: a score of 1 here only HARD-caps the final score when skills_alignment is ALSO 1 (true category mismatch — e.g. sales/marketing/finance for a tech candidate). If role_match=1 but skills_alignment>=2, the score is NOT capped — the candidate has applicable skills even if the title is off-target, so the job stays scorable on its merits.
+   - GATE RULE: a score of 1 here only HARD-caps the final score when skills_alignment is ALSO 1 (true category mismatch - e.g. sales/marketing/finance for a tech candidate). If role_match=1 but skills_alignment>=2, the score is NOT capped - the candidate has applicable skills even if the title is off-target, so the job stays scorable on its merits.
 
 2. **skills_alignment** (GATE-PASS): Does the candidate's resume show skills this job requires?
    - 5: 80%+ skill overlap. 4: 50%+ overlap. 3: 30%+ overlap with transferable skills. 2: <15% overlap. 1: no relevant skills.
-   - GATE RULE: a score of 1 here only HARD-caps the final score when role_match is ALSO 1. Missing skills for a target-domain role is a SOFT signal — score the job on its other dimensions and let the threshold filter handle it.
+   - GATE RULE: a score of 1 here only HARD-caps the final score when role_match is ALSO 1. Missing skills for a target-domain role is a SOFT signal - score the job on its other dimensions and let the threshold filter handle it.
    - IMPORTANT: 50% skill overlap counts as a 4, not a 3. The bar for 4 is "transferable + some direct match", not "perfect alignment". Reserve 5 for genuine 80%+ matches.
 
 3. **seniority_fit**: Does the candidate's experience level match what the job asks for?
-   - 5: perfect level match. 4: within 1-2 years either direction. 3: stretch but plausible — the candidate could plausibly apply and get a screen. 2: significant gap. 1: wildly mismatched (intern applying for staff role).
+   - 5: perfect level match. 4: within 1-2 years either direction. 3: stretch but plausible - the candidate could plausibly apply and get a screen. 2: significant gap. 1: wildly mismatched (intern applying for staff role).
    - IMPORTANT: a candidate with 1-3 years applying to a "Mid-level" or unqualified-title role (no explicit "Senior" / "Staff" / "Principal") is at LEAST a 3, often a 4. JDs ask for "5+ years" by default but hire below that all the time. Don't auto-cap juniors at 2.
 
 4. **compensation**: If salary/comp info is available in the JD, how does it compare to market rate for the role?
@@ -183,14 +183,14 @@ Rules:
 - Each reasoning should be 1 short sentence, specific to this job
 - If compensation info is missing from the JD, score compensation as 3 (neutral)
 - Be FAIR on role_match: give credit for adjacent or transferable roles where the candidate's skills genuinely apply. A "Data Engineer" candidate looking at a "Backend Engineer" or "ML Engineer" role should typically score 3-4, not 2. Only reserve 1-2 for genuinely different fields (sales, accounting, marketing for a tech candidate, etc.).
-- ENTRY-LEVEL CANDIDATES READING SENIOR JDs: when the candidate's stated preferred seniority is "Entry-level" or "Associate", a JD titled "Senior X" should score seniority_fit = 1-2 (this is a wrong-direction match for the candidate's stated intent), NOT 3-4. The candidate explicitly doesn't want senior roles — surfacing those is the opposite of helpful.
-- ENTRY-LEVEL CANDIDATES READING ENTRY JDs: when the candidate's preferred seniority is "Entry-level" and the JD title is "Junior X" / "Graduate X" / "X I" / has no seniority qualifier at all, seniority_fit should be 4-5. Don't punish a perfect-level match for missing one or two skills — that's what skills_alignment is for.
-- SALES / ACCOUNT EXECUTIVE / SOLUTIONS ENGINEER / MARKETING / GTM jobs for an engineering candidate: role_match=1 AND skills_alignment=1 (gate-cap). The "reason" field must explicitly name the category mismatch — e.g. "Account Executive is a quota-carrying sales role, not engineering — fundamental category mismatch despite the company being a tech employer". Do NOT use generic "strong fit" language for these.
+- ENTRY-LEVEL CANDIDATES READING SENIOR JDs: when the candidate's stated preferred seniority is "Entry-level" or "Associate", a JD titled "Senior X" should score seniority_fit = 1-2 (this is a wrong-direction match for the candidate's stated intent), NOT 3-4. The candidate explicitly doesn't want senior roles - surfacing those is the opposite of helpful.
+- ENTRY-LEVEL CANDIDATES READING ENTRY JDs: when the candidate's preferred seniority is "Entry-level" and the JD title is "Junior X" / "Graduate X" / "X I" / has no seniority qualifier at all, seniority_fit should be 4-5. Don't punish a perfect-level match for missing one or two skills - that's what skills_alignment is for.
+- SALES / ACCOUNT EXECUTIVE / SOLUTIONS ENGINEER / MARKETING / GTM jobs for an engineering candidate: role_match=1 AND skills_alignment=1 (gate-cap). The "reason" field must explicitly name the category mismatch - e.g. "Account Executive is a quota-carrying sales role, not engineering - fundamental category mismatch despite the company being a tech employer". Do NOT use generic "strong fit" language for these.
 - The reasoning string must mention the SPECIFIC job title from the JD, not a generic "Data Engineer" or "AI Engineer" template. If you cannot say something specific about this exact posting, the score is too high.`;
 }
 
 /**
- * DYNAMIC user message — just the JD. Tiny, not cached, changes every call.
+ * DYNAMIC user message - just the JD. Tiny, not cached, changes every call.
  */
 export function buildRelevanceUserPrompt(jobDescription: string): string {
   return `## Job Description

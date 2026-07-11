@@ -1,14 +1,14 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Supabase client — browser side.
+ * Supabase client - browser side.
  *
  * Vite exposes env vars prefixed with `VITE_` to the bundle. Set these in
  * `client/.env.local` (gitignored) for local dev and in your hosting
  * platform's environment config for production:
  *
  *   VITE_SUPABASE_URL=https://<project>.supabase.co
- *   VITE_SUPABASE_ANON_KEY=<anon public key — safe to expose>
+ *   VITE_SUPABASE_ANON_KEY=<anon public key - safe to expose>
  *
  * The anon key is safe to ship in the frontend bundle. It's a JWT whose
  * only power is to let unauthenticated users hit Supabase's auth endpoints
@@ -24,11 +24,11 @@ const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 if (!url || !anon) {
   // Fail loud in the console so a misconfigured deploy is easy to spot.
-  // We still export a client so the app doesn't crash on import — calls
+  // We still export a client so the app doesn't crash on import - calls
   // will just fail with a clear error at runtime.
   // eslint-disable-next-line no-console
   console.error(
-    "[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — " +
+    "[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY - " +
     "auth will not work. Create client/.env.local with both values."
   );
 }
@@ -59,10 +59,10 @@ export const supabase: SupabaseClient = createClient(
  * header synchronously without awaiting getSession() on every call.
  *
  * The subscription fires on: INITIAL_SESSION (boot), SIGNED_IN, SIGNED_OUT,
- * TOKEN_REFRESHED, USER_UPDATED — which covers every case the token could
+ * TOKEN_REFRESHED, USER_UPDATED - which covers every case the token could
  * change. The only thing we won't catch is a hard failure of the refresh
  * flow, in which case the token eventually expires and the server returns
- * 401 — the fetch wrapper handles that by redirecting to the auth page.
+ * 401 - the fetch wrapper handles that by redirecting to the auth page.
  */
 let _accessToken: string | null = null;
 

@@ -141,7 +141,7 @@ function withTimeout(ms: number): AbortSignal {
  * duplicate if EITHER its URL is in `links` OR its normalized
  * (title|company) key is in `titleCompanyKeys`. The second matching
  * surface catches re-published / re-tracked postings whose URL drifts
- * between scrape runs (UTM params, board re-publish, etc.) — without
+ * between scrape runs (UTM params, board re-publish, etc.) - without
  * it, applied/flagged jobs reappear with new URLs and the user sees
  * them as fresh candidates.
  */
@@ -158,7 +158,7 @@ export interface DuplicateBatchResult {
  *  - Job boards inconsistently append " (Galway)", "[Hybrid]", or
  *    "- Remote" to titles. The same role from two scrape sources
  *    looks different.
- *  - "Graduate Engineer-1" vs "Graduate Engineer 1" — punctuation
+ *  - "Graduate Engineer-1" vs "Graduate Engineer 1" - punctuation
  *    drift between sources.
  *  - Trailing whitespace, em-dashes, special hyphens.
  *
@@ -166,21 +166,21 @@ export interface DuplicateBatchResult {
  * "Graduate Engineer 1" both collapse to "graduate engineer 1".
  *
  * IMPORTANT: keep this function in sync with the server's SQL
- * normalization in /api/jobs/exists-batch — drift between the two
+ * normalization in /api/jobs/exists-batch - drift between the two
  * silently breaks dedup.
  */
 function normForKey(s: string): string {
   return s
     .toLowerCase()
-    .replace(/\([^)]*\)/g, " ")    // strip "(parens)" — "(Galway)", "(Remote)", etc.
-    .replace(/\[[^\]]*\]/g, " ")   // strip "[brackets]" — "[Hybrid]", "[Full-time]", etc.
+    .replace(/\([^)]*\)/g, " ")    // strip "(parens)" - "(Galway)", "(Remote)", etc.
+    .replace(/\[[^\]]*\]/g, " ")   // strip "[brackets]" - "[Hybrid]", "[Full-time]", etc.
     .replace(/[^a-z0-9 ]/g, " ")   // collapse all punctuation (hyphens, em-dashes, slashes) to space
     .replace(/\s+/g, " ")
     .trim();
 }
 
 /**
- * Batch duplicate check — sends URLs AND (title, company) pairs at
+ * Batch duplicate check - sends URLs AND (title, company) pairs at
  * once, returns sets covering both matching surfaces. Returns null if
  * the tracker is unreachable so callers can decide whether to abort
  * (we'd rather skip the run than risk dupes).
@@ -254,7 +254,7 @@ export async function checkDuplicate(jobLink: string): Promise<DuplicateCheckRes
 /**
  * Probe the tracker to see whether a job (by job_link) already has cover
  * letter / why-fit assets saved. Used by the pipeline to enforce a "generate
- * at most once per job" policy — if the assets exist, the expensive OpenAI
+ * at most once per job" policy - if the assets exist, the expensive OpenAI
  * call is skipped entirely. Errors are treated as "not present" so a tracker
  * outage never silently blocks generation.
  */
@@ -323,12 +323,12 @@ export async function postFilteredJob(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Tracker POST failed: ${res.status} ${res.statusText} — ${body}`);
+    throw new Error(`Tracker POST failed: ${res.status} ${res.statusText} - ${body}`);
   }
 }
 
 /**
- * Attach resume URL, cover letter, and why-I'm-a-fit to the job — status stays "filtered".
+ * Attach resume URL, cover letter, and why-I'm-a-fit to the job - status stays "filtered".
  * Uses PATCH if the job already exists (found by job_link), otherwise falls back to POST.
  */
 export async function attachJobAssets(
@@ -355,7 +355,7 @@ export async function attachJobAssets(
           // Only include cover_letter / hiring_message in the PATCH if
           // we actually generated them this run. Sending nulls would
           // wipe values the user generated manually via the on-demand
-          // Generate button — pipeline runs are now strictly on-demand-
+          // Generate button - pipeline runs are now strictly on-demand-
           // skip for these fields.
           const patchBody: Record<string, unknown> = {
             resume_url: resumeUrl,
@@ -418,6 +418,6 @@ export async function attachJobAssets(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Tracker asset attach failed: ${res.status} ${res.statusText} — ${body}`);
+    throw new Error(`Tracker asset attach failed: ${res.status} ${res.statusText} - ${body}`);
   }
 }

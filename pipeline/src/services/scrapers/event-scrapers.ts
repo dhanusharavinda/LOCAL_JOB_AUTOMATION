@@ -20,7 +20,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 /**
  * Per-country Meetup.com region codes + top cities to query. Adding a
- * country is a one-liner here — no scraper duplication needed. City
+ * country is a one-liner here - no scraper duplication needed. City
  * names are used verbatim in both the Meetup search URL (case-sensitive)
  * and as the fallback location string when JSON-LD doesn't expose one.
  */
@@ -37,7 +37,7 @@ const COUNTRY_CITIES: Record<string, { meetupGeo: string; cities: string[]; coun
  * always-on career words. Previously this was a hardcoded `TECH_KEYWORDS`
  * list that silently dropped every non-tech event (nurses, consultants,
  * lawyers, etc. got zero matches). Now the user's own keywords drive
- * the filter — a consultant sees consulting events, a nurse sees nursing
+ * the filter - a consultant sees consulting events, a nurse sees nursing
  * events, and both still see generic career fairs.
  */
 function buildRelevanceRegex(userKeywords: string[]): RegExp {
@@ -45,7 +45,7 @@ function buildRelevanceRegex(userKeywords: string[]): RegExp {
   const tokens = userKeywords
     .flatMap((kw) => kw.split(/[\s,]+/))
     .map((t) => t.trim().toLowerCase())
-    .filter((t) => t.length >= 3) // skip "AI" / "ML" noise — CAREER_KEYWORDS covers those
+    .filter((t) => t.length >= 3) // skip "AI" / "ML" noise - CAREER_KEYWORDS covers those
     .slice(0, 20);
   if (tokens.length === 0) return CAREER_KEYWORDS;
   const kwPart = tokens.map(escapeRe).join("|");
@@ -89,7 +89,7 @@ function classifyEventType(title: string, desc: string): string {
   return "networking";
 }
 
-// ── JobsExpo.ie (Ireland only — run only when Ireland is in TARGET_COUNTRIES) ──
+// ── JobsExpo.ie (Ireland only - run only when Ireland is in TARGET_COUNTRIES) ──
 export async function scrapeJobsExpo(): Promise<EventResult[]> {
   const events: EventResult[] = [];
   try {
@@ -183,7 +183,7 @@ export async function scrapeTechMeetups(countries: string[], _userKeywords: stri
   try {
     // TechMeetups moved its listing from /events/ (now 404) to
     // /tech-job-fairs/. Try the current URL first and fall back to the
-    // legacy one in case they move it back — both pages carry the same
+    // legacy one in case they move it back - both pages carry the same
     // techmeetups.com/event/ anchor pattern the selector below matches.
     const LISTING_URLS = [
       "https://techmeetups.com/tech-job-fairs/",
@@ -254,7 +254,7 @@ export async function scrapeTechMeetups(countries: string[], _userKeywords: stri
 export async function scrapeMeetupByCountry(countries: string[], userKeywords: string[] = []): Promise<EventResult[]> {
   const events: EventResult[] = [];
   const seen = new Set<string>();
-  // Topics come from the user's keywords — "management consultant" or
+  // Topics come from the user's keywords - "management consultant" or
   // "registered nurse" drives Meetup queries for the right community
   // instead of the old hardcoded "data engineering / software developer"
   // list that biased every account toward tech.
@@ -281,7 +281,7 @@ export async function scrapeMeetupByCountry(countries: string[], userKeywords: s
     return events;
   }
 
-  // Cap total scrape volume so we don't hit Meetup too hard — 3 topics ×
+  // Cap total scrape volume so we don't hit Meetup too hard - 3 topics ×
   // top 2 cities per country is a reasonable sweet spot.
   const capped = searchUrls.slice(0, countries.length * 6);
 
@@ -377,7 +377,7 @@ export async function scrapeMeetupByCountry(countries: string[], userKeywords: s
   return events;
 }
 
-// ── Combined scraper — country-aware entry point ─────────────────────────────
+// ── Combined scraper - country-aware entry point ─────────────────────────────
 /**
  * Fan out to each country-specific event source based on the user's
  * TARGET_COUNTRIES. JobsExpo only runs for Ireland (it's an Irish
@@ -391,7 +391,7 @@ export async function scrapeAllExtraEvents(countries: string[], userKeywords: st
   }
 
   const tasks: Array<Promise<EventResult[]>> = [];
-  // JobsExpo is Ireland-only — only queue it when Ireland is selected.
+  // JobsExpo is Ireland-only - only queue it when Ireland is selected.
   if (resolved.includes("ireland")) tasks.push(scrapeJobsExpo());
   tasks.push(scrapeTechMeetups(resolved, userKeywords));
   tasks.push(scrapeMeetupByCountry(resolved, userKeywords));

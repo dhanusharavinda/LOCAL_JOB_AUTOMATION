@@ -3,7 +3,7 @@ import { politeGet } from "./utils";
 import { config } from "../../config";
 
 /**
- * CareerJet public API — free without affiliate ID (limited results).
+ * CareerJet public API - free without affiliate ID (limited results).
  * With an affiliate ID, full results are returned: register at
  * https://www.careerjet.com/partners/
  *

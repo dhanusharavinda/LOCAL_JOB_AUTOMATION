@@ -3,7 +3,7 @@ import { politeGet, isLocationRelevant } from "./utils";
 import * as cheerio from "cheerio";
 
 /**
- * Glassdoor scraper — scrapes job listings from Glassdoor Ireland.
+ * Glassdoor scraper - scrapes job listings from Glassdoor Ireland.
  * Uses HTML parsing (no API key needed). Targets glassdoor.ie with Ireland location.
  */
 export async function scrapeGlassdoor(keywords: string[]): Promise<ScrapedJob[]> {
@@ -12,7 +12,7 @@ export async function scrapeGlassdoor(keywords: string[]): Promise<ScrapedJob[]>
 
   for (const kw of keywords.slice(0, 3)) {
     try {
-      // Glassdoor Ireland search — location locked to Ireland
+      // Glassdoor Ireland search - location locked to Ireland
       const url = `https://www.glassdoor.ie/Job/ireland-${encodeURIComponent(kw.replace(/\s+/g, "-"))}-jobs-SRCH_IL.0,7_IN104_KO8,${8 + kw.replace(/\s+/g, "-").length}.htm?sortBy=date_desc`;
       const res = await politeGet(url, 20000);
       if (!res.ok) {

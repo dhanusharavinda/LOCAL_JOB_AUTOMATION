@@ -1,5 +1,5 @@
 /**
- * Naukri.com scraper — India's largest job board.
+ * Naukri.com scraper - India's largest job board.
  * Uses their public search API endpoint.
  */
 
@@ -14,7 +14,7 @@ export async function scrapeNaukri(keywords: string[]): Promise<ScrapedJob[]> {
   for (const kw of keywords.slice(0, 5)) {
     for (const page of [1, 2, 3]) {
     try {
-      // Naukri search URL — paginated
+      // Naukri search URL - paginated
       const slug = kw.toLowerCase().replace(/\s+/g, "-");
       const url = `https://www.naukri.com/${slug}-jobs-${page}?k=${encodeURIComponent(kw)}&experience=0&jobAge=15`;
 

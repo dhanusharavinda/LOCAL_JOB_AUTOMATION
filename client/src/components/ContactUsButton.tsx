@@ -152,7 +152,7 @@ export default function ContactUsButton() {
             {err && <p style={{ color: "#f87171", fontSize: 12, margin: "0 0 8px" }}>{err}</p>}
             {sent ? (
               <div style={{ color: "#4ade80", fontSize: 13, fontWeight: 600, textAlign: "center", padding: "8px 0" }}>
-                ✓ Sent — thanks for the feedback!
+                ✓ Sent - thanks for the feedback!
               </div>
             ) : (
               <div style={footerRow}>

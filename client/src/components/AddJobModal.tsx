@@ -103,7 +103,7 @@ export default function AddJobModal({ onClose, onAdded }: Props) {
             <div>
               <label className={labelClass}>Seniority</label>
               <select className={inputClass} value={form.seniority_level} onChange={(e) => set("seniority_level", e.target.value)}>
-                <option value="">— select —</option>
+                <option value=""> - select - </option>
                 <option>Entry level</option>
                 <option>Associate</option>
                 <option>Mid-Senior level</option>

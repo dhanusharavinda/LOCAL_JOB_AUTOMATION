@@ -20,16 +20,16 @@
   --text-tertiary: #555872;
   --text-ghost: #2e3148;
 
-  /* Accent — Brass */
+  /* Accent - Brass */
   --accent: #c9a94e;
   --accent-light: #d4b85c;
   --accent-muted: rgba(201, 169, 78, 0.12);
 
-  /* Secondary — Slate Blue */
+  /* Secondary - Slate Blue */
   --accent-blue: #6775a0;
   --accent-blue-muted: rgba(103, 117, 160, 0.1);
 
-  /* Destructive — Signal Red */
+  /* Destructive - Signal Red */
   --accent-red: #c45252;
   --accent-red-muted: rgba(196, 82, 82, 0.1);
 
@@ -100,7 +100,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Offer accent — brass left border */
+/* Offer accent - brass left border */
 .offer-glow {
   border-left: 2px solid var(--accent) !important;
 }
@@ -288,7 +288,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Onboarding tour (driver.js) — dark theme override ───────────────
+/* ── Onboarding tour (driver.js) - dark theme override ───────────────
    driver.js defaults to a light popover with navy text. On our dark UI
    that's jarring, so we restyle the popover + buttons to match the
    brand palette. The popoverClass "gc8-tour-popover" is set in
@@ -368,7 +368,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .gc8-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: var(--bg-raised); }
 .gc8-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: var(--bg-raised); }
 
-/* Spotlight overlay — slightly darker + brass-tinted outline on the
+/* Spotlight overlay - slightly darker + brass-tinted outline on the
    highlighted element. */
 .driver-overlay {
   fill: rgba(6, 7, 10, 0.72) !important;

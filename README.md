@@ -1,4 +1,4 @@
-# GO CANDID8 — Job Automation Portal
+# GO CANDID8 - Job Automation Portal
 
 Personal-brand SaaS for automating the job hunt end-to-end: scrape relevant postings, AI-filter them against your resume, auto-tailor your CV per role, draft cover letters, track applications on a kanban, practice interviews with an AI voice agent, and auto-apply through supported ATS systems.
 
@@ -9,7 +9,7 @@ Personal-brand SaaS for automating the job hunt end-to-end: scrape relevant post
 ```
 job-tracker/
 ├── client/      React + Vite dashboard (Supabase auth, kanban UI, AI interview, settings)
-├── server/      Express + Postgres (Supabase) — REST API for everything the client + extension talk to
+├── server/      Express + Postgres (Supabase) - REST API for everything the client + extension talk to
 ├── pipeline/    Long-running TypeScript subprocess: scrape → AI filter → tailor → store
 ├── extension/   Chrome extension that auto-fills ATS forms using the user's apply profile
 └── supabase/    Migrations: jobs, profiles, interview sessions, apply profiles, etc.
@@ -39,14 +39,14 @@ Every step is bounded (`APIFY_JOB_COUNT`, `MAX_TAILOR_COUNT`, `RELEVANCE_SCORE_T
 
 ## Recent architectural changes (this session)
 
-### 1. Keyword expansion — beats "ETL Engineer" misses
+### 1. Keyword expansion - beats "ETL Engineer" misses
 One gpt-4o-mini call at pipeline startup expands the user's literal keywords into the broader set of titles recruiters actually use (`data engineer` → `etl engineer, analytics engineer, data platform engineer, big data engineer`). Mutates `config.SEARCH_KEYWORDS` so every downstream scraper picks up the broader set automatically.
 - File: [`pipeline/src/services/keywordExpander.ts`](pipeline/src/services/keywordExpander.ts)
 - Toggle: `EXPAND_KEYWORDS=true|false` (default true)
 - Safeguards: keeps user's original keywords at the front; strips seniority words; capped at 12 titles; in-memory cached.
 
 ### 2. Multi-keyword fan-out per scraper
-Previously every Apify scraper (Indeed, Naukri, Truefetch) used `keywords[0]` only — 2/3 of the user's CSV silently dropped. Now each scraper fans out across up to `MAX_KEYWORDS_PER_SCRAPER` (default 3) keywords **in parallel**, dedupping by URL within the scraper.
+Previously every Apify scraper (Indeed, Naukri, Truefetch) used `keywords[0]` only - 2/3 of the user's CSV silently dropped. Now each scraper fans out across up to `MAX_KEYWORDS_PER_SCRAPER` (default 3) keywords **in parallel**, dedupping by URL within the scraper.
 - Helper: `runApifyActorMultiKeyword()` in [`pipeline/src/services/apify.ts`](pipeline/src/services/apify.ts)
 - Same wall-clock time as a single call.
 
@@ -56,8 +56,8 @@ LinkedIn's `f_E` (experience filter) is no longer applied as a hard scrape gate.
 - Plumbing: [`pipeline/src/prompts/relevance.ts:60-84`](pipeline/src/prompts/relevance.ts#L60-L84) + [`pipeline/src/services/openai.ts:46-72`](pipeline/src/services/openai.ts#L46-L72)
 
 ### 4. New scrapers
-- **Truefetch** (`truefetch~best-job-listing`) — multi-source aggregator across Indeed/LinkedIn/Glassdoor. Default ON.
-- **Upwork** (`upwork-vibe~upwork-job-scraper`) — freelance / contract gigs. Default OFF; flip `SCRAPE_UPWORK=true` if hunting contract work.
+- **Truefetch** (`truefetch~best-job-listing`) - multi-source aggregator across Indeed/LinkedIn/Glassdoor. Default ON.
+- **Upwork** (`upwork-vibe~upwork-job-scraper`) - freelance / contract gigs. Default OFF; flip `SCRAPE_UPWORK=true` if hunting contract work.
 
 ### 5. Admin tailoring bypass
 Admins (CSV-listed in `ADMIN_EMAILS` env) get unlimited daily manual resume tailors. Skips the advisory-lock transaction and the `free_tailor_log` insert so admin usage doesn't pollute the quota table.
@@ -70,7 +70,7 @@ Voice-driven mock interviews: GPT-4o-mini generates 10 questions tailored to the
 - File: [`client/src/components/InterviewSession.tsx`](client/src/components/InterviewSession.tsx) + [`server/src/routes/interview.ts`](server/src/routes/interview.ts)
 
 ### 7. Defensive scoring fix
-The relevance scorer now coerces non-numeric `score` fields from the LLM via `Number.isFinite` before clamping — prevents NaN propagation when GPT returns `"score": "high"` instead of a number. Fixes a silent verdict corruption bug.
+The relevance scorer now coerces non-numeric `score` fields from the LLM via `Number.isFinite` before clamping - prevents NaN propagation when GPT returns `"score": "high"` instead of a number. Fixes a silent verdict corruption bug.
 - File: [`pipeline/src/services/openai.ts:84-99`](pipeline/src/services/openai.ts#L84-L99)
 
 ---
@@ -134,7 +134,7 @@ The pipeline reads everything from env vars (server injects per-user config when
 | `RELEVANCE_SCORE_THRESHOLD` | `5` | Min relevance score (1-10 scale) to keep a job |
 | `ADMIN_EMAILS` | `""` | CSV; admins get unlimited manual tailors + admin panel |
 
-Server-only vars live in [`server/.env.example`](server/.env.example) — Supabase URL + service-role key, CORS allow-list, Gmail OAuth credentials, etc.
+Server-only vars live in [`server/.env.example`](server/.env.example) - Supabase URL + service-role key, CORS allow-list, Gmail OAuth credentials, etc.
 
 ---
 
@@ -143,7 +143,7 @@ Server-only vars live in [`server/.env.example`](server/.env.example) — Supaba
 ### Run the pipeline manually (single user)
 ```bash
 cd pipeline
-# pipeline reads its env from process.env — populate via .env or `export`
+# pipeline reads its env from process.env - populate via .env or `export`
 npm run start
 ```
 
@@ -160,9 +160,9 @@ Server + pipeline run on Railway (Dockerfile + nixpacks.toml at root); client de
 
 ## Notes for future maintainers
 
-- **Tenant isolation**: every SQL query touching user data scopes by `WHERE user_id = ${userId}`. Storage paths are prefixed by `{userId}/`. RLS policies in Supabase enforce the same on direct browser access. The four ATS handlers (`server/src/services/ats/*.ts`) refuse to run if `job.user_id` is missing from the caller's payload — closes a latent foot-gun where a future caller could accidentally use one user's resume under another user's session.
+- **Tenant isolation**: every SQL query touching user data scopes by `WHERE user_id = ${userId}`. Storage paths are prefixed by `{userId}/`. RLS policies in Supabase enforce the same on direct browser access. The four ATS handlers (`server/src/services/ats/*.ts`) refuse to run if `job.user_id` is missing from the caller's payload - closes a latent foot-gun where a future caller could accidentally use one user's resume under another user's session.
 - **Apify scrapers fail independently**: `Promise.allSettled` in the orchestrator means one broken scraper doesn't sink the whole run. Each surfaces a `log.warn` with the actor that failed.
-- **The AI relevance prompt is byte-stable** so OpenAI's prefix-cache hits on every job (50% cost discount). Be careful when editing [`pipeline/src/prompts/relevance.ts`](pipeline/src/prompts/relevance.ts) — even a whitespace change invalidates the cache for the rest of the run.
+- **The AI relevance prompt is byte-stable** so OpenAI's prefix-cache hits on every job (50% cost discount). Be careful when editing [`pipeline/src/prompts/relevance.ts`](pipeline/src/prompts/relevance.ts) - even a whitespace change invalidates the cache for the rest of the run.
 - **Pipeline subprocess auth**: server signs a one-shot M2M token at boot (`INTERNAL_PIPELINE_TOKEN`) and passes it via env to the subprocess. The subprocess uses it to call `/api/internal/*` endpoints (write-back of scraped jobs, status updates).
 
 to do:

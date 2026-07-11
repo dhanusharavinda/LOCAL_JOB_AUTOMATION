@@ -15,14 +15,14 @@ import { ATS_ENGINE_BLOCK } from "../prompts/ats-engine";
 const ADMIN_QUOTA = 9999;
 
 /**
- * Resume Tailor — the marketing-bait feature on the landing page.
+ * Resume Tailor - the marketing-bait feature on the landing page.
  *
  * Flow: anyone can open the landing page and fill the form, but the
  * client forces signup BEFORE calling this endpoint. Once authenticated,
  * the daily quota kicks in:
  *   free = 1/day
  *   pro  = 5/day
- * Counter resets at 00:00 UTC every day — mirrors the pipeline's
+ * Counter resets at 00:00 UTC every day - mirrors the pipeline's
  * usage_tracking boundary so manual + auto tailors refill on the same tick.
  *
  * Enterprise is off during the testing phase; auth middleware coerces
@@ -42,7 +42,7 @@ const DAILY_QUOTA: Record<"free" | "pro", number> = {
 function quotaFor(plan: string | undefined, email?: string): number {
   // Admins (ADMIN_EMAILS env) get an effectively unlimited quota so the
   // owner can iterate on the tailor without daily caps. This is purely
-  // server-side — the client doesn't know about the admin bypass and
+  // server-side - the client doesn't know about the admin bypass and
   // doesn't need to.
   if (isAdmin(email)) return ADMIN_QUOTA;
   if (plan === "pro" || plan === "enterprise") return DAILY_QUOTA.pro;
@@ -97,7 +97,7 @@ async function countUsedToday(userId: string): Promise<number> {
  * contend.
  */
 function advisoryLockKey(userId: string): bigint {
-  // FNV-1a 64-bit — fast, no deps, good distribution.
+  // FNV-1a 64-bit - fast, no deps, good distribution.
   let h = 0xcbf29ce484222325n;
   const PRIME = 0x100000001b3n;
   const MASK = 0xffffffffffffffffn;
@@ -146,7 +146,7 @@ router.post("/", async (req: Request, res: Response) => {
   const quota = quotaFor(plan, email);
   const { resumeText, jobDescription, generateCoverLetter, userInstructions } = req.body;
   // On-demand cover letter alongside the tailored resume. Off by
-  // default — only generated when the client explicitly asks for it
+  // default - only generated when the client explicitly asks for it
   // so we don't pay for an extra OpenAI call every tailor run.
   const wantsCoverLetter = generateCoverLetter === true;
   // Free-form steering the user typed into the tailor form (e.g.
@@ -183,7 +183,7 @@ router.post("/", async (req: Request, res: Response) => {
     });
     res.status(422).json({
       error:
-        "This file doesn't look like a resume — we couldn't find any of the standard sections (Experience, Education, Skills, etc.). Make sure you uploaded YOUR CV, not a job description or other document.",
+        "This file doesn't look like a resume - we couldn't find any of the standard sections (Experience, Education, Skills, etc.). Make sure you uploaded YOUR CV, not a job description or other document.",
     });
     return;
   }
@@ -263,7 +263,7 @@ router.post("/", async (req: Request, res: Response) => {
       ? Math.min(10, Math.max(1, Math.round(rawIntensity)))
       : 5;
 
-    // Don't truncate the resume too aggressively — when a candidate has
+    // Don't truncate the resume too aggressively - when a candidate has
     // 3 degrees + 5 roles, a 6000-char clamp silently drops the later
     // entries, which is exactly the "only 1 education shows up" bug.
     // 16000 chars is roughly 4000 tokens, well within the context budget.
@@ -291,7 +291,7 @@ router.post("/", async (req: Request, res: Response) => {
       ],
       response_format: { type: "json_object" },
       temperature: 0.6,
-      // Generous ceiling — a 3-degree / 5-role resume can easily exceed
+      // Generous ceiling - a 3-degree / 5-role resume can easily exceed
       // the default cap, which manifests as truncated JSON (the model
       // hits the limit mid-array and we only get the first few entries).
       max_tokens: 4000,
@@ -316,7 +316,7 @@ router.post("/", async (req: Request, res: Response) => {
     // Detect schema-leak: the AI sometimes emits the prompt's JSON shape
     // verbatim ("string", "string or null") when given resume text it
     // can't parse. The PDF would render those literal placeholders. We
-    // reject ONLY on clear schema-leak signals — a real resume with a
+    // reject ONLY on clear schema-leak signals - a real resume with a
     // missing/empty name should NOT trigger this:
     //
     //   1. 5+ "string"/"string or null" literals anywhere in the output
@@ -324,7 +324,7 @@ router.post("/", async (req: Request, res: Response) => {
     //   2. The name field IS literally "string" or "string or null"
     //      → AI failed on the most basic field; whole output is suspect.
     //
-    // An empty/null name is allowed through — some resumes just don't
+    // An empty/null name is allowed through - some resumes just don't
     // have a clear text header (logos, images), and the rest of the
     // tailored output may still be useful.
     const flat = JSON.stringify(inner).toLowerCase();
@@ -346,7 +346,7 @@ router.post("/", async (req: Request, res: Response) => {
       });
       res.status(422).json({
         error:
-          "Our AI couldn't extract resume fields from this file — the content may not look like a CV. Make sure you uploaded YOUR resume (not a job description, company brochure, or other doc), then try again.",
+          "Our AI couldn't extract resume fields from this file - the content may not look like a CV. Make sure you uploaded YOUR resume (not a job description, company brochure, or other doc), then try again.",
       });
       return;
     }
@@ -411,7 +411,7 @@ router.post("/", async (req: Request, res: Response) => {
         : [];
 
     // On-demand cover letter. Best-effort: failures are logged but
-    // don't break the tailor response — the user still gets their
+    // don't break the tailor response - the user still gets their
     // resume PDF. Skipped entirely unless the client opted in via
     // `generateCoverLetter: true`.
     let coverLetter: string | null = null;
@@ -426,7 +426,7 @@ router.post("/", async (req: Request, res: Response) => {
         const targetRole = titleGuess || "the role";
         const targetCompany = companyGuess || "the company";
 
-        // Skills bullet — what the candidate brings, mined from the
+        // Skills bullet - what the candidate brings, mined from the
         // resume's top-level skills section if present, otherwise the
         // first 1500 chars. Used as ground-truth so the model doesn't
         // invent tools the candidate hasn't used.
@@ -520,7 +520,7 @@ Return the JSON now.`;
 // Lets a user click "Generate Cover Letter" AFTER they've already
 // tailored a resume without opting into the inline cover letter. Takes
 // the same resumeText + jobDescription the tailor used and returns the
-// cover letter. Does NOT burn against the daily tailor quota — the
+// cover letter. Does NOT burn against the daily tailor quota - the
 // user already spent that for the resume; the cover letter is a
 // follow-up convenience on the same inputs.
 router.post("/cover-letter", async (req: Request, res: Response) => {
@@ -611,13 +611,13 @@ Return the JSON now.`;
  * Resume tailoring prompt. Mirrors the pipeline's 1-10 intensity scale
  * so the free hook produces the same quality output as a paid pipeline
  * run. The critical "preserve every entry" rules are hard-coded here
- * because the free-tailor endpoint is stateless — we only get one shot
+ * because the free-tailor endpoint is stateless - we only get one shot
  * per request, and truncating a candidate's third degree is the fastest
  * way to lose their trust.
  */
 /**
  * One row of the user's project_bank. Pruned to the fields the LLM
- * actually uses for swap suggestions — passing the whole row wastes
+ * actually uses for swap suggestions - passing the whole row wastes
  * tokens on created_at / updated_at / id.
  */
 export interface BankProjectForPrompt {
@@ -660,7 +660,7 @@ export function buildBankProjectsBlock(bank: BankProjectForPrompt[] | undefined 
   lines.push("- Only swap when the bank project's keyword/tech overlap with the JD is materially better than the resume project's. Don't swap on marginal differences.");
   lines.push("- Never swap a project from a real employer with a hobby/personal one.");
   lines.push("- Never invent details about bank projects: use ONLY the title/summary/bullets/tags given.");
-  lines.push("- Cap proposals at 2 swaps per resume — more than that signals the candidate's whole experience is mismatched, which a swap won't fix.");
+  lines.push("- Cap proposals at 2 swaps per resume - more than that signals the candidate's whole experience is mismatched, which a swap won't fix.");
   lines.push("- If no swap is genuinely better, leave projectSwaps empty. Don't force suggestions.");
   lines.push("\nADD TO YOUR JSON OUTPUT a top-level field:");
   lines.push("  \"projectSwaps\": [");
@@ -708,14 +708,14 @@ export function buildTailorPrompt(
 - Summary: rewrite with 3-5 JD keywords while keeping the candidate's voice.`;
   } else if (intensity <= 9) {
     intensityRules = `TAILORING INTENSITY: HIGH (${intensity}/10)
-- No per-bullet keyword cap. Pull in JD KEYWORDS — meaning specific tools, technologies, platforms, methodologies, and domain nouns (e.g. "Salesforce", "HubSpot", "SQL", "pipeline hygiene", "outbound cadences"). NOT full JD sentences.
+- No per-bullet keyword cap. Pull in JD KEYWORDS - meaning specific tools, technologies, platforms, methodologies, and domain nouns (e.g. "Salesforce", "HubSpot", "SQL", "pipeline hygiene", "outbound cadences"). NOT full JD sentences.
 - Every bullet should name at least one JD tool or domain term if possible.
 - Target 90%+ TOOL / SKILL coverage against the JD.
 - Restructure skills categories around JD priorities.
 - Summary: rewrite around the target role, but the sentences must describe the CANDIDATE's own achievements in their own framing. Do not echo JD responsibilities back.`;
   } else {
-    intensityRules = `TAILORING INTENSITY: MAXIMUM (10/10) — FULL MIRROR MODE
-The aggressive, opt-in maximum. Run the ATS SIMULATION ENGINE at full depth and drive machine-gate keyword coverage as high as it goes — mirroring the JD's exact vocabulary AND fabricating plausible supporting detail. (The candidate is explicitly warned in the UI that human recruiters can still spot heavy mirroring; that trade-off is their choice, not yours to second-guess.)
+    intensityRules = `TAILORING INTENSITY: MAXIMUM (10/10) - FULL MIRROR MODE
+The aggressive, opt-in maximum. Run the ATS SIMULATION ENGINE at full depth and drive machine-gate keyword coverage as high as it goes - mirroring the JD's exact vocabulary AND fabricating plausible supporting detail. (The candidate is explicitly warned in the UI that human recruiters can still spot heavy mirroring; that trade-off is their choice, not yours to second-guess.)
 
 - Aim for 90%+ keyword coverage against the JD, where "keyword" = a specific tool, technology, certification, methodology, or domain-specific noun (e.g. "Salesforce", "Outreach", "ABM", "MEDDIC", "ICP targeting"). Keywords are TOKENS, not PHRASES.
 - MIRROR SURFACE FORMS: use the JD's exact spelling, casing, and punctuation for every matched keyword ("Node.js" not "nodejs", "CI/CD" not "CICD"). Pair acronyms with expansions on first use ("PostgreSQL (Postgres)").
@@ -724,29 +724,29 @@ The aggressive, opt-in maximum. Run the ATS SIMULATION ENGINE at full depth and 
 - You MAY add JD tools, platforms, and methodologies into bullets even when the original resume does not mention them, provided they sit in the same professional ecosystem as the candidate's real work.
 - You may add up to 2 new bullets per role that plausibly extend the real work described in the resume.
 - Restructure skills and summary around the target role.
-- IMMUTABLE EVEN HERE: never change or invent companies, schools, job titles, time periods, degrees, certification names, or work-authorization / visa / clearance statements. Fabrication is confined to bullet detail, metrics, tool mentions, and skill entries — never identity, credentials, or eligibility facts.
+- IMMUTABLE EVEN HERE: never change or invent companies, schools, job titles, time periods, degrees, certification names, or work-authorization / visa / clearance statements. Fabrication is confined to bullet detail, metrics, tool mentions, and skill entries - never identity, credentials, or eligibility facts.
 
-=== PROOF-IN-CONTEXT RULES (INTENSITY 10 — HARD STOPS) ===
-This is the #1 tell of a fake/over-tailored resume: a SKILLS section stuffed with the JD's tool list while the work experience and projects don't mention any of those tools. Recruiters scan top-to-bottom and ask "where did they actually use X?" — if the answer is "only in skills", they discard the resume in seconds. Every JD-driven skill must have backing PROOF in either work experience or a project bullet. Listing without proof is treated as fabrication.
+=== PROOF-IN-CONTEXT RULES (INTENSITY 10 - HARD STOPS) ===
+This is the #1 tell of a fake/over-tailored resume: a SKILLS section stuffed with the JD's tool list while the work experience and projects don't mention any of those tools. Recruiters scan top-to-bottom and ask "where did they actually use X?" - if the answer is "only in skills", they discard the resume in seconds. Every JD-driven skill must have backing PROOF in either work experience or a project bullet. Listing without proof is treated as fabrication.
 
 1. **No orphan skills.** Every tool / technology / platform / methodology you put in the SKILLS section MUST be referenced (directly or by tight synonym) in at least ONE bullet inside either work experience or projects. If you can't show usage in a bullet, DO NOT list it in skills. Removing an unbacked skill is better than listing it unbacked.
 
-2. **Context, not name-dropping.** Backing bullets must show HOW the skill was used — the system / problem / outcome — not just mention the tool's name. Acceptable: "Built an ETL pipeline in Databricks that ingested 5M rows/day into Delta tables for the analytics team." Unacceptable: "Used Databricks." Tool name alone is keyword stuffing, not proof.
+2. **Context, not name-dropping.** Backing bullets must show HOW the skill was used - the system / problem / outcome - not just mention the tool's name. Acceptable: "Built an ETL pipeline in Databricks that ingested 5M rows/day into Delta tables for the analytics team." Unacceptable: "Used Databricks." Tool name alone is keyword stuffing, not proof.
 
-3. **Match the JD's framing.** When a JD asks for "Databricks for ML feature stores", a backing bullet that says "queried tables in Databricks" is too thin — the context must match the JD's USE CASE, not just the tool. Rewrite the bullet to show the matching context (feature store work, ML pipelines, etc.) provided the candidate's resume gives you something plausible to anchor to.
+3. **Match the JD's framing.** When a JD asks for "Databricks for ML feature stores", a backing bullet that says "queried tables in Databricks" is too thin - the context must match the JD's USE CASE, not just the tool. Rewrite the bullet to show the matching context (feature store work, ML pipelines, etc.) provided the candidate's resume gives you something plausible to anchor to.
 
 4. **Spread proof across roles + projects when possible.** Don't dump every JD skill into one bullet. Distribute usage across multiple experience entries / projects so the skill set reads as accumulated over time, not crammed in at the last minute.
 
-5. **When projects can carry the proof, use them.** If a work experience role genuinely didn't touch a JD-critical skill, surface it through a project bullet instead. Projects are the legitimate place to demonstrate skills not yet seen in paid roles — that's their job on a junior / mid-level resume.
+5. **When projects can carry the proof, use them.** If a work experience role genuinely didn't touch a JD-critical skill, surface it through a project bullet instead. Projects are the legitimate place to demonstrate skills not yet seen in paid roles - that's their job on a junior / mid-level resume.
 
 6. **Skills section ordering reflects evidence weight.** Lead each skill category with tools the bullets back up most heavily. Tools mentioned in only one bullet go last in their category. This way the reader's eye lands on the strongest matches first.
 
-=== MIRROR-MODE COHERENCE RULES (INTENSITY 10 — HARD STOPS) ===
-At Level 10 you mirror the JD AND fabricate supporting detail — so the #1 job is making the result read as ONE coherent professional, not a keyword dump. The PROOF-IN-CONTEXT rules above still bind: every skill you list (real or added) must be backed by a bullet that shows it in use. When fabrication supplies that backing bullet, make it specific and consistent with the candidate's real roles.
+=== MIRROR-MODE COHERENCE RULES (INTENSITY 10 - HARD STOPS) ===
+At Level 10 you mirror the JD AND fabricate supporting detail - so the #1 job is making the result read as ONE coherent professional, not a keyword dump. The PROOF-IN-CONTEXT rules above still bind: every skill you list (real or added) must be backed by a bullet that shows it in use. When fabrication supplies that backing bullet, make it specific and consistent with the candidate's real roles.
 
-1. Mirror JD phrasing into bullets and summary, but always attach the candidate's (real or plausibly-added) scope, tools, and outcomes — write "built end-to-end data pipelines in Airflow across 6 vendor feeds", never a bare echo of the JD's duty line.
+1. Mirror JD phrasing into bullets and summary, but always attach the candidate's (real or plausibly-added) scope, tools, and outcomes - write "built end-to-end data pipelines in Airflow across 6 vendor feeds", never a bare echo of the JD's duty line.
 2. The SUMMARY mirrors the JD's title and top vocabulary while reading as the candidate's own positioning, not a restatement of the JD's "what you'll do" list.
-3. NO ORPHAN SKILLS (PROOF-IN-CONTEXT rule #1): every tool in the skills section appears in at least one experience or project bullet. If a JD tool has no natural home, either add a plausible backing bullet for it or leave it out — an unbacked skills list is the recruiter tell that unravels the whole resume.
+3. NO ORPHAN SKILLS (PROOF-IN-CONTEXT rule #1): every tool in the skills section appears in at least one experience or project bullet. If a JD tool has no natural home, either add a plausible backing bullet for it or leave it out - an unbacked skills list is the recruiter tell that unravels the whole resume.
 4. Keep fabrication plausible and in-ecosystem: realistic numbers for the seniority, tools adjacent to what the candidate actually used. A resume that impresses the machine but collapses the moment a human asks "tell me about this" has failed.
 
 Before finalising: read the resume as a skeptical hiring manager. Every mirrored phrase and invented metric must look like it belongs to this specific person's real career.`;
@@ -770,9 +770,9 @@ The candidate added this guidance about what to emphasise or de-emphasise. Apply
 "${trimmedInstructions}"
 
 How to apply:
-- If they say "mention X" — surface X in the skills section AND weave it into bullets / summary where the resume already shows evidence of it.
-- If they say "don't mention X" / "remove X" — drop X from skills and avoid naming it in bullets / summary. Substitute a JD-relevant alternative the candidate has actually used.
-- If they ask to "enhance experience / projects with X" — only when intensity is HIGH (7+) and the candidate has plausible adjacency to X; never invent net-new employers, titles, dates, or certifications.
+- If they say "mention X" - surface X in the skills section AND weave it into bullets / summary where the resume already shows evidence of it.
+- If they say "don't mention X" / "remove X" - drop X from skills and avoid naming it in bullets / summary. Substitute a JD-relevant alternative the candidate has actually used.
+- If they ask to "enhance experience / projects with X" - only when intensity is HIGH (7+) and the candidate has plausible adjacency to X; never invent net-new employers, titles, dates, or certifications.
 
 Hard limits (the steering CANNOT override these):
 - Past job titles, company names, dates, and certifications remain verbatim. The steering is keyword-emphasis only.
@@ -790,34 +790,34 @@ ${ATS_ENGINE_BLOCK}
 
 ${intensityRules}${userSteeringBlock}
 
-=== ZERO-DATA-LOSS RULES (HIGHEST PRIORITY — DO NOT VIOLATE) ===
+=== ZERO-DATA-LOSS RULES (HIGHEST PRIORITY - DO NOT VIOLATE) ===
 
-1. EDUCATION — the candidate's resume appears to contain approximately ${expectedEducation} education-related markers. You MUST include EVERY degree / diploma / certification in the education array:
+1. EDUCATION - the candidate's resume appears to contain approximately ${expectedEducation} education-related markers. You MUST include EVERY degree / diploma / certification in the education array:
    - Every Bachelor's, Master's, PhD, MBA, diploma, bootcamp, or formal academic program.
    - Preserve institution name EXACTLY as written.
    - Preserve dates EXACTLY as written.
    - Preserve GPA / CGPA / percentage EXACTLY as written. Do not round, do not convert, do not drop.
    - If the candidate has 3 degrees, output 3 education entries. If they have 2, output 2. NEVER output fewer than the resume shows.
 
-2. EXPERIENCE — the resume contains approximately ${expectedExperience} role-title markers. You MUST include EVERY job / internship / role in the experience array:
+2. EXPERIENCE - the resume contains approximately ${expectedExperience} role-title markers. You MUST include EVERY job / internship / role in the experience array:
    - Every full-time role, part-time role, internship, freelance engagement, research position, teaching assistantship.
    - Preserve company name, role title, and date range EXACTLY as written.
    - LOCATION is mandatory whenever the resume specifies one. Never drop the location field. Never return null for location when the resume shows a city or country.
    - If a bullet has no metric, don't invent one unless intensity is 10.
 
-3. PROJECTS — include EVERY project the resume describes:
+3. PROJECTS - include EVERY project the resume describes:
    - Preserve project title, links (GitHub, demo URLs), and dates EXACTLY.
    - Include location when the resume specifies one.
 
-4. PERSONAL INFO — copy verbatim:
+4. PERSONAL INFO - copy verbatim:
    - Name, phone, email, LinkedIn, GitHub, portfolio. If the resume has a link, include it. Never substitute or rewrite URLs.
    - If the resume text ends with an "EMBEDDED HYPERLINKS" section, use it to resolve label-only links ("GitHub", "LinkedIn", "Portfolio") to their FULL https:// URLs in personalInfo and projects[].link. Do not copy that section itself into any output field, and never invent a URL that appears in neither the body nor that list.
 
-5. SKILLS — include EVERY skill the resume lists, grouped into the same categories (or your best inference of categories if the resume is flat).
+5. SKILLS - include EVERY skill the resume lists, grouped into the same categories (or your best inference of categories if the resume is flat).
 
-6. CERTIFICATIONS / AWARDS — include EVERY entry from these sections if they exist.
+6. CERTIFICATIONS / AWARDS - include EVERY entry from these sections if they exist.
 
-7. SUMMARY — preserve hard facts verbatim:
+7. SUMMARY - preserve hard facts verbatim:
    The original summary may contain factual statements that ATS systems and recruiters MUST see exactly as the candidate wrote them. Examples:
    - Work-authorization / visa / sponsorship status: "Authorized to work in Ireland - no employer sponsorship required", "EU citizen", "Stamp 1G visa, eligible to work full-time", "Tier 2 visa sponsorship required"
    - Security clearances: "Active TS/SCI clearance", "SC cleared (UK)"
@@ -828,7 +828,7 @@ ${intensityRules}${userSteeringBlock}
    - Append it VERBATIM as the final sentence(s) of the rewritten summary.
    - Do NOT paraphrase, shorten, translate, or reword.
    - Keep original capitalization, punctuation, separators (em dash, hyphen, period).
-   - The preserved sentence is in addition to your keyword-rich rewrite — it doesn't count toward sentence limits.
+   - The preserved sentence is in addition to your keyword-rich rewrite - it doesn't count toward sentence limits.
    When in doubt, PRESERVE IT. Cost of dropping a visa line = missed shortlist; cost of preserving = one extra sentence.
 
 If you're unsure whether to include an item, INCLUDE IT. Omission is a failure.
@@ -841,7 +841,7 @@ If you're unsure whether to include an item, INCLUDE IT. Omission is a failure.
 
 === ANTI-AI-SLOP ===
 BANNED words: "leveraged", "spearheaded", "orchestrated", "pioneered", "cutting-edge", "innovative", "dynamic", "passionate", "results-driven", "synergy", "transformative", "delve", "foster", "showcase", "pivotal", "crucial".
-BANNED punctuation: em dashes (—). Use commas, periods, or parentheses instead.
+BANNED punctuation: em dashes ( - ). Use commas, periods, or parentheses instead.
 Sound human. Vary sentence length. Be specific about tools and outcomes.
 
 === OUTPUT JSON SCHEMA (strict) ===
@@ -898,7 +898,7 @@ Sound human. Vary sentence length. Be specific about tools and outcomes.
 3. For every experience entry, is "location" populated if the resume shows one? If not, fix it.
 4. For every bullet, is "original" the verbatim resume text? If not, fix it.
 5. Re-read the ORIGINAL summary. If it contained a work-authorization, visa, sponsorship, security-clearance, driving-license, or availability statement, that sentence MUST appear unchanged at the end of your rewritten summary. Verify character-for-character. If you paraphrased or dropped it, restore the original phrasing now.${intensity >= 10 ? `
-6. **PROOF-IN-CONTEXT AUDIT (intensity 10 only):** for EVERY tool / technology / platform / methodology you put in the SKILLS section, scan the experience bullets AND project bullets. Does at least one bullet show the candidate USING that skill (built X with it, optimized Y using it, migrated Z to it, etc.)? If no bullet backs it up, either (a) add a backing bullet to the most plausible role / project using the candidate's actual scope, or (b) remove the skill from the skills section. Orphan skills are fabrication and a recruiter-visible tell — fix them before returning.` : ""}
+6. **PROOF-IN-CONTEXT AUDIT (intensity 10 only):** for EVERY tool / technology / platform / methodology you put in the SKILLS section, scan the experience bullets AND project bullets. Does at least one bullet show the candidate USING that skill (built X with it, optimized Y using it, migrated Z to it, etc.)? If no bullet backs it up, either (a) add a backing bullet to the most plausible role / project using the candidate's actual scope, or (b) remove the skill from the skills section. Orphan skills are fabrication and a recruiter-visible tell - fix them before returning.` : ""}
 
 Return ONLY the JSON object. No markdown, no backticks, no prose.${buildBankProjectsBlock(bankProjects)}`;
 }

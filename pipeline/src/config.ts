@@ -3,12 +3,12 @@ import path from "path";
 import { COUNTRY_REGISTRY } from "./countries";
 import { log } from "./logger";
 
-// override:FALSE — the server spawns the pipeline as a subprocess and
+// override:FALSE - the server spawns the pipeline as a subprocess and
 // injects per-user config (APIFY_JOB_COUNT, LINKEDIN_KEYWORDS, TARGET_ROLE,
 // etc.) read from the user's `user_settings.config_json` row in Postgres.
 // Those injected values MUST win. pipeline/.env is now only a dev fallback
 // for shared secrets (APIFY_API_TOKEN, OPENAI_API_KEY) that haven't been
-// moved to per-user storage yet — it only fills in keys that aren't already
+// moved to per-user storage yet - it only fills in keys that aren't already
 // present in process.env.
 dotenv.config({ path: path.join(__dirname, "..", ".env"), override: false });
 
@@ -30,7 +30,7 @@ export const config = {
   APIFY_ACTOR_ID: optional("APIFY_ACTOR_ID", "hKByXkMQaC5Qt9UMN"),          // LinkedIn
   APIFY_NAUKRI_ACTOR_ID: optional("APIFY_NAUKRI_ACTOR_ID", "muhammetakkurtt~naukri-job-scraper"),
   APIFY_INDEED_ACTOR_ID: optional("APIFY_INDEED_ACTOR_ID", "valig~indeed-jobs-scraper"),
-  // Truefetch best-job-listing — multi-source aggregator. Used to
+  // Truefetch best-job-listing - multi-source aggregator. Used to
   // broaden the candidate pool the AI relevance filter scores against.
   APIFY_TRUEFETCH_ACTOR_ID: optional("APIFY_TRUEFETCH_ACTOR_ID", "truefetch~best-job-listing"),
   SCRAPE_TRUEFETCH: optional("SCRAPE_TRUEFETCH", "true") !== "false",
@@ -44,7 +44,7 @@ export const config = {
   // so a CSV like "ai engineer, ml engineer, data scientist" silently
   // dropped 2/3 of the user's interest. With this set to 3, each
   // scraper runs THREE parallel passes (one per keyword) and dedups
-  // by link. LinkedIn ignores this setting — it already joins all
+  // by link. LinkedIn ignores this setting - it already joins all
   // keywords with OR in a single URL.
   MAX_KEYWORDS_PER_SCRAPER: parseInt(optional("MAX_KEYWORDS_PER_SCRAPER", "3"), 10),
   // LLM-driven keyword expansion. When true, the pipeline runs one
@@ -70,7 +70,7 @@ export const config = {
   ),
 
   // LinkedIn Search (dynamic URL builder)
-  // Empty default — the user's role-expander on the landing page fills
+  // Empty default - the user's role-expander on the landing page fills
   // this. Hardcoding a software default biased every new account toward
   // engineering jobs irrespective of their actual target role.
   LINKEDIN_KEYWORDS: optional("LINKEDIN_KEYWORDS", ""),
@@ -95,7 +95,7 @@ export const config = {
   // dimension penalise mismatches in scoring. Reason: LinkedIn's f_E
   // is brittle (returns 0 results on slow markets, blocks "entry +
   // associate" combos), and the user's complaint was "I pick entry
-  // and only see senior" — which happened because (a) LinkedIn had
+  // and only see senior" - which happened because (a) LinkedIn had
   // no entry roles that week and (b) the apify.ts auto-broadener
   // dropped f_E silently, leaving the AI scorer with no signal that
   // the user actually wanted entry-level.
@@ -109,12 +109,12 @@ export const config = {
   RELEVANCE_SCORE_THRESHOLD: parseInt(optional("RELEVANCE_SCORE_THRESHOLD", "5"), 10),
   // How aggressively to tailor resume to JD (1-10). 1=light touch, 5=balanced, 10=aggressive rewrite
   TAILORING_INTENSITY: parseInt(optional("TAILORING_INTENSITY", "5"), 10),
-  // The user's target role — used for relevancy scoring and resume tailoring
+  // The user's target role - used for relevancy scoring and resume tailoring
   TARGET_ROLE: optional("TARGET_ROLE", ""),
   APIFY_MAX_POLL_MINUTES: parseInt(optional("APIFY_MAX_POLL_MINUTES", "10"), 10),
   MAX_TAILOR_COUNT: parseInt(optional("MAX_TAILOR_COUNT", "20"), 10),
 
-  // Telegram alerts (optional — alerts fired when match_score >= TELEGRAM_ALERT_THRESHOLD)
+  // Telegram alerts (optional - alerts fired when match_score >= TELEGRAM_ALERT_THRESHOLD)
   TELEGRAM_BOT_TOKEN: optional("TELEGRAM_BOT_TOKEN", ""),
   TELEGRAM_CHAT_ID: optional("TELEGRAM_CHAT_ID", ""),
   TELEGRAM_ALERT_THRESHOLD: parseInt(optional("TELEGRAM_ALERT_THRESHOLD", "8"), 10),
@@ -132,11 +132,11 @@ export const config = {
   SCRAPE_INDEED_IE: optional("SCRAPE_INDEED_IE", "true") !== "false",
   SCRAPE_GRADIRELAND: optional("SCRAPE_GRADIRELAND", "true") !== "false",
   SCRAPE_CAREERJET: optional("SCRAPE_CAREERJET", "true") !== "false",
-  SCRAPE_GLASSDOOR: optional("SCRAPE_GLASSDOOR", "false") !== "false", // disabled by default — Glassdoor blocks non-browser requests
+  SCRAPE_GLASSDOOR: optional("SCRAPE_GLASSDOOR", "false") !== "false", // disabled by default - Glassdoor blocks non-browser requests
   CAREERJET_AFFILIATE_ID: optional("CAREERJET_AFFILIATE_ID", ""),
 
   // Keywords used for free scrapers (comma-separated)
-  // Empty default — same reasoning as LINKEDIN_KEYWORDS above. The
+  // Empty default - same reasoning as LINKEDIN_KEYWORDS above. The
   // landing page's role-expander populates this, and the server's
   // /api/settings handler keeps its own DEFAULT_CONFIG empty so saved
   // configs reflect the user's actual role.
@@ -182,7 +182,7 @@ export const config = {
   // with a tiny Ireland office (Cloudflare, Datadog) were flooding the pool.
   PORTAL_STRICT_LOCATION: optional("PORTAL_STRICT_LOCATION", "true") !== "false",
 
-  // Location regions — comma-separated: ireland,uk,eu (default), us,canada, all, or custom:city1,city2
+  // Location regions - comma-separated: ireland,uk,eu (default), us,canada, all, or custom:city1,city2
   LOCATION_REGIONS: optional("LOCATION_REGIONS", "ireland,uk,eu"),
 
   // When true, bare-remote jobs (location tagged "Remote" with no country
@@ -190,7 +190,7 @@ export const config = {
   // false (default), only jobs physically in the selected country pass.
   INCLUDE_REMOTE: optional("INCLUDE_REMOTE", "false").toLowerCase() === "true",
 
-  // Target countries — which countries to scrape jobs from (comma-separated country codes)
+  // Target countries - which countries to scrape jobs from (comma-separated country codes)
   // Available: ireland, uk, netherlands, india
   // Each country enables its own scrapers and sets LinkedIn geoId
   TARGET_COUNTRIES: optional("TARGET_COUNTRIES", "ireland"),
@@ -210,7 +210,7 @@ export const config = {
   // active list as before.
   TARGET_COMPANY_ID: optional("TARGET_COMPANY_ID", "") || null as string | null,
 
-  // Optional generation toggles — off by default so cover letter + why-fit
+  // Optional generation toggles - off by default so cover letter + why-fit
   // are on-demand only (generated from the job detail modal). Set to "true"
   // in .env to auto-generate during pipeline runs.
   ENABLE_COVER_LETTER: optional("ENABLE_COVER_LETTER", "false") === "true",
@@ -233,17 +233,17 @@ export function buildLinkedInUrl(): string {
   // If the user picked a country we don't know about, the previous silent
   // fallback to LINKEDIN_GEO_ID (which defaults to Ireland) made it look
   // like UK/NZ runs were scraping Ireland for no obvious reason. Surface
-  // the mismatch in the log instead — the run continues with Ireland's
+  // the mismatch in the log instead - the run continues with Ireland's
   // geoId so the pipeline doesn't crash, but the user knows why.
   if (firstCountry && !registryGeoId) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[buildLinkedInUrl] TARGET_COUNTRIES="${firstCountry}" not in COUNTRY_REGISTRY — falling back to LINKEDIN_GEO_ID=${config.LINKEDIN_GEO_ID}. Add the country to pipeline/src/countries.ts to fix.`
+      `[buildLinkedInUrl] TARGET_COUNTRIES="${firstCountry}" not in COUNTRY_REGISTRY - falling back to LINKEDIN_GEO_ID=${config.LINKEDIN_GEO_ID}. Add the country to pipeline/src/countries.ts to fix.`
     );
   }
 
   // Manual LINKEDIN_SEARCH_URL override. Honour the pasted URL but MERGE
-  // in missing params from the user's other config — a URL with only
+  // in missing params from the user's other config - a URL with only
   // `?keywords=...` and no geoId returns 0 jobs from the Apify actor,
   // which silently breaks "URL mode" for the common copy-paste case
   // where users only kept the keywords portion. Filling in the gaps
@@ -252,7 +252,7 @@ export function buildLinkedInUrl(): string {
     try {
       const url = new URL(config.LINKEDIN_SEARCH_URL);
       // Strip session-specific params LinkedIn adds when you copy the
-      // URL while viewing a job — they pin the search to that job and
+      // URL while viewing a job - they pin the search to that job and
       // break the actor's pagination.
       url.searchParams.delete("currentJobId");
       url.searchParams.delete("origin");
@@ -268,14 +268,14 @@ export function buildLinkedInUrl(): string {
       if (url.searchParams.has("f_SAL")) {
         url.searchParams.delete("f_SAL");
         log.info(
-          "  Removed salary filter (f_SAL) from pasted URL — it dropped 95% of LinkedIn postings " +
+          "  Removed salary filter (f_SAL) from pasted URL - it dropped 95% of LinkedIn postings " +
           "(most don't disclose salary). If you actually want a salary cutoff, set it via the dashboard's filters instead."
         );
       }
 
       // Normalize the path. Users typically copy the URL while on
       // /jobs/search-results/ (the active-search page with a job
-      // detail panel open) — but the Apify LinkedIn actor expects
+      // detail panel open) - but the Apify LinkedIn actor expects
       // the canonical /jobs/search/ path and silently returns 0 when
       // given the variant. Force the canonical path; the query string
       // is what actually drives the search.
@@ -287,7 +287,7 @@ export function buildLinkedInUrl(): string {
 
       const merged: string[] = [];
 
-      // Inject keywords if missing — fall back through LINKEDIN_KEYWORDS,
+      // Inject keywords if missing - fall back through LINKEDIN_KEYWORDS,
       // then SEARCH_KEYWORDS, then TARGET_ROLE.
       const urlKeywords = (url.searchParams.get("keywords") || "").trim();
       if (!urlKeywords) {
@@ -317,18 +317,18 @@ export function buildLinkedInUrl(): string {
         }
       }
 
-      // Inject geoId if missing — without it the Apify actor returns 0.
+      // Inject geoId if missing - without it the Apify actor returns 0.
       if (!url.searchParams.get("geoId")) {
         url.searchParams.set("geoId", autoGeoId);
         merged.push(`geoId=${autoGeoId}`);
       } else if (url.searchParams.get("geoId") !== autoGeoId) {
         log.warn(
           `  Heads up: pasted URL geoId=${url.searchParams.get("geoId")} differs from country picker (${firstCountry || "default"} = ${autoGeoId}). ` +
-          "Honouring the URL's geoId — clear the URL in Settings if you want the picker to drive the country."
+          "Honouring the URL's geoId - clear the URL in Settings if you want the picker to drive the country."
         );
       }
 
-      // Inject time filter if missing — honour the user's saved setting
+      // Inject time filter if missing - honour the user's saved setting
       // verbatim (no auto-widen). If the URL itself specifies f_TPR we
       // skip this entirely (the user's URL choice wins). If the saved
       // setting is also empty we fall back to 1-week so the actor isn't
@@ -342,12 +342,12 @@ export function buildLinkedInUrl(): string {
       // Inject experience filter (f_E) ONLY when STRICT_SENIORITY_FILTER
       // is on. Otherwise we scrape broadly and let the AI relevance
       // scorer's seniority_fit dimension penalise mismatches in scoring
-      // (the user's preference still reaches it via the prompt — see
+      // (the user's preference still reaches it via the prompt - see
       // buildRelevanceSystemPrompt's preferredSeniority arg).
       //
       // Why default off: f_E="2" (entry only) frequently returns 0
       // results in slow weeks, then apify.ts silently drops f_E on
-      // retry — so the user picked entry-level but the AI never knew,
+      // retry - so the user picked entry-level but the AI never knew,
       // and the dashboard filled with senior roles with no explanation.
       if (
         config.STRICT_SENIORITY_FILTER &&
@@ -366,14 +366,14 @@ export function buildLinkedInUrl(): string {
 
       if (merged.length > 0) {
         log.info(
-          `  Pasted LinkedIn URL was missing params — auto-merged: ${merged.join(", ")}. ` +
+          `  Pasted LinkedIn URL was missing params - auto-merged: ${merged.join(", ")}. ` +
           "If you want the URL used verbatim, paste a complete URL with geoId/f_TPR/f_E set."
         );
       }
 
       return url.toString();
     } catch {
-      log.warn("  Pasted LINKEDIN_SEARCH_URL is malformed — falling back to keyword-mode URL builder.");
+      log.warn("  Pasted LINKEDIN_SEARCH_URL is malformed - falling back to keyword-mode URL builder.");
       // Fall through to fresh build below.
     }
   }
@@ -392,7 +392,7 @@ export function buildLinkedInUrl(): string {
     .filter(Boolean);
   if (keywords.length === 0) {
     log.warn(
-      "  buildLinkedInUrl: no keywords available — LINKEDIN_KEYWORDS, SEARCH_KEYWORDS, and TARGET_ROLE are all empty. " +
+      "  buildLinkedInUrl: no keywords available - LINKEDIN_KEYWORDS, SEARCH_KEYWORDS, and TARGET_ROLE are all empty. " +
       "LinkedIn search will return 0 jobs. Type a role in the dashboard's Expected Role field."
     );
   }
@@ -404,7 +404,7 @@ export function buildLinkedInUrl(): string {
     .filter(Boolean);
 
   // Combine: job titles first, then skills are added in parentheses for relevance boost
-  // LinkedIn treats keywords as: (job titles) AND/OR (skills) — skills help rank results higher
+  // LinkedIn treats keywords as: (job titles) AND/OR (skills) - skills help rank results higher
   const allTerms = [...keywords];
 
   // Build keyword string: job titles joined with OR

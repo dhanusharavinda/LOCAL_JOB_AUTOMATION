@@ -107,7 +107,7 @@ export default function InterviewSession({
   const [decidingElapsedSec, setDecidingElapsedSec] = useState(0);
   // Mirror the transcript on a ref so finishAndScore() sees the very
   // latest entries even when called immediately after setTranscript().
-  // React batches state updates — without this ref the score endpoint
+  // React batches state updates - without this ref the score endpoint
   // would receive a transcript missing the final user turn (and any
   // AI prompts pushed from the same render cycle), and the rubric
   // would be computed against an incomplete record.
@@ -137,7 +137,7 @@ export default function InterviewSession({
   // Whisper-based STT. We hold one mic stream, one MediaRecorder, and
   // one Web Audio analyser per turn so the recorder's chunks and the
   // VAD's RMS readings come from the same audio source. The stream is
-  // torn down explicitly on stop — Chrome won't release the mic
+  // torn down explicitly on stop - Chrome won't release the mic
   // indicator until every track is .stop()ed.
   const recordStreamRef = useRef<MediaStream | null>(null);
   const recordMediaRef = useRef<MediaRecorder | null>(null);
@@ -236,7 +236,7 @@ export default function InterviewSession({
       };
       tick();
       setPhase("mic_check");
-      // No STT smoke test here anymore — the live phase uses Whisper,
+      // No STT smoke test here anymore - the live phase uses Whisper,
       // which requires uploading the audio to transcribe. Doing that
       // for every "one two three" mic check would be wasteful. The
       // audio meter is enough to confirm the mic is wired up.
@@ -398,7 +398,7 @@ export default function InterviewSession({
     };
     recorder.onerror = (ev: any) => {
       console.warn("MediaRecorder error:", ev?.error || ev);
-      // Fall through — the stop handler will resolve with whatever
+      // Fall through - the stop handler will resolve with whatever
       // chunks we collected so far.
     };
     // Tick chunks every 250ms so we have data even if the user
@@ -406,12 +406,12 @@ export default function InterviewSession({
     recorder.start(250);
 
     // Web Audio analyser drives the VAD. We share the stream with
-    // MediaRecorder — both consumers can read the same MediaStream.
+    // MediaRecorder - both consumers can read the same MediaStream.
     let ctx: AudioContext;
     try {
       ctx = new AudioContext();
     } catch {
-      // No AudioContext available — fall back to a simple max-duration
+      // No AudioContext available - fall back to a simple max-duration
       // timer (60s) since we can't detect silence. User can still hit
       // I'm done manually.
       window.setTimeout(() => {
@@ -450,7 +450,7 @@ export default function InterviewSession({
       if (rms > SPEECH_RMS) {
         if (!vadHasSpokenRef.current) vadHasSpokenRef.current = true;
         silenceStart = 0;
-        // Soft "live captioning" — show a recording indicator that
+        // Soft "live captioning" - show a recording indicator that
         // wiggles with the level so the user knows they're being heard.
         if (now - lastUiUpdate > 200) {
           setInterim("Listening...");
@@ -579,7 +579,7 @@ export default function InterviewSession({
           setListenWarning(err?.message || "Couldn't transcribe your answer. Type it below and click I'm done.");
         }
       } else if (!blob || blob.size === 0) {
-        console.warn("MediaRecorder produced no audio — recording may have failed silently.");
+        console.warn("MediaRecorder produced no audio - recording may have failed silently.");
       }
     }
 
@@ -589,7 +589,7 @@ export default function InterviewSession({
     if (!sessionId) { setDecidingPhase(null); return; }
 
     // Fast path: if this was the last question, skip the /turn decide
-    // call entirely. There's no follow-up vs next decision to make —
+    // call entirely. There's no follow-up vs next decision to make - 
     // we're heading to scoring no matter what /turn would say. Saves
     // a 2-5s OpenAI round-trip on the most painful step of the loop.
     const isLastQuestion = qIdxFor + 1 >= questions.length;
@@ -603,7 +603,7 @@ export default function InterviewSession({
     try {
       setDecidingPhase("considering");
       // Hard timeout on /turn so a hanging OpenAI call can't strand
-      // the user. After 12s of no response we just move on — better
+      // the user. After 12s of no response we just move on - better
       // a missed follow-up than a frozen modal.
       const decision = await raceWithTimeout(
         interviewTurn({ sessionId, qIdx: qIdxFor, answer, followUpDepth }),
@@ -647,7 +647,7 @@ export default function InterviewSession({
     setPhase("scoring");
 
     // Read from the ref, NOT the transcript state. The ref is always
-    // up-to-date — state may still be one render behind the latest
+    // up-to-date - state may still be one render behind the latest
     // pushTranscript() call when finishAndScore is invoked from the
     // synchronous tail of finishUserTurn().
     const finalTranscript = transcriptRef.current;

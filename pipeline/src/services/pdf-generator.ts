@@ -5,7 +5,7 @@ import { internalAuthHeaders } from "./job-tracker";
 
 /**
  * Generate PDF via the local server endpoint.
- * No cold-start warm-up needed — the server is always running locally.
+ * No cold-start warm-up needed - the server is always running locally.
  */
 /**
  * Estimate how many Letter pages an uploaded resume occupies from its text

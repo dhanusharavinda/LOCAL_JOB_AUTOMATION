@@ -1,5 +1,5 @@
 -- ============================================================================
--- GO CANDID8 — free_tailor_log
+-- GO CANDID8 - free_tailor_log
 -- ============================================================================
 -- The /api/free-tailor route used to create this table lazily at first use
 -- (see server/src/routes/free-tailor.ts:37-46). That worked for the runtime

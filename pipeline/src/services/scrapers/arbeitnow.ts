@@ -1,7 +1,7 @@
 import { ScrapedJob } from "../../types";
 import { politeGet, isLocationRelevant, isRecentJob } from "./utils";
 
-/** Arbeitnow free API — https://www.arbeitnow.com/api/job-board-api */
+/** Arbeitnow free API - https://www.arbeitnow.com/api/job-board-api */
 export async function scrapeArbeitnow(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
   try {

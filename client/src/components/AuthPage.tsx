@@ -9,7 +9,7 @@ interface Props {
 }
 
 /**
- * AuthPage — email-only Supabase auth.
+ * AuthPage - email-only Supabase auth.
  * Sign in / sign up / forgot password run client-side via supabase-js.
  * On success we call GET /api/auth/me to fetch the server profile and
  * hand it to the parent via onAuth. Token storage is delegated to
@@ -68,7 +68,7 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
           return;
         }
 
-        // Email confirmation was disabled in the project — user is
+        // Email confirmation was disabled in the project - user is
         // already signed in. Load their profile from the server and drop
         // them on the landing page (not straight into the dashboard) so
         // first-time users see the pipeline config flow and the onboarding

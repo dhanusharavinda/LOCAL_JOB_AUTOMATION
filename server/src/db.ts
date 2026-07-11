@@ -26,7 +26,7 @@ import postgres from "postgres";
  *
  * Note on RLS: this client uses the Postgres superuser (the `postgres`
  * role), which bypasses Row Level Security. Tenant isolation is therefore
- * enforced at the application layer — every query MUST include a
+ * enforced at the application layer - every query MUST include a
  * `WHERE user_id = ${req.user.id}` clause. The schema also defines RLS
  * policies as a second line of defence for any future path that uses a
  * per-request JWT connection (e.g. edge functions).
@@ -52,7 +52,7 @@ if (!connectionString) {
  * (port 6543); on the session connection (port 5432) it's optional but
  * harmless. Leaving it off for max compatibility.
  *
- * `ssl: "require"` is mandatory — Supabase rejects unencrypted
+ * `ssl: "require"` is mandatory - Supabase rejects unencrypted
  * connections. postgres.js uses the system root CA store to verify.
  */
 export const sql = postgres(connectionString || "", {

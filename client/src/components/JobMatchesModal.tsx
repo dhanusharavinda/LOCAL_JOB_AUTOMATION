@@ -30,7 +30,7 @@ export default function JobMatchesModal({ onClose }: Props) {
       if (myId !== reqIdRef.current) return; // superseded by a newer load
       setData(res);
     } catch {
-      // Never surface an error banner for a background (silent) refresh —
+      // Never surface an error banner for a background (silent) refresh - 
       // the already-shown matches are still valid.
       if (myId === reqIdRef.current && !silent) setError("Could not load your matches.");
     } finally {

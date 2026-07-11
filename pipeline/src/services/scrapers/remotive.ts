@@ -1,7 +1,7 @@
 import { ScrapedJob } from "../../types";
 import { politeGet, isLocationRelevant, isRecentJob } from "./utils";
 
-/** Remotive.com free API — https://remotive.com/api/remote-jobs */
+/** Remotive.com free API - https://remotive.com/api/remote-jobs */
 export async function scrapeRemotive(keywords: string[]): Promise<ScrapedJob[]> {
   const jobs: ScrapedJob[] = [];
   const categories = ["data", "software-dev", "devops-sysadmin", "machine-learning"];

@@ -5,7 +5,7 @@ import { requireAuth } from "../middleware/auth";
 /**
  * Career events routes (Postgres edition).
  * Every query is scoped by user_id. The old SQLite version had cross-tenant
- * leaks on every endpoint — fixed structurally here.
+ * leaks on every endpoint - fixed structurally here.
  */
 
 const router = Router();

@@ -62,7 +62,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
       const updated = await updateJobNotes(job.id, notes);
       onUpdate(updated);
     } catch (err: any) {
-      // Previously on save failure `setSaving(false)` never ran — the
+      // Previously on save failure `setSaving(false)` never ran - the
       // button stayed on "Saving..." forever because the awaited call
       // threw before we reached the reset. Guard with try/finally.
       console.error("[JobDetailModal] save notes failed:", err?.message || err);
@@ -83,7 +83,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
         const updated = await res.json();
         onUpdate(updated);
       } else {
-        // A non-2xx was previously a silent no-op — the date input
+        // A non-2xx was previously a silent no-op - the date input
         // stayed visually updated but the server never accepted it,
         // and the user had no way to tell. Pop an alert so they know
         // to retry or fix the problem.
@@ -177,7 +177,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
    * On-demand resume regeneration. Generates a fresh tailored PDF for
    * this specific job, uploads it to storage (replacing the old URL on
    * jobs.resume_url), and offers an immediate download via the inline
-   * base64 the server returned — so the user doesn't have to wait on
+   * base64 the server returned - so the user doesn't have to wait on
    * a second round-trip to the signed-URL endpoint.
    */
   async function handleRegenerateResume() {
@@ -234,7 +234,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
 
           <div className="flex items-start gap-3">
             {/* Letter grade only. The numeric "X/10 AI Score" panel was
-                removed per UX request — the grade is the canonical
+                removed per UX request - the grade is the canonical
                 relevance signal on the kanban card AND here. We parse
                 the breakdown directly so legacy rows without a grade
                 (created before the 10-dimension scorer landed) still
@@ -389,7 +389,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 {job.notes?.includes("Reach role") && (
                   <p className="text-xs text-orange-400/80 mt-1.5 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-orange-400/60 inline-block" />
-                    Flagged as reach role — you may not meet all requirements, but the match is strong enough to apply.
+                    Flagged as reach role - you may not meet all requirements, but the match is strong enough to apply.
                   </p>
                 )}
               </div>
@@ -557,7 +557,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           )}
         </div>
 
-        {/* Tailored Resume — on-demand regeneration tailored to this job's
+        {/* Tailored Resume - on-demand regeneration tailored to this job's
             description. Distinct teal accent so it doesn't blend with the
             emerald "Apply Now" quick-link button right above. Document
             icon next to the label makes it obvious at a glance that this
@@ -590,7 +590,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 onClick={handleRegenerateResume}
                 disabled={resumeLoading}
                 className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 disabled:opacity-50 transition-colors"
-                title={job.resume_url ? "Regenerate — replaces current tailored PDF, also downloads it" : "Generate a resume tailored to this job"}
+                title={job.resume_url ? "Regenerate - replaces current tailored PDF, also downloads it" : "Generate a resume tailored to this job"}
               >
                 {resumeLoading ? "Tailoring…" : job.resume_url ? "Regenerate" : "Generate"}
               </button>
@@ -601,8 +601,8 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           )}
         </div>
 
-        {/* Cover Letter — always renders; shows Generate button when empty.
-            Only the `cover_letter` column counts toward "has generated" — the
+        {/* Cover Letter - always renders; shows Generate button when empty.
+            Only the `cover_letter` column counts toward "has generated" - the
             legacy `outreach_email` field used to double as a fallback, but
             that broke the on-demand contract: stale data in the old column
             made the Show toggle appear on jobs the user had never asked to
@@ -635,7 +635,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                     onClick={handleGenerateCoverLetter}
                     disabled={clLoading}
                     className="text-[10px] font-mono uppercase tracking-wider text-blue-400/70 hover:text-blue-400 disabled:opacity-50 transition-colors"
-                    title={hasCL ? "Regenerate — replaces current cover letter" : "Generate a cover letter for this job"}
+                    title={hasCL ? "Regenerate - replaces current cover letter" : "Generate a cover letter for this job"}
                   >
                     {clLoading ? "Generating..." : hasCL ? "Regenerate" : "Generate"}
                   </button>
@@ -661,7 +661,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           );
         })()}
 
-        {/* Why I'm a Fit — always renders; shows Generate button when empty */}
+        {/* Why I'm a Fit - always renders; shows Generate button when empty */}
         {(() => {
           const hasFit = !!job.hiring_message;
           return (
@@ -689,7 +689,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                     onClick={handleGenerateWhyFit}
                     disabled={fitLoading}
                     className="text-[10px] font-mono uppercase tracking-wider text-purple-400/70 hover:text-purple-400 disabled:opacity-50 transition-colors"
-                    title={hasFit ? "Regenerate — replaces current fit summary" : "Generate a fit summary for this job"}
+                    title={hasFit ? "Regenerate - replaces current fit summary" : "Generate a fit summary for this job"}
                   >
                     {fitLoading ? "Generating..." : hasFit ? "Regenerate" : "Generate"}
                   </button>
@@ -715,7 +715,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           );
         })()}
 
-        {/* Recruiter Follow-up — sent AFTER the application. Tldr-style
+        {/* Recruiter Follow-up - sent AFTER the application. Tldr-style
             opener + short formal letter body. Mirrors the cover-letter
             and why-fit sections in shape; uses a distinct rose accent
             so the three "drafted asset" rows are visually separable
@@ -747,7 +747,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                     onClick={handleGenerateRecruiterFollowup}
                     disabled={followupLoading}
                     className="text-[10px] font-mono uppercase tracking-wider text-rose-300/70 hover:text-rose-300 disabled:opacity-50 transition-colors"
-                    title={hasFollowup ? "Regenerate — replaces current follow-up email" : "Draft a short follow-up email to send AFTER applying"}
+                    title={hasFollowup ? "Regenerate - replaces current follow-up email" : "Draft a short follow-up email to send AFTER applying"}
                   >
                     {followupLoading ? "Drafting..." : hasFollowup ? "Regenerate" : "Generate"}
                   </button>
@@ -839,7 +839,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                         setInterviewPrep(prep);
                         setShowPrep(true);
                       } catch {
-                        setPrepError("Failed to generate — check your OpenAI key");
+                        setPrepError("Failed to generate - check your OpenAI key");
                       } finally { setPrepLoading(false); }
                     }}
                     className="text-[10px] text-[#c9a94e]/60 hover:text-[#c9a94e] transition-colors"
@@ -1023,7 +1023,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-[#c9a94e]/40 focus:ring-1 focus:ring-[#c9a94e]/20 transition-all"
               />
               {!job.offer_date && (
-                <p className="text-xs text-gray-600 mt-1">—</p>
+                <p className="text-xs text-gray-600 mt-1"> - </p>
               )}
             </div>
           </div>

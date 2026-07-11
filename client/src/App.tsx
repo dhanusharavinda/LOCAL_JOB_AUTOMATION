@@ -49,7 +49,7 @@ export default function App() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   // sortByScore + its UI button were removed (numeric score isn't
-  // displayed on the kanban card anymore — only the letter grade —
+  // displayed on the kanban card anymore - only the letter grade - 
   // so a numeric sort was redundant with Grade sort and confusing).
   // The raw match_score still drives the final tiebreak inside Grade
   // and Seniority sorts.
@@ -59,14 +59,14 @@ export default function App() {
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByFreshness, setSortByFreshness] = useState(false);
   const [sortByGrade, setSortByGrade] = useState(true);
-  // Seniority sort is tri-state — single button that cycles
+  // Seniority sort is tri-state - single button that cycles
   // off → high (most senior first) → low (least senior first) → off.
   // Other sorts are binary; this one needs both directions because the
   // user might want to find graduate roles OR director roles depending
   // on context.
   const [sortBySeniority, setSortBySeniority] = useState<"off" | "high" | "low">("off");
   const [locationFilter, setLocationFilter] = useState<string>("");
-  // Separate work-type filter — remote/hybrid/onsite. Cross-cuts the
+  // Separate work-type filter - remote/hybrid/onsite. Cross-cuts the
   // country filter so a user can e.g. see only UK + remote jobs.
   const [workTypeFilter, setWorkTypeFilter] = useState<"" | "remote" | "hybrid" | "onsite">("");
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
@@ -113,7 +113,7 @@ export default function App() {
   // Mobile: toggles the collapsed secondary header rows (filters + actions)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Intro loader — show for 3s then fade out
+  // Intro loader - show for 3s then fade out
   useEffect(() => {
     const fadeTimer = setTimeout(() => setIntroFading(true), 2500);
     const hideTimer = setTimeout(() => setShowIntro(false), 3200);
@@ -147,7 +147,7 @@ export default function App() {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Guard against state updates after unmount — supabase-js can
+      // Guard against state updates after unmount - supabase-js can
       // queue a callback during token refresh that fires a tick after
       // we've already cleaned up, which triggers React's "setState on
       // unmounted component" warning. Cheap bail-out.
@@ -164,7 +164,7 @@ export default function App() {
           setCurrentUser(me.user);
           setUserLimits(me.limits);
         } catch (err) {
-          // /me failed — common cause is the server being cold-started
+          // /me failed - common cause is the server being cold-started
           // on Railway. Log so a persistent issue is visible in the
           // console; leave state as-is so the user isn't forcibly
           // signed out on a transient network blip.
@@ -227,7 +227,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [loadJobs, page, currentUser]);
 
-  // Live refresh — subscribe to the pipeline SSE stream so the kanban
+  // Live refresh - subscribe to the pipeline SSE stream so the kanban
   // updates as jobs land. Previously the dashboard only polled every
   // 30s, so a pipeline finishing seconds after the last poll left the
   // board stale until the next tick (or until the user manually
@@ -270,8 +270,8 @@ export default function App() {
     };
     // EventSource fires onerror for both transient hiccups (auto-
     // reconnects) and terminal failures. We don't surface errors on
-    // the dashboard — the 30s poll keeps the board fresh either way.
-    es.onerror = () => { /* silent — polling fallback covers it */ };
+    // the dashboard - the 30s poll keeps the board fresh either way.
+    es.onerror = () => { /* silent - polling fallback covers it */ };
 
     return () => {
       if (pending) clearTimeout(pending);
@@ -298,7 +298,7 @@ export default function App() {
     if (getTourState()) return; // already running or queued for dashboard
 
     // Don't start the onboarding tour while the FreeTailor bait flow is
-    // mid-execution — e.g. the user just signed up via the modal and the
+    // mid-execution - e.g. the user just signed up via the modal and the
     // auto-tailor is running. The section sets a window-level flag while
     // it's busy and clears it when the result is shown. We poll every
     // 500ms until the flag is gone, then kick off the tour.
@@ -358,8 +358,8 @@ export default function App() {
 
   // Filter by search query.
   //
-  // MEMOIZED. Before this useMemo, every setJobs() — including the
-  // optimistic update on every drag + flag — re-ran the entire filter
+  // MEMOIZED. Before this useMemo, every setJobs() - including the
+  // optimistic update on every drag + flag - re-ran the entire filter
   // pipeline AND the sort pipeline below, AND every kanban card
   // re-rendered. With a few hundred jobs the synchronous work blocked
   // the event loop for seconds, producing the 5-10s "lag" the user
@@ -380,7 +380,7 @@ export default function App() {
         if (!title.includes(q) && !company.includes(q) && !location.includes(q)) return false;
       }
     }
-    // Country filter — the five markets supported end-to-end (pipeline,
+    // Country filter - the five markets supported end-to-end (pipeline,
     // events, skills). Each option matches the country plus its major
     // cities so a job tagged "Dublin" still surfaces under "Ireland".
     if (locationFilter) {
@@ -397,7 +397,7 @@ export default function App() {
         if (!/new zealand|\bnz\b|auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston north/.test(loc)) return false;
       }
     }
-    // Work-type filter — remote/hybrid/onsite. Heuristic: the jobs table
+    // Work-type filter - remote/hybrid/onsite. Heuristic: the jobs table
     // has no dedicated work_type column yet, so we infer from location +
     // title. "Onsite" is the implicit default when nothing else matches.
     if (workTypeFilter) {
@@ -408,7 +408,7 @@ export default function App() {
       if (workTypeFilter === "hybrid" && !isHybrid) return false;
       if (workTypeFilter === "onsite" && (isRemote || isHybrid)) return false;
     }
-    // Date filter — show jobs that had activity on the selected date
+    // Date filter - show jobs that had activity on the selected date
     if (dateFilter) {
       const d = dateFilter; // "YYYY-MM-DD"
       const matchesDate = (val: string | null) => val?.startsWith(d);
@@ -428,18 +428,18 @@ export default function App() {
     return true;
   }), [jobs, searchQuery, locationFilter, workTypeFilter, dateFilter, showFlaggedOnly]);
 
-  // Sort logic — memoized for the same reason as `searched` above:
+  // Sort logic - memoized for the same reason as `searched` above:
   // each sort branch builds a fresh array via `[...searched].sort()`,
   // which is O(n log n) per render even when nothing relevant changed.
   const filteredJobs = useMemo(() => {
     if (sortByDeadline) {
       return [...searched].sort((a, b) => {
-        // both have deadline — closest first
+        // both have deadline - closest first
         if (a.deadline && b.deadline) return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-        // one has deadline — it goes first
+        // one has deadline - it goes first
         if (a.deadline) return -1;
         if (b.deadline) return 1;
-        // neither has deadline — fall back to applied_date desc (most recent first)
+        // neither has deadline - fall back to applied_date desc (most recent first)
         const da = a.applied_date || a.created_at;
         const db2 = b.applied_date || b.created_at;
         return new Date(db2).getTime() - new Date(da).getTime();
@@ -455,7 +455,7 @@ export default function App() {
     // Grade + Seniority can BE COMBINED. When both are on, sort first
     // by grade (A → F), then within each grade band by seniority
     // direction. That gives the user "best fits within my preferred
-    // seniority" — e.g. all the A-grade entry-level roles first, then
+    // seniority" - e.g. all the A-grade entry-level roles first, then
     // A-grade associate, then B-grade entry, etc. Either dimension
     // alone keeps its previous behavior.
     if (sortByGrade || sortBySeniority !== "off") {
@@ -520,7 +520,7 @@ export default function App() {
   }), [jobs]);
 
   // If the board has jobs but none are graded, don't leave the default Grade
-  // sort active-but-disabled (unclickable) — fall back to Newest, which is
+  // sort active-but-disabled (unclickable) - fall back to Newest, which is
   // always usable. Only fires once jobs have loaded (not on the empty board).
   useEffect(() => {
     if (jobs.length > 0 && !hasGrades && sortByGrade) {
@@ -543,7 +543,7 @@ export default function App() {
 
   // Live `jobs` snapshot for callbacks that don't want to depend on
   // the jobs array as a deps entry (which would invalidate them on
-  // EVERY job update — defeating useCallback's stability and breaking
+  // EVERY job update - defeating useCallback's stability and breaking
   // memo on JobCard). The ref is updated in a layout-priority effect
   // BEFORE handlers fire so the read is fresh.
   const jobsRef = useRef(jobs);
@@ -553,7 +553,7 @@ export default function App() {
     // Snapshot the card's current status so a failed move can revert
     // ONLY that one card. The previous behaviour called loadJobs() on
     // any failure, which refetched the whole board and snapped every
-    // card back to its server state — including unrelated optimistic
+    // card back to its server state - including unrelated optimistic
     // updates. Net effect for the user: drag a card, see it move, then
     // see it bounce back as the refetch arrives a few hundred ms later.
     const original = jobsRef.current.find((j) => j.id === jobId);
@@ -568,13 +568,13 @@ export default function App() {
 
     try {
       const updated = await updateJobStatus(jobId, newStatus);
-      // Server is now authoritative — replace local row, remove the
+      // Server is now authoritative - replace local row, remove the
       // pending marker so future polls overwrite normally.
       setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
       pendingMutationsRef.current.delete(jobId);
     } catch (err: any) {
       // Revert just this card, keep all other optimistic state intact.
-      // Use `!== undefined` rather than truthy — a valid status like
+      // Use `!== undefined` rather than truthy - a valid status like
       // "filtered" is truthy, but if the job was removed from the list
       // in the middle of the drag `original` is undefined and we skip
       // the revert entirely, leaving the UI in its optimistic state.
@@ -590,7 +590,7 @@ export default function App() {
       // the visible error banner.
       console.error("[handleDragEnd] update failed", err);
     }
-    // Empty deps — handler is stable across re-renders. Reads jobs
+    // Empty deps - handler is stable across re-renders. Reads jobs
     // via jobsRef.current so a fresh snapshot is always available.
   }, []);
 
@@ -613,7 +613,7 @@ export default function App() {
     });
   }, []);
 
-  // Stable card-click handler — only re-created when selectionMode
+  // Stable card-click handler - only re-created when selectionMode
   // flips, so JobCard memo skips re-render for every card on every
   // unrelated state change (every drag, every flag, every poll).
   const handleCardClick = useCallback((job: Job) => {
@@ -683,7 +683,7 @@ export default function App() {
     // Read jobs via ref instead of dep, so the callback's identity
     // stays stable across the board's lifetime. Stable identity is
     // what lets React.memo on JobCard skip re-rendering unchanged
-    // rows when a single card flips its flag — without it, EVERY
+    // rows when a single card flips its flag - without it, EVERY
     // card on the board re-renders on every flag click.
     const original = jobsRef.current.find((j) => j.id === id);
     if (!original) return;
@@ -701,7 +701,7 @@ export default function App() {
       pendingMutationsRef.current.delete(id);
     } catch (err: any) {
       pendingMutationsRef.current.delete(id);
-      // Revert the single card only — loadJobs() would refetch the
+      // Revert the single card only - loadJobs() would refetch the
       // whole board and clobber any other in-flight optimistic state.
       setJobs((prev) => prev.map((j) => (j.id === id ? original : j)));
       console.error("[handleToggleFlag] toggle failed", err?.message || err);
@@ -714,7 +714,7 @@ export default function App() {
       const { url } = await gmailAuth();
       window.open(url, "_blank", "width=500,height=650");
 
-      // Poll every 1.5s for up to 60s — covers slow OAuth flows
+      // Poll every 1.5s for up to 60s - covers slow OAuth flows
       let attempts = 0;
       const poll = setInterval(() => {
         attempts++;
@@ -764,7 +764,7 @@ export default function App() {
       }
     } catch (err: any) {
       if (err?.reconnect) {
-        // Token was revoked/expired — flip back to the disconnected state so
+        // Token was revoked/expired - flip back to the disconnected state so
         // the sidebar shows "Connect Gmail" again.
         setGmailConnected(false);
         setGmailEmail(null);
@@ -884,7 +884,7 @@ export default function App() {
   if (showIntro) {
     return (
       <div className={`intro-loader ${introFading ? "intro-fade-out" : ""}`}>
-        {/* Video background — mild opacity */}
+        {/* Video background - mild opacity */}
         <video
           autoPlay
           muted
@@ -914,7 +914,7 @@ export default function App() {
   }
 
   // Route guard: dashboard and candidates make authenticated API calls.
-  // Landing is PUBLIC — anonymous visitors see the marketing-bait
+  // Landing is PUBLIC - anonymous visitors see the marketing-bait
   // FreeTailor feature without being forced through auth first.
   // Pricing + the auth page itself remain publicly accessible.
   const needsAuth = page === "dashboard" || page === "candidates";
@@ -928,13 +928,13 @@ export default function App() {
     );
   }
 
-  // Approval gate — signed-in users who haven't been approved yet get the
+  // Approval gate - signed-in users who haven't been approved yet get the
   // waitlist screen, full stop. The only route they can escape through is
   // sign-out (which takes them back to the landing page as an anonymous
   // visitor). Pre-signup visitors (currentUser === null) see the normal
   // landing page, so the marketing flow is unaffected.
   //
-  // Admins bypass the gate even if their row is pending — otherwise a
+  // Admins bypass the gate even if their row is pending - otherwise a
   // freshly-seeded admin account would have no way to self-approve, and
   // locking the owner out of their own deploy is a strictly worse failure
   // mode than showing them the dashboard a few seconds early.
@@ -1014,10 +1014,10 @@ export default function App() {
     );
   }
 
-  // Admin route — only renders for users with is_admin from /me. Non-admin
+  // Admin route - only renders for users with is_admin from /me. Non-admin
   // access falls through to the normal routing below; the server re-verifies
   // every /api/auth/admin/* call so a spoofed is_admin flag grants no real
-  // access. Never call setPage() from the render body — React infinite-loops.
+  // access. Never call setPage() from the render body - React infinite-loops.
   if (page === "admin" && currentUser?.is_admin) {
     return (
       <AdminPage
@@ -1040,7 +1040,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex bg-[#07080a] overflow-hidden relative">
-      {/* Subtle animated video background — loops behind everything.
+      {/* Subtle animated video background - loops behind everything.
           Opacity is deliberately low (~0.08) so it stays a texture and
           never competes with the cards. pointer-events-none so it can't
           intercept clicks; z-0 keeps it below every other child. */}
@@ -1092,7 +1092,7 @@ export default function App() {
       )}
 
       {/* Premium left navigation rail (replaces the old 3-row button wall).
-          Pure presentation — every action maps to an existing handler. */}
+          Pure presentation - every action maps to an existing handler. */}
       <Sidebar
         currentUser={currentUser}
         jobCount={jobs.length}
@@ -1129,7 +1129,7 @@ export default function App() {
       {/* Main content column */}
       <div className="flex-1 flex flex-col min-h-0 relative z-10">
 
-      {/* Header — board top bar (search + account) and the board toolbar */}
+      {/* Header - board top bar (search + account) and the board toolbar */}
       <header className="shrink-0 border-b border-[rgba(255,255,255,0.06)] bg-[#07080a]/80 backdrop-blur-sm relative z-10">
       <div className="px-3 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-3.5">
         {/* Mobile: open the sidebar drawer (desktop shows the rail statically) */}
@@ -1145,7 +1145,7 @@ export default function App() {
         {/* View title */}
         <h1 className="hidden sm:block font-display text-lg md:text-xl tracking-tight text-[var(--text-primary)] shrink-0">Pipeline Board</h1>
 
-        {/* Search — flex-1 on mobile so it fills remaining space */}
+        {/* Search - flex-1 on mobile so it fills remaining space */}
         <div className="relative flex-1 md:flex-none min-w-0" data-tour="dashboard-search">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1166,7 +1166,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Spacer + User info (top row) — hidden name+plan on mobile, logout icon always */}
+        {/* Spacer + User info (top row) - hidden name+plan on mobile, logout icon always */}
         <div className="hidden md:block flex-1" />
         {currentUser && (
           <div className="flex items-center gap-2 shrink-0" data-tour="dashboard-user">
@@ -1203,7 +1203,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {/* Mobile-only filters toggle — expands the hidden filter/action rows */}
+        {/* Mobile-only filters toggle - expands the hidden filter/action rows */}
         <button
           onClick={() => setMobileFiltersOpen((v) => !v)}
           className="md:hidden shrink-0 w-8 h-8 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -1219,12 +1219,12 @@ export default function App() {
           </svg>
         </button>
       </div>
-      {/* Collapsible wrapper — rows 2+3 always shown on md+, toggled on mobile */}
+      {/* Collapsible wrapper - rows 2+3 always shown on md+, toggled on mobile */}
       <div className={`${mobileFiltersOpen ? "block" : "hidden"} md:block`}>
-      {/* Second row — sorts & filters (Deadline / Score / Newest / date / locations / sources / flagged) */}
+      {/* Second row - sorts & filters (Deadline / Score / Newest / date / locations / sources / flagged) */}
       <div className="px-3 md:px-6 py-2 flex flex-wrap items-center gap-2 border-t border-[rgba(255,255,255,0.03)]">
 
-        {/* Sort by deadline. Single-key — clears Grade + Seniority
+        {/* Sort by deadline. Single-key - clears Grade + Seniority
             because deadline ordering can't meaningfully combine with
             grade or seniority bands. */}
         <button
@@ -1243,7 +1243,7 @@ export default function App() {
           Deadline
         </button>
 
-        {/* Score sort removed — the kanban card and detail modal now
+        {/* Score sort removed - the kanban card and detail modal now
             show only the letter grade, so a numeric "Score" sort would
             be redundant with Grade and confusing alongside it. The
             underlying match_score is still used as a tiebreak inside
@@ -1263,10 +1263,10 @@ export default function App() {
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
           title={!hasGrades
-            ? "No graded jobs yet — run the pipeline so jobs get an AI match grade"
+            ? "No graded jobs yet - run the pipeline so jobs get an AI match grade"
             : sortBySeniority !== "off"
-              ? "Grade sort active. Combined with Seniority below — grade first, seniority breaks ties."
-              : "Sort by letter grade — A first, then B, C, D, F"}
+              ? "Grade sort active. Combined with Seniority below - grade first, seniority breaks ties."
+              : "Sort by letter grade - A first, then B, C, D, F"}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 19l7-14 7 14M8 14h8" />
@@ -1296,7 +1296,7 @@ export default function App() {
             !hasSeniority
               ? "No seniority level on these jobs yet"
               : sortBySeniority === "off"
-                ? "Sort by seniority — click to start with highest first"
+                ? "Sort by seniority - click to start with highest first"
                 : sortBySeniority === "high"
                   ? "Highest seniority first (Director → Intern). Click again to flip."
                   : "Lowest seniority first (Intern → Director). Click again to clear."
@@ -1332,7 +1332,7 @@ export default function App() {
           Newest
         </button>
 
-        {/* Date filter — calendar picker */}
+        {/* Date filter - calendar picker */}
         <div className="flex items-center gap-1.5 shrink-0">
           <input
             type="date"
@@ -1367,7 +1367,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Country filter — limited to the 4 supported markets. */}
+        {/* Country filter - limited to the 4 supported markets. */}
         <select
           value={locationFilter}
           onChange={(e) => setLocationFilter(e.target.value)}
@@ -1386,7 +1386,7 @@ export default function App() {
           <option value="newzealand">New Zealand</option>
         </select>
 
-        {/* Work-type filter — independent of country. */}
+        {/* Work-type filter - independent of country. */}
         <select
           value={workTypeFilter}
           onChange={(e) => setWorkTypeFilter(e.target.value as "" | "remote" | "hybrid" | "onsite")}
@@ -1422,10 +1422,10 @@ export default function App() {
         })()}
       </div>
 
-      {/* Third row — actions, stats, rates, selection (Skills / Events / Stories / counts / Gmail / …) */}
+      {/* Third row - actions, stats, rates, selection (Skills / Events / Stories / counts / Gmail / …) */}
       <div className="px-3 md:px-6 py-2 flex flex-wrap items-center gap-2 border-t border-[rgba(255,255,255,0.03)]">
 
-        {/* Export CSV button — downloads the current filtered view */}
+        {/* Export CSV button - downloads the current filtered view */}
         <button
           onClick={handleExportCsv}
           className="flex items-center gap-1 font-mono text-xs uppercase tracking-wider px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3] transition-all shrink-0"
@@ -1533,7 +1533,7 @@ export default function App() {
           onDragEnd={handleDragEnd}
           // Stable card-click handler so React.memo on JobCard can skip
           // re-renders for unaffected rows. Reads selectionMode via
-          // closure but is itself created once — `selectionMode` is
+          // closure but is itself created once - `selectionMode` is
           // captured at definition, so we re-create only when it flips.
           onCardClick={handleCardClick}
           selectionMode={selectionMode}
@@ -1591,10 +1591,10 @@ export default function App() {
         );
       })()}
 
-      {/* Settings Modal — reachable from the sidebar's Settings item */}
+      {/* Settings Modal - reachable from the sidebar's Settings item */}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
-      {/* Floating Contact button — small dialog for bug reports and
+      {/* Floating Contact button - small dialog for bug reports and
           feature suggestions, opens user's mail client via mailto: */}
       <ContactUsButton />
     </div>

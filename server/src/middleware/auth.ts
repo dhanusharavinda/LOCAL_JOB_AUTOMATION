@@ -52,7 +52,7 @@ declare global {
 }
 
 // ── Supabase client (server-side) ───────────────────────────────────
-// Uses only the anon key — sufficient for getUser(token) JWT verification.
+// Uses only the anon key - sufficient for getUser(token) JWT verification.
 let _supabase: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase;
@@ -60,7 +60,7 @@ function getSupabase(): SupabaseClient | null {
   const anon = process.env.SUPABASE_ANON_KEY;
   if (!url || !anon) {
     if (!(getSupabase as any)._warned) {
-      console.warn("[auth] SUPABASE_URL and SUPABASE_ANON_KEY are not set — all auth will fail.");
+      console.warn("[auth] SUPABASE_URL and SUPABASE_ANON_KEY are not set - all auth will fail.");
       (getSupabase as any)._warned = true;
     }
     return null;
@@ -78,7 +78,7 @@ function extractToken(req: Request): string | null {
 
   // Fallback: ?access_token=<jwt> in the query string.
   // Required for browser SSE (EventSource) which can't set custom headers.
-  // Only used for GET requests where this is safe — never accept JWTs in
+  // Only used for GET requests where this is safe - never accept JWTs in
   // the query string for state-changing verbs (POST/PUT/PATCH/DELETE) to
   // avoid accidental CSRF via logged URLs.
   if (req.method === "GET") {
@@ -108,7 +108,7 @@ async function tryInternalAuth(req: Request): Promise<AuthUser | null> {
   const userId = rest.slice(idx + 1);
   if (!token || !userId) return null;
 
-  // Constant-time compare to defeat timing oracles — a `!==` on strings
+  // Constant-time compare to defeat timing oracles - a `!==` on strings
   // short-circuits on first differing byte, leaking the token byte-by-byte.
   const tokenBuf = Buffer.from(token, "utf8");
   const expectedBuf = Buffer.from(expected, "utf8");
@@ -133,7 +133,7 @@ async function tryInternalAuth(req: Request): Promise<AuthUser | null> {
 
 /**
  * Load the profile row for a Supabase-verified user. Returns null if the
- * profiles row doesn't exist yet (should be rare — the handle_new_user
+ * profiles row doesn't exist yet (should be rare - the handle_new_user
  * trigger fires on signup, so this only happens in edge cases like a
  * manually-created auth.users row).
  */
@@ -186,14 +186,14 @@ async function ensureProfile(
     name,
     plan: "free",
     onboarded_at: null,
-    // Fresh JIT-provisioned profile — treated the same as a new trigger-
+    // Fresh JIT-provisioned profile - treated the same as a new trigger-
     // created row. Falls under the approval gate by default.
     approval_status: "pending",
   };
 }
 
 /**
- * Required auth — 401s when no valid Supabase JWT is present.
+ * Required auth - 401s when no valid Supabase JWT is present.
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const internal = await tryInternalAuth(req);

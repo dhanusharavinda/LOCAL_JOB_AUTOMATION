@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { ScrapedJob, LinkedInJob } from "../../types";
 
-// User-Agent is country-agnostic — the old "DublinJobAgent" string was a
+// User-Agent is country-agnostic - the old "DublinJobAgent" string was a
 // leftover from the Ireland-only era and falsely signalled geographic
 // context to servers that rate-limit by UA string.
 export const SCRAPER_UA = "Mozilla/5.0 (compatible; JobTrackerBot/1.0; +https://github.com/user/job-tracker)";
@@ -90,7 +90,7 @@ export function toLinkedInJob(j: ScrapedJob, hash: string, fresh: number): Linke
 
 /** Check if a job was posted within the last N days (default 14). Returns true if recent or unknown. */
 export function isRecentJob(postedAt?: string, maxDays = 14): boolean {
-  if (!postedAt) return true; // unknown date — keep it, let the pipeline decide
+  if (!postedAt) return true; // unknown date - keep it, let the pipeline decide
   try {
     const posted = new Date(postedAt);
     if (isNaN(posted.getTime())) return true;
@@ -127,7 +127,7 @@ export function isLocationRelevant(location?: string, description?: string): boo
     if (pattern && pattern.test(combined)) return true;
   }
 
-  // Remote/hybrid — accept if worldwide/global
+  // Remote/hybrid - accept if worldwide/global
   if (/remote|hybrid|wfh|work from home/i.test(combined)) {
     if (/worldwide|global|anywhere/i.test(combined)) return true;
 
@@ -137,10 +137,10 @@ export function isLocationRelevant(location?: string, description?: string): boo
       if (pattern && pattern.test(desc)) return true;
     }
 
-    // Bare "Remote" with no signal — keep it, let the pipeline filter decide
+    // Bare "Remote" with no signal - keep it, let the pipeline filter decide
     return true;
   }
 
-  // No match — still keep for pipeline-level filtering (scraper pre-filter is lenient)
+  // No match - still keep for pipeline-level filtering (scraper pre-filter is lenient)
   return true;
 }

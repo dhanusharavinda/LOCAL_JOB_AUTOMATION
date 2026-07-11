@@ -5,7 +5,7 @@ import { fetchCurrentSkills, fetchSkillFilters, SkillFilter } from "../api";
 /**
  * Fixed country options for the location filter. Replaces the previous
  * per-user location list (which surfaced every distinct string seen in
- * scraped_jobs_archive — "Dublin, Ireland", "Dublin", "Dublin 2", etc.
+ * scraped_jobs_archive - "Dublin, Ireland", "Dublin", "Dublin 2", etc.
  * were all separate entries). Four countries match the pipeline's
  * supported markets and the dashboard's country filter.
  *
@@ -41,7 +41,7 @@ export default function SkillsTrendModal({ onClose }: Props) {
   const [, setFiltersLoaded] = useState(false);
 
   // Load filter options once. Locations are NOT pulled from the server
-  // anymore — we use the fixed country list above so the dropdown stays
+  // anymore - we use the fixed country list above so the dropdown stays
   // readable even when the user's scraped_jobs_archive contains a long
   // tail of city-level variants.
   useEffect(() => {
