@@ -1,34 +1,69 @@
 import puppeteer, { Browser } from "puppeteer";
 
 let browser: Browser | null = null;
+let launching: Promise<Browser> | null = null;
+
+// Hard ceilings so a wedged Chromium can never hang the request forever.
+// Without these, a launch that never connects (missing binary, version
+// mismatch, OOM-killed child) leaves the HTTP request open until the
+// platform proxy gives up and returns a 502. Failing fast turns that into
+// a clean 500 with a logged cause instead.
+const LAUNCH_TIMEOUT_MS = 30_000;
+const PROTOCOL_TIMEOUT_MS = 60_000;
+
+async function launchBrowser(): Promise<Browser> {
+  return puppeteer.launch({
+    headless: true,
+    // Fail fast instead of hanging the request if Chromium won't come up,
+    // and cap every CDP round-trip so an unresponsive renderer can't stall
+    // page.evaluate()/page.pdf() indefinitely.
+    timeout: LAUNCH_TIMEOUT_MS,
+    protocolTimeout: PROTOCOL_TIMEOUT_MS,
+    // --no-sandbox is unavoidable inside unprivileged container runtimes
+    // (Railway, Fly, k8s) that can't grant SYS_ADMIN for the Chromium
+    // sandbox. The other flags harden what we can:
+    //   --disable-dev-shm-usage: use /tmp instead of the 64MB default
+    //     /dev/shm - prevents crashes on small-shm containers.
+    //   --disable-software-rasterizer + --disable-gpu: no GPU in the
+    //     container, so skip the fallback rasterizer that wastes memory.
+    //   --disable-extensions + --disable-background-networking: less
+    //     attack surface, less background CPU.
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--disable-extensions",
+      "--disable-background-networking",
+    ],
+    ...(process.env.PUPPETEER_EXECUTABLE_PATH
+      ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
+      : {}),
+  });
+}
 
 async function getBrowser(): Promise<Browser> {
-  if (!browser || !browser.connected) {
-    browser = await puppeteer.launch({
-      headless: true,
-      // --no-sandbox is unavoidable inside unprivileged container runtimes
-      // (Railway, Fly, k8s) that can't grant SYS_ADMIN for the Chromium
-      // sandbox. The other flags harden what we can:
-      //   --disable-dev-shm-usage: use /tmp instead of the 64MB default
-      //     /dev/shm - prevents crashes on small-shm containers.
-      //   --no-zygote / --single-process off: default, keeps multi-process
-      //     isolation between renderer and browser process.
-      //   --disable-extensions + --disable-background-networking: less
-      //     attack surface, less background CPU.
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-extensions",
-        "--disable-background-networking",
-      ],
-      ...(process.env.PUPPETEER_EXECUTABLE_PATH
-        ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
-        : {}),
-    });
+  if (browser && browser.connected) return browser;
+  // Collapse concurrent first-hit requests onto a single launch so two
+  // tailors landing at once don't spawn two Chromiums (double the memory,
+  // the fast path to an OOM kill on a small container).
+  if (!launching) {
+    launching = launchBrowser()
+      .then((b) => { browser = b; return b; })
+      .finally(() => { launching = null; });
   }
-  return browser;
+  return launching;
+}
+
+// Drop the cached browser after a failed render so the NEXT request starts
+// a fresh Chromium instead of reusing a half-dead one (a crashed child that
+// still briefly reports connected is a classic source of repeat 502s).
+async function resetBrowser(): Promise<void> {
+  const dead = browser;
+  browser = null;
+  launching = null;
+  if (dead) { try { await dead.close(); } catch { /* already gone */ } }
 }
 
 /** True when a value is a real string (not empty, not an LLM placeholder like "null"/"undefined"/"N/A"). */
@@ -403,8 +438,22 @@ export async function generateLocalPdf(
   // 2 -> 2." Defaults to 1 so any caller that doesn't pass a target keeps
   // the original single-page behavior. Clamped to [1, 3].
   const targetPages = Math.min(3, Math.max(1, Math.round(opts?.targetPages || 1)));
-
   const html = buildResumeHtml(resumeData);
+
+  // One retry: if the render fails on a stale/crashed browser (Chromium
+  // child died between requests), throw away the singleton and try once
+  // with a fresh instance before giving up. Prevents a single bad Chromium
+  // state from turning every subsequent tailor into a 502.
+  try {
+    return await renderPdf(html, targetPages);
+  } catch (err: any) {
+    console.warn("[pdf] render failed, relaunching Chromium and retrying:", err?.message || err);
+    await resetBrowser();
+    return await renderPdf(html, targetPages);
+  }
+}
+
+async function renderPdf(html: string, targetPages: number): Promise<Buffer> {
   const b = await getBrowser();
   const page = await b.newPage();
 
