@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Job, JobStatus, COLUMNS } from "./types";
-import { fetchJobs, updateJobStatus, batchDeleteJobs, gmailStatus, gmailAuth, gmailSync, gmailDisconnect, toggleJobFlag, checkExpiry, authMe, AuthUser, LimitsInfo } from "./api";
+import { fetchJobs, updateJobStatus, batchDeleteJobs, toggleJobFlag, checkExpiry, authMe, AuthUser, LimitsInfo } from "./api";
 import { supabase, getCurrentAccessToken } from "./supabaseClient";
 import { startLandingTour, startDashboardTour, getTourState } from "./onboarding/tour";
 import KanbanBoard from "./components/KanbanBoard";
@@ -75,11 +75,6 @@ export default function App() {
   const [showEvents, setShowEvents] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split("T")[0]); // default to today
-  const [gmailConnected, setGmailConnected] = useState(false);
-  const [gmailSyncing, setGmailSyncing] = useState(false);
-  const [gmailLastSync, setGmailLastSync] = useState<string | null>(null);
-  // Which Google account the current user connected (shown as "Connected as …").
-  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
   const [expiryChecking, setExpiryChecking] = useState(false);
   const [showStoryBank, setShowStoryBank] = useState(false);
@@ -326,35 +321,6 @@ export default function App() {
     }, 500);
     return () => clearTimeout(t);
   }, [currentUser, page, loading]);
-
-  useEffect(() => {
-    // Gmail status is an authenticated endpoint. Skip the initial check
-    // (and all subsequent polls / postMessage refreshes) until the
-    // Supabase session has been restored and our /me call has populated
-    // currentUser. Before this guard, an unauthenticated page load would
-    // fire /api/gmail/status, get a 401 from the global requireAuth
-    // middleware, and fill the console with errors on every visit to
-    // the landing or auth pages.
-    if (!currentUser) return;
-
-    gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
-
-    // Handle redirect back from OAuth popup (?gmail=connected)
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("gmail") === "connected") {
-      window.history.replaceState({}, "", window.location.pathname);
-      gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
-    }
-
-    // Listen for postMessage from popup (works if opener is still accessible)
-    const messageHandler = (e: MessageEvent) => {
-      if (e.data === "gmail_connected") {
-        gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
-      }
-    };
-    window.addEventListener("message", messageHandler);
-    return () => window.removeEventListener("message", messageHandler);
-  }, [currentUser]);
 
   // Filter by search query.
   //
@@ -709,74 +675,6 @@ export default function App() {
     }
   }, []);
 
-  async function handleGmailConnect() {
-    try {
-      const { url } = await gmailAuth();
-      window.open(url, "_blank", "width=500,height=650");
-
-      // Poll every 1.5s for up to 60s - covers slow OAuth flows
-      let attempts = 0;
-      const poll = setInterval(() => {
-        attempts++;
-        gmailStatus().then((s) => {
-          if (s.connected) {
-            setGmailConnected(true);
-            setGmailLastSync(s.lastSync);
-            setGmailEmail(s.email);
-            clearInterval(poll);
-          }
-        }).catch(() => {});
-        if (attempts >= 40) clearInterval(poll); // give up after 60s
-      }, 1500);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
-
-  async function handleGmailDisconnect() {
-    try {
-      await gmailDisconnect();
-      setGmailConnected(false);
-      setGmailLastSync(null);
-      setGmailEmail(null);
-    } catch (err: any) {
-      setError("Failed to disconnect Gmail: " + err.message);
-    }
-  }
-
-  async function handleGmailSync() {
-    setGmailSyncing(true);
-    try {
-      const result = await gmailSync();
-      await loadJobs(); // Always refresh
-      gmailStatus().then((s) => { setGmailConnected(s.connected); setGmailLastSync(s.lastSync); setGmailEmail(s.email); }).catch(() => {});
-      if (result.synced > 0) {
-        const created = result.updates?.filter((u: any) => u.created).length ?? 0;
-        const updated = result.synced - created;
-        const parts = [];
-        if (created > 0) parts.push(`${created} new job${created > 1 ? "s" : ""} added`);
-        if (updated > 0) parts.push(`${updated} updated`);
-        setError("✓ Gmail sync: " + parts.join(", ") + ` (${result.scanned} emails scanned)`);
-        setTimeout(() => setError(null), 6000);
-      } else {
-        setError("✓ Gmail sync: no new changes (" + result.scanned + " emails scanned)");
-        setTimeout(() => setError(null), 4000);
-      }
-    } catch (err: any) {
-      if (err?.reconnect) {
-        // Token was revoked/expired - flip back to the disconnected state so
-        // the sidebar shows "Connect Gmail" again.
-        setGmailConnected(false);
-        setGmailEmail(null);
-        setError("Your Gmail connection expired. Please reconnect Gmail.");
-      } else {
-        setError("Gmail sync failed: " + err.message);
-      }
-    } finally {
-      setGmailSyncing(false);
-    }
-  }
-
   // Stats
   const stats = COLUMNS.map((col) => ({
     ...col,
@@ -1104,12 +1002,6 @@ export default function App() {
         onOpenApplyProfile={() => setShowApplyProfile(true)}
         onOpenInterview={() => { setInterviewJobId(null); setShowInterview(true); }}
         onAddJob={() => setShowAddJob(true)}
-        gmailConnected={gmailConnected}
-        gmailEmail={gmailEmail}
-        gmailSyncing={gmailSyncing}
-        onGmailConnect={handleGmailConnect}
-        onGmailSync={handleGmailSync}
-        onGmailDisconnect={handleGmailDisconnect}
         isAdmin={!!currentUser?.is_admin}
         onAdmin={() => setPage("admin")}
         onBackToLanding={() => {
@@ -1422,7 +1314,7 @@ export default function App() {
         })()}
       </div>
 
-      {/* Third row - actions, stats, rates, selection (Skills / Events / Stories / counts / Gmail / …) */}
+      {/* Third row - actions, stats, rates, selection (Skills / Events / Stories / counts / …) */}
       <div className="px-3 md:px-6 py-2 flex flex-wrap items-center gap-2 border-t border-[rgba(255,255,255,0.03)]">
 
         {/* Export CSV button - downloads the current filtered view */}

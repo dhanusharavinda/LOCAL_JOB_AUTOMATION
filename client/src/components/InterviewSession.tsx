@@ -124,6 +124,20 @@ export default function InterviewSession({
 
   // ── Refs for audio + STT lifecycle ────────────────────────────────────
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  // Object URL of the current TTS clip. Kept alive until the NEXT clip
+  // loads so the tap-to-play fallback can replay it after an autoplay
+  // block; revoking on 'ended' would break that replay.
+  const ttsUrlRef = useRef<string | null>(null);
+  // True when the browser refused audio.play() (autoplay policy). The
+  // UI shows a "Play question" button that satisfies the user-gesture
+  // requirement; once one gesture-driven play succeeds, the SAME element
+  // is reused for all later clips so they play unblocked.
+  const [voiceBlocked, setVoiceBlocked] = useState(false);
+  // What Whisper heard, surfaced during "deciding" so the user can see
+  // their words landed instead of wondering whether the mic worked.
+  const [lastHeard, setLastHeard] = useState<string>("");
+  // Seconds of recording in the current listening turn (UI only).
+  const [listenElapsedSec, setListenElapsedSec] = useState(0);
   const turnStartRef = useRef<number>(0);
   const silenceTimerRef = useRef<number | null>(null);
   const adaptiveSilenceMsRef = useRef<number>(SILENCE_MS_DEFAULT);
@@ -185,6 +199,21 @@ export default function InterviewSession({
     const start = Date.now();
     const id = window.setInterval(() => {
       setDecidingElapsedSec(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub]);
+
+  // Recording timer while listening: "0:07" ticking next to the status
+  // label proves the mic turn is live.
+  useEffect(() => {
+    if (sub !== "listening") {
+      if (listenElapsedSec !== 0) setListenElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    const id = window.setInterval(() => {
+      setListenElapsedSec(Math.floor((Date.now() - start) / 1000));
     }, 1000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -257,7 +286,27 @@ export default function InterviewSession({
     setMicLevel(0);
   }
 
+  /**
+   * Unlock audio playback inside a real user gesture. Browsers block
+   * audio.play() calls that happen outside a click (autoplay policy),
+   * and our first TTS clip plays 5-15s AFTER the "Start interview"
+   * click (question generation takes that long), far past the gesture
+   * window. Playing a silent clip NOW, synchronously in the click
+   * handler, marks this <audio> element as user-activated; we then
+   * reuse the SAME element for every TTS clip, which browsers allow.
+   * This was the root cause of "the interviewer never speaks": every
+   * play() was rejected and the rejection was silently swallowed.
+   */
+  const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+  function unlockAudio() {
+    if (!audioElRef.current) audioElRef.current = new Audio();
+    const a = audioElRef.current;
+    a.src = SILENT_WAV;
+    a.play().catch(() => { /* even if this is blocked, the tap-to-play fallback covers us */ });
+  }
+
   async function beginSession() {
+    unlockAudio();
     stopMicCheck();
     setPhase("starting");
     setError("");
@@ -286,31 +335,56 @@ export default function InterviewSession({
   }
 
   // ── TTS playback ──────────────────────────────────────────────────────
+  // Reuses ONE persistent <audio> element (unlocked in beginSession's
+  // click) instead of a fresh element per clip. A fresh element has no
+  // user-activation, so browsers block its play() and the interviewer
+  // goes silent. If play() is still rejected, we surface a "Play
+  // question" button (a real gesture) instead of swallowing the error.
   async function speak(text: string): Promise<void> {
     setSub("speaking");
-    // Tear down any prior audio element so an interrupted question
-    // (user clicked End, or a follow-up arrived) doesn't keep playing
-    // over the new prompt.
-    try { audioElRef.current?.pause(); } catch { /* noop */ }
-    audioElRef.current = null;
+    if (!audioElRef.current) audioElRef.current = new Audio();
+    const audio = audioElRef.current;
+    try { audio.pause(); } catch { /* noop */ }
+    // Previous clip's object URL can be released now that a new clip
+    // is replacing it.
+    if (ttsUrlRef.current) { URL.revokeObjectURL(ttsUrlRef.current); ttsUrlRef.current = null; }
     try {
       const blob = await interviewTtsBlob(text);
       const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioElRef.current = audio;
+      ttsUrlRef.current = url;
+      audio.src = url;
       await new Promise<void>((resolve) => {
-        audio.addEventListener("ended", () => { URL.revokeObjectURL(url); resolve(); }, { once: true });
-        audio.addEventListener("error", () => { URL.revokeObjectURL(url); resolve(); }, { once: true });
-        audio.play().catch(() => resolve());
+        let settled = false;
+        const finish = () => { if (!settled) { settled = true; resolve(); } };
+        audio.onended = finish;
+        audio.onerror = finish;
+        audio.play().then(() => {
+          setVoiceBlocked(false);
+        }).catch(() => {
+          // Autoplay blocked. Show the tap-to-play fallback and move on
+          // so the turn isn't stranded; the question text is on screen.
+          setVoiceBlocked(true);
+          finish();
+        });
       });
     } catch {
       // TTS failed; render the question on screen and let user read it.
     }
   }
 
+  /** Gesture-driven replay for the autoplay-blocked case. One successful
+   *  play from a real tap unlocks the element for all later clips. */
+  function tapToPlay() {
+    const a = audioElRef.current;
+    if (!a || !a.src) return;
+    a.currentTime = 0;
+    a.play().then(() => setVoiceBlocked(false)).catch(() => { /* still blocked; button stays */ });
+  }
+
   async function askQuestion(text: string, qIdxToAsk: number) {
     setPendingPrompt(text);
     setListenWarning("");
+    setLastHeard("");
     pushTranscript({ qIdx: qIdxToAsk, role: "ai", text, t_start: Date.now(), t_end: Date.now() });
     await speak(text);
     await startListening(qIdxToAsk);
@@ -405,6 +479,15 @@ export default function InterviewSession({
     // disconnects abruptly (closes tab, kills mic mid-turn).
     recorder.start(250);
 
+    // Hard failsafe: if the VAD never fires (very quiet mic that stays
+    // under the speech threshold, or an AudioContext quirk), auto-finish
+    // the turn after 90s so the session can never silently stall on one
+    // question. Cleared by stopRecog().
+    if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = window.setTimeout(() => {
+      if (recordMediaRef.current?.state === "recording") finishUserTurn(qIdxFor);
+    }, 90_000);
+
     // Web Audio analyser drives the VAD. We share the stream with
     // MediaRecorder - both consumers can read the same MediaStream.
     let ctx: AudioContext;
@@ -498,6 +581,7 @@ export default function InterviewSession({
   function stopAllAudio() {
     stopRecog();
     try { audioElRef.current?.pause(); } catch { /* noop */ }
+    if (ttsUrlRef.current) { URL.revokeObjectURL(ttsUrlRef.current); ttsUrlRef.current = null; }
     stopMicCheck();
   }
 
@@ -585,6 +669,9 @@ export default function InterviewSession({
 
     pushTranscript({ qIdx: qIdxFor, role: "user", text: answer, t_start, t_end });
     setTypedAnswer("");
+    // Echo what Whisper heard so the user trusts the pipeline. Shown
+    // in the deciding state under the status label.
+    if (answer) setLastHeard(answer);
 
     if (!sessionId) { setDecidingPhase(null); return; }
 
@@ -608,12 +695,17 @@ export default function InterviewSession({
       const decision = await raceWithTimeout(
         interviewTurn({ sessionId, qIdx: qIdxFor, answer, followUpDepth }),
         12_000,
-        { action: "next" as const, followUpQuestion: undefined },
+        { action: "next" as const, followUpQuestion: undefined, ack: undefined },
       );
+      // The decider returns a short spoken reaction ("Nice - that's a
+      // concrete example.") that we prepend to whatever comes next so
+      // the exchange sounds like a conversation, not a question machine.
+      const ack = (decision.ack || "").trim();
+      const withAck = (q: string) => (ack ? `${ack} ${q}` : q);
       if (decision.action === "follow_up" && decision.followUpQuestion) {
         setFollowUpDepth((d) => d + 1);
         setDecidingPhase("next_question");
-        await askQuestion(decision.followUpQuestion, qIdxFor);
+        await askQuestion(withAck(decision.followUpQuestion), qIdxFor);
         setDecidingPhase(null);
         return;
       }
@@ -628,7 +720,7 @@ export default function InterviewSession({
       setQIdx(nextIdx);
       setFollowUpDepth(0);
       setDecidingPhase("next_question");
-      await askQuestion(questions[nextIdx].question, nextIdx);
+      await askQuestion(withAck(questions[nextIdx].question), nextIdx);
       setDecidingPhase(null);
     } catch (err: any) {
       setDecidingPhase(null);
@@ -888,11 +980,21 @@ export default function InterviewSession({
               <span>Q {qIdx + 1} of {questions.length}{followUpDepth > 0 ? ` - follow-up ${followUpDepth}` : ""}</span>
               <span style={{ opacity: 0.7 }}>
                 {statusLabel(sub, decidingPhase)}
+                {sub === "listening" ? ` · ${fmtSecs(listenElapsedSec)}` : ""}
                 {sub === "deciding" && decidingElapsedSec > 1 ? ` · ${decidingElapsedSec}s` : ""}
               </span>
             </div>
 
             <div style={runningPrompt}>{pendingPrompt}</div>
+
+            {/* Autoplay-blocked fallback: the browser refused to play the
+                interviewer's voice without a fresh tap. One tap here
+                unlocks the shared audio element for the whole session. */}
+            {voiceBlocked && (
+              <button onClick={tapToPlay} style={playQuestionBtn}>
+                🔊 Tap to hear the question
+              </button>
+            )}
 
             {listenWarning ? (
               // Typing fallback layout. STT errored out (network or
@@ -919,6 +1021,11 @@ export default function InterviewSession({
                 <div style={runningTranscript}>
                   <div style={{ ...runningTranscriptText, color: interim ? "#fff" : "rgba(255,255,255,0.4)" }}>
                     {interim || statusHelper(sub, decidingPhase)}
+                    {sub === "deciding" && lastHeard && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.65)", fontStyle: "italic" }}>
+                        You said: "{lastHeard.length > 180 ? lastHeard.slice(0, 180) + "..." : lastHeard}"
+                      </div>
+                    )}
                     {sub === "deciding" && decidingElapsedSec >= 15 && (
                       <div style={{ marginTop: 8, fontSize: 12, color: "#ffd1c2" }}>
                         Taking longer than usual. The interview will resume automatically. If it's been over 30 seconds, close and start a new round.
@@ -1029,6 +1136,11 @@ export default function InterviewSession({
                       {q.gaps?.length > 0 && (
                         <div style={{ fontSize: 11, color: "#c62828", marginTop: 4 }}>
                           Gaps: {q.gaps.join("; ")}
+                        </div>
+                      )}
+                      {q.model_answer && (
+                        <div style={{ fontSize: 11, color: "#2e7d32", marginTop: 6, padding: "6px 8px", background: "#f1faf3", borderRadius: 6, border: "1px solid #cfe9d5" }}>
+                          <span style={{ fontWeight: 700 }}>Stronger answer: </span>{q.model_answer}
                         </div>
                       )}
                     </div>
@@ -1227,6 +1339,11 @@ const runningDoneBtn: React.CSSProperties = {
   padding: "12px 28px", borderRadius: 28, border: 0,
   fontWeight: 700, fontSize: 14, transition: "background 200ms, color 200ms",
 };
+const playQuestionBtn: React.CSSProperties = {
+  margin: "0 auto", padding: "10px 20px", borderRadius: 22,
+  border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.12)",
+  color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer",
+};
 
 // Keyframes injected once via a <style> tag inside the running phase.
 const orbKeyframes = `
@@ -1261,6 +1378,12 @@ function statusHelper(sub: RunningSub, deciding: DecidingPhase | null): string {
 }
 function subToOrbMode(sub: RunningSub): "speaking" | "listening" | "thinking" {
   return sub === "listening" ? "listening" : sub === "speaking" ? "speaking" : "thinking";
+}
+/** 67 -> "1:07" for the recording timer. */
+function fmtSecs(s: number): string {
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
 }
 
 /**

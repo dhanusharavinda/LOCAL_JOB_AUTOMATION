@@ -101,7 +101,7 @@ export function startLandingTour(opts: {
       popover: {
         title: "Your account",
         description:
-          "Your name, plan, and sign-out live here. Settings (API keys, Gmail, resume) are one click away.",
+          "Your name, plan, and sign-out live here. Settings (API keys, resume) are one click away.",
         side: "bottom",
         align: "end",
       },
@@ -235,16 +235,6 @@ export function startDashboardTour() {
       },
     },
     {
-      element: '[data-tour="gmail-connect"]',
-      popover: {
-        title: "Connect Gmail",
-        description:
-          "Hook up your inbox and GO CANDID8 auto-detects recruiter replies (interview invites, rejections, offers) and moves the matching cards for you.",
-        side: "bottom",
-        align: "end",
-      },
-    },
-    {
       element: '[data-tour="dashboard-user"]',
       popover: {
         title: "Your profile",
@@ -257,12 +247,12 @@ export function startDashboardTour() {
   ];
 
   // On mobile the sidebar is off-canvas, so steps anchored to sidebar items
-  // (Add Job, Connect Gmail, Back) would spotlight invisible elements at the
-  // screen edge. Drop them on small viewports - those features stay reachable
-  // via the menu button.
+  // (Add Job, Back) would spotlight invisible elements at the screen edge.
+  // Drop them on small viewports - those features stay reachable via the
+  // menu button.
   const isMobileTour = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
   const shownSteps = isMobileTour
-    ? steps.filter((s) => !s.element || !["add-job", "gmail-connect", "dashboard-back"].some((a) => String(s.element).includes(a)))
+    ? steps.filter((s) => !s.element || !["add-job", "dashboard-back"].some((a) => String(s.element).includes(a)))
     : steps;
 
   const drv = makeDriver(shownSteps, () => {

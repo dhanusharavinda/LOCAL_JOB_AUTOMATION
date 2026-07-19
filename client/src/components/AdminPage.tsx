@@ -362,13 +362,6 @@ export default function AdminPage({
 
                       <span className="mx-2 h-3 w-px bg-[var(--border-subtle)]" />
 
-                      <span className={`uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        u.gmail_connected
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : "bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-subtle)]"
-                      }`}>
-                        Gmail {u.gmail_connected ? "✓" : "–"}
-                      </span>
                       <span className="uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-subtle)]">
                         Last active: {lastActiveText}
                       </span>

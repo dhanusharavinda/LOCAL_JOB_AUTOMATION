@@ -159,16 +159,27 @@ async function generateQuestions(
       ? "DIFFICULTY: hard. Senior bar. Expect candidates to articulate trade-offs, edge cases, and second-order effects. Sharper question framing; assume strong fundamentals. Mix: 1 warm-up, 5 substantive, 4 stretch."
       : "DIFFICULTY: medium. Realistic mid-round bar at a competent company. Mix: 2 warm-up, 6 substantive, 2 stretch.";
 
+  const hasJd = !!(ctx.description && ctx.description.trim().length > 100);
+  const hasResume = !!(ctx.resume_text && ctx.resume_text.trim().length > 100);
+
   const sys =
-    "You are an expert interviewer designing a practice round for a candidate. " +
+    "You are a warm but incisive senior interviewer running a VOICE-based mock interview. " +
+    "Every question you write will be READ ALOUD by a text-to-speech voice, so write it exactly the way a human interviewer would say it out loud: " +
+    "conversational, one or at most two short sentences, no lists, no markdown, no numbering, no 'Question 1:' prefixes, and never multi-part ('...and also...') questions. " +
     "Generate exactly " + QUESTIONS_PER_SESSION + " questions. " +
     (mode === "behavioral"
       ? "BEHAVIORAL mode: 70% STAR-format behavioral questions (past experience, conflict, leadership, growth, failure). 30% role-specific situational. "
-      : "TECHNICAL mode: 70% concept and verbal-system-design (no whiteboard); the candidate explains how they'd approach. 30% behavioral on engineering practices. ") +
+      : "TECHNICAL mode: 70% concept and verbal-system-design (no whiteboard); the candidate explains how they'd approach it out loud. 30% behavioral on engineering practices. ") +
     difficultyDirective + " " +
+    (hasJd
+      ? "A job description is provided. At least 6 of the questions MUST anchor to something CONCRETE in it: the product, the team's stack, a named responsibility, the domain. A candidate reading the JD should think 'they clearly wrote these for THIS job'. Generic questions that could apply to any role are allowed only as the single warm-up opener. "
+      : "") +
+    (hasResume
+      ? "A resume is provided. At least 2 questions must probe SPECIFIC items on it: a named project, a role transition, a skill claim that deserves scrutiny. Reference the item naturally ('You mentioned migrating X...'). "
+      : "") +
     "Return STRICT JSON: { questions: [ { idx, question, type, rubric_target, hidden_hint, expected_length } ] }. " +
     "Each rubric_target is an array of 1-3 dimensions from: clarity, structure, technical_accuracy, jd_relevance, communication. " +
-    "hidden_hint is a one-line note for the AI follow-up decider; never shown to the candidate. " +
+    "hidden_hint is one line for the AI follow-up decider: what a STRONG answer must include, and the most revealing probe if the answer is thin. Never shown to the candidate. " +
     "expected_length is short / medium / long. " +
     "Order: warmest first, hardest last.";
 
@@ -385,12 +396,13 @@ router.post("/turn", async (req: Request, res: Response) => {
     if (!openai) { res.status(500).json({ error: "AI not configured" }); return; }
 
     const sys =
-      "You decide whether a candidate's answer needs a follow-up or whether to move on. " +
-      "Return STRICT JSON: { action: 'follow_up' | 'next', follow_up_question: string|null, reason: string }. " +
-      "Choose 'follow_up' if the answer is short, vague, missing a key element from the rubric, or skips the situation/action/result. " +
+      "You are the interviewer in a live VOICE mock interview, deciding whether the candidate's answer needs a follow-up or whether to move on. " +
+      "Return STRICT JSON: { action: 'follow_up' | 'next', ack: string, follow_up_question: string|null, reason: string }. " +
+      "ack: a short spoken reaction to what they JUST said, max 12 words, referencing their actual content ('Shipping that under a deadline is a solid example.'). " +
+      "It is read aloud before the next thing you say, so keep it natural and specific. Never generic filler ('Great answer!'), never condescending, no exclamation spam. If the answer was weak, the ack stays neutral ('Okay, I think I follow.'). " +
+      "Choose 'follow_up' if the answer is short, vague, missing a key element from the rubric/hidden hint, or skips the situation/action/result. " +
       "Choose 'next' if the answer is complete enough to score. " +
-      "Be sharp and specific in follow_up_question - one sentence, conversational, no preamble. " +
-      "Never repeat the original question.";
+      "follow_up_question: ONE probing angle only, one conversational sentence, written to be spoken aloud, no preamble, never a repeat of the original question.";
 
     const usr =
       `Mode: ${row.mode}\n` +
@@ -407,7 +419,7 @@ router.post("/turn", async (req: Request, res: Response) => {
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
       temperature: 0.4,
-      max_tokens: 200,
+      max_tokens: 300,
     });
 
     let decision: any = {};
@@ -416,8 +428,11 @@ router.post("/turn", async (req: Request, res: Response) => {
     const followUpQuestion = action === "follow_up"
       ? String(decision.follow_up_question || "Could you walk me through that with a specific example?").slice(0, 300)
       : undefined;
+    // Spoken one-line reaction; the client prepends it to the next
+    // prompt so the exchange sounds conversational.
+    const ack = typeof decision.ack === "string" ? decision.ack.trim().slice(0, 140) : "";
 
-    res.json({ action, followUpQuestion });
+    res.json({ action, followUpQuestion, ack });
   } catch (err: any) {
     console.error("[POST /api/interview/turn]", err?.message || err);
     res.status(500).json({ error: "Decide step failed" });
@@ -492,9 +507,10 @@ router.post("/score", async (req: Request, res: Response) => {
     const sys =
       "You are an interview rubric scorer. Read the transcript and score 0-100 on each dimension. " +
       "Return STRICT JSON: { overall_readiness: 0-100, dimensions: { clarity, structure, technical_accuracy, jd_relevance, communication }, " +
-      "by_question: [{ q_idx, score, strengths: [string], gaps: [string], pull_quote: string }], " +
+      "by_question: [{ q_idx, score, strengths: [string], gaps: [string], pull_quote: string, model_answer: string }], " +
       "weak_areas_to_prep: [string], stories_used: [string] }. " +
       "Be strict on factual accuracy and structure (STAR for behavioral). Be generous on tone. " +
+      "model_answer: 2-3 first-person sentences showing what a STRONG answer to this question would have sounded like for THIS candidate, reusing their real experience from the transcript where possible. Concrete and speakable; no clichés, no bullet lists. " +
       "weak_areas_to_prep is a 3-5 item action list, each starting with a verb. " +
       "stories_used names any specific past experiences the candidate referenced.";
 
@@ -508,7 +524,7 @@ router.post("/score", async (req: Request, res: Response) => {
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
       temperature: 0.3,
-      max_tokens: 2000,
+      max_tokens: 3000,
     });
 
     let rubric: any = {};
@@ -549,7 +565,12 @@ router.post("/score", async (req: Request, res: Response) => {
 // We proxy through the server so the OpenAI key never touches the
 // browser. Streaming so first audio chunk arrives in ~400ms.
 router.post("/tts", async (req: Request, res: Response) => {
-  const text = String((req.body || {}).text || "").trim();
+  // Strip markdown artifacts (asterisks, backticks, headings) and
+  // collapse whitespace so the voice never reads formatting aloud.
+  const text = String((req.body || {}).text || "")
+    .replace(/[*_#`~]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!text) { res.status(400).json({ error: "Missing text" }); return; }
   if (text.length > 1500) { res.status(400).json({ error: "Text too long" }); return; }
   const openai = getOpenAI();

@@ -223,36 +223,6 @@ export async function createJob(job: Partial<Job>): Promise<Job> {
   return res.json();
 }
 
-export async function gmailStatus(): Promise<{ connected: boolean; lastSync: string | null; email: string | null }> {
-  const res = await fetch("/api/gmail/status");
-  if (!res.ok) throw new Error("Failed to get Gmail status");
-  return res.json();
-}
-
-export async function gmailAuth(): Promise<{ url: string }> {
-  const res = await fetch("/api/gmail/auth");
-  if (!res.ok) throw new Error("Failed to get Gmail auth URL");
-  return res.json();
-}
-
-export async function gmailDisconnect(): Promise<void> {
-  const res = await fetch("/api/gmail/disconnect", { method: "POST" });
-  if (!res.ok) throw new Error("Failed to disconnect Gmail");
-}
-
-export async function gmailSync(): Promise<{ synced: number; updates: any[]; scanned: number }> {
-  const res = await fetch("/api/gmail/sync", { method: "POST" });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Sync failed" }));
-    const e: any = new Error(err.error || "Sync failed");
-    // Server sets this when the Gmail token was revoked/expired, so the UI
-    // can flip back to a "Connect Gmail" state and prompt a reconnect.
-    e.reconnect = !!err.reconnect;
-    throw e;
-  }
-  return res.json();
-}
-
 export async function fetchCurrentSkills(
   filters?: { role?: string; location?: string; company?: string }
 ): Promise<{ total_jobs: number; skills: SkillData[] }> {
@@ -604,6 +574,67 @@ export async function createStory(story: Omit<StoryBankEntry, "id" | "created_at
 export async function deleteStory(id: number): Promise<void> {
   const res = await fetch(`/api/story-bank/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete story");
+}
+
+// ─── Work Experience stories (Story Bank tab) ────────────────────────
+// First-person narratives generated from the resume's work history.
+// The AI never invents details: anything the resume doesn't answer
+// comes back as a follow-up question, and answering follow-ups weaves
+// the answers into the story via /refine.
+
+export interface ExperienceFollowup {
+  question: string;
+  answer: string | null;
+}
+
+export interface ExperienceStory {
+  id: number;
+  company: string;
+  title: string;
+  date_range: string | null;
+  monologue: string;
+  day_in_life: string | null;
+  how_it_felt: string | null;
+  followups: ExperienceFollowup[];
+  status: "draft" | "complete";
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchExperienceStories(): Promise<ExperienceStory[]> {
+  const res = await fetch("/api/story-bank/experience");
+  if (!res.ok) throw new Error("Failed to load experience stories");
+  return res.json();
+}
+
+export async function generateExperienceStories(): Promise<{ created: ExperienceStory[]; skipped: number }> {
+  const res = await fetch("/api/story-bank/experience/generate", { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || "Could not generate experience stories");
+  }
+  return res.json();
+}
+
+export async function refineExperienceStory(
+  id: number,
+  answers: Array<{ question: string; answer: string }>,
+): Promise<ExperienceStory> {
+  const res = await fetch(`/api/story-bank/experience/${id}/refine`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ answers }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || "Could not update the story");
+  }
+  return res.json();
+}
+
+export async function deleteExperienceStory(id: number): Promise<void> {
+  const res = await fetch(`/api/story-bank/experience/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete experience story");
 }
 
 // ─── Target Companies API ───────────────────────────────────────────
@@ -1197,12 +1228,16 @@ export interface InterviewStartResponse {
 export interface InterviewTurnResponse {
   action: "follow_up" | "next" | "wrap";
   followUpQuestion?: string;
+  // Short spoken reaction to the answer ("Nice, that's concrete.")
+  // played before the follow-up / next question so the conversation
+  // feels human instead of an abrupt question machine.
+  ack?: string;
 }
 
 export interface InterviewRubric {
   overall_readiness?: number;
   dimensions?: Record<string, number>;
-  by_question?: Array<{ q_idx: number; score: number; strengths: string[]; gaps: string[]; pull_quote: string }>;
+  by_question?: Array<{ q_idx: number; score: number; strengths: string[]; gaps: string[]; pull_quote: string; model_answer?: string }>;
   weak_areas_to_prep?: string[];
   stories_used?: string[];
 }

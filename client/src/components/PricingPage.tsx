@@ -66,7 +66,6 @@ const PLANS: Plan[] = [
       "AI job scoring & filtering",
       "Cover letter generation",
       "Multi-source job discovery",
-      "Gmail sync",
       "Skills trend analytics",
       "Career events tracker",
       "No-match alerts with tuning suggestions",

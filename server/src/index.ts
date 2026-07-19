@@ -20,7 +20,6 @@ import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import jobsRouter from "./routes/jobs";
-import gmailRouter from "./routes/gmail";
 import skillsRouter from "./routes/skills";
 import eventsRouter from "./routes/events";
 import settingsRouter from "./routes/settings";
@@ -276,7 +275,6 @@ app.use("/api", apiLimiter, requireAuth);
 // Register expiry routes BEFORE jobs router so specific routes match first
 app.use("/api/jobs", expiryRouter);
 app.use("/api/jobs", jobsRouter);
-app.use("/api/gmail", gmailRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/settings", settingsRouter);

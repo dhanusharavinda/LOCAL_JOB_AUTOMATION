@@ -9,7 +9,7 @@ import { AuthUser } from "../api";
  * logic moves here. On md+ it's a static rail; below md it's a slide-in
  * drawer (mobileOpen) with a tap-to-dismiss backdrop.
  *
- * Tour anchors preserved here: data-tour="add-job", data-tour="gmail-connect",
+ * Tour anchors preserved here: data-tour="add-job" and
  * data-tour="dashboard-back". (dashboard-search / dashboard-user stay in the
  * top bar; kanban-board stays on the board.)
  */
@@ -26,13 +26,6 @@ interface SidebarProps {
   onOpenApplyProfile: () => void;
   onOpenInterview: () => void;
   onAddJob: () => void;
-  // Gmail
-  gmailConnected: boolean;
-  gmailEmail: string | null;
-  gmailSyncing: boolean;
-  onGmailConnect: () => void;
-  onGmailSync: () => void;
-  onGmailDisconnect: () => void;
   // Account / nav
   isAdmin: boolean;
   onAdmin: () => void;
@@ -109,12 +102,6 @@ export default function Sidebar({
   onOpenApplyProfile,
   onOpenInterview,
   onAddJob,
-  gmailConnected,
-  gmailEmail,
-  gmailSyncing,
-  onGmailConnect,
-  onGmailSync,
-  onGmailDisconnect,
   isAdmin,
   onAdmin,
   onBackToLanding,
@@ -232,40 +219,6 @@ export default function Sidebar({
             />
           </div>
 
-          <SectionLabel>Connections</SectionLabel>
-          {gmailConnected ? (
-            <div className="space-y-0.5">
-              {gmailEmail && (
-                <div className="px-3 pt-0.5 pb-1 text-[10px] text-[var(--text-tertiary)] truncate" title={gmailEmail}>
-                  Connected as {gmailEmail}
-                </div>
-              )}
-              <NavItem
-                icon={
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                  </span>
-                }
-                label={gmailSyncing ? "Syncing Gmail..." : "Sync Gmail"}
-                onClick={tap(onGmailSync)}
-              />
-              <NavItem
-                icon={ic("M6 18L18 6M6 6l12 12")}
-                label="Disconnect Gmail"
-                onClick={tap(onGmailDisconnect)}
-              />
-            </div>
-          ) : (
-            <NavItem
-              icon={<span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] inline-block" />}
-              label="Connect Gmail"
-              onClick={tap(onGmailConnect)}
-            />
-          )}
-          {/* data-tour anchor for the onboarding tour's Gmail step. Kept as a
-              zero-size marker so the step works whether or not Gmail is linked. */}
-          <span data-tour="gmail-connect" aria-hidden="true" className="block h-0" />
         </div>
 
         {/* Account footer */}

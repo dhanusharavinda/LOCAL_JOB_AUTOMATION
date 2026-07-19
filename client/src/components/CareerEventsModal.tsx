@@ -554,7 +554,7 @@ export default function CareerEventsModal({ onClose }: Props) {
         {/* Footer */}
         <div className="px-6 py-3 border-t border-gray-800/60 shrink-0">
           <p className="text-[11px] text-gray-600">
-            Events from Eventbrite, GradIreland, JobsExpo.ie, TechMeetups, Meetup.com & Gmail. Run the pipeline to refresh.
+            Events from Eventbrite, GradIreland, JobsExpo.ie, TechMeetups & Meetup.com. Run the pipeline to refresh.
           </p>
         </div>
       </div>
