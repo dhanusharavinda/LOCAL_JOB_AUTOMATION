@@ -36,6 +36,15 @@ async function launchBrowser(): Promise<Browser> {
       "--disable-software-rasterizer",
       "--disable-extensions",
       "--disable-background-networking",
+      // In production containers (Railway et al.) memory is the scarce
+      // resource and the OOM killer taking Chromium down mid-render is
+      // what turns tailor requests into 502s. Single-process mode trades
+      // process isolation (irrelevant for rendering our own trusted HTML)
+      // for a dramatically smaller footprint: one Chromium process
+      // instead of browser + renderer + utility processes.
+      ...(process.env.NODE_ENV === "production"
+        ? ["--no-zygote", "--single-process", "--renderer-process-limit=1"]
+        : []),
     ],
     ...(process.env.PUPPETEER_EXECUTABLE_PATH
       ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
