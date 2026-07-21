@@ -21,74 +21,99 @@ export function buildResumeSystemPrompt(
   tailoringIntensity: number = 5,
   targetRole?: string
 ): string {
-  // Map 1-10 intensity to mechanically distinct instructions
+  // Map 1-10 intensity to mechanically distinct instructions.
+  // The ladder scales FABRICATION, not whether tailoring happens: every
+  // level has a rewrite FLOOR (minimum visible change), and the amount of
+  // plausible invented detail (metrics, tools, bullets, projects) grows
+  // with the number. Identity facts (companies, titles, dates, degrees,
+  // certification names, work-auth statements) are immutable at EVERY level.
   let intensityInstruction: string;
-  if (tailoringIntensity <= 3) {
-    intensityInstruction = `TAILORING INTENSITY: LOW (${tailoringIntensity}/10)
+  if (tailoringIntensity <= 2) {
+    intensityInstruction = `TAILORING INTENSITY: LIGHT (${tailoringIntensity}/10) - visible polish, minimal fabrication
 
 MECHANICAL CONSTRAINTS - follow these numbers exactly:
 
 BULLETS:
-- Maximum 2 JD keywords injected per bullet point. Count them. Do not exceed 2.
-- Maximum 1 bullet rewritten per role (pick the weakest one). All other bullets receive only light edits: fix grammar, strengthen the opening verb, tighten phrasing. Do NOT restructure or add JD terminology to untouched bullets.
-- Rewritten bullets must preserve 75%+ of the original wording. Only swap in JD terms where they naturally replace an existing word.
+- REWRITE FLOOR: rewrite AT LEAST one third of the bullets in every role (pick the weakest) into JD vocabulary: stronger opening verb + at least 1 JD keyword each. This is a MINIMUM - the tailoring must be visible in a diff.
+- Maximum 2 JD keywords injected per bullet point.
+- Fabrication, small dose: when a rewritten bullet makes a vague claim ("improved performance"), sharpen it into a plausible rounded metric ("cut load times by roughly 20%"). Only on bullets you rewrite.
+- Untouched bullets receive light edits only: grammar, verbs, tightening.
 
 SKILLS:
 - Add all JD-mentioned skills to the appropriate category.
 - Do NOT reorder existing skills. Append new JD skills at the end of each category.
 
 SUMMARY:
-- Change a maximum of 1 phrase to reference the target role or include a top JD keyword.
-- Do NOT rewrite from scratch. The summary should read 90%+ identical to the original.
+- Rework 1-2 phrases to reference the target role and a top JD keyword.
 
-VOICE: The resume should feel like the candidate's own work with minor polish, not a machine rewrite. Preserve the candidate's authentic phrasing and sentence patterns.`;
-  } else if (tailoringIntensity <= 6) {
-    intensityInstruction = `TAILORING INTENSITY: MEDIUM (${tailoringIntensity}/10)
+VOICE: The candidate's own work with a sharp polish. Preserve their phrasing patterns in untouched bullets.`;
+  } else if (tailoringIntensity <= 4) {
+    intensityInstruction = `TAILORING INTENSITY: BLEND (${tailoringIntensity}/10) - solid tailoring, modest fabrication
 
 MECHANICAL CONSTRAINTS - follow these numbers exactly:
 
 BULLETS:
-- Maximum 4 JD keywords injected per bullet point. Count them. Do not exceed 4.
-- All bullets may be rewritten, but each rewritten bullet must preserve 50%+ of the original wording. If the original is 20 words, at least 10 of those words (or their direct synonyms) must remain.
-- Do NOT rewrite a bullet entirely from scratch. The candidate's original meaning and context must still be recognizable.
+- REWRITE FLOOR: rewrite AT LEAST 60% of the bullets in every role with JD keywords and stronger verbs.
+- Maximum 4 JD keywords injected per bullet point.
+- Fabrication allowed: invent modest, realistic metrics for any rewritten bullet that lacks numbers (percentages, volumes, timeframes plausible for the seniority).
+- You may name JD tools inside bullets when the candidate has ADJACENT experience (same ecosystem or tool category).
 
 SKILLS:
 - Add ALL tools, methodologies, and domain terms from the JD into the appropriate skill category.
 - Reorder skills within each category to prioritize JD-relevant items first.
 
 SUMMARY:
-- Rewrite to directly address the target role and its key requirements. Pack at least 5 JD keywords into the summary.
-- Keep the original structure (same number of sentences, same general flow). Replace weak phrases with JD-aligned language.
+- Rewrite to directly address the target role. Pack at least 5 JD keywords in.
 
-VOICE: Balance between the candidate's authentic experience and strong JD alignment. The resume should read like a polished version of the candidate's own work, not a generated document.`;
-  } else if (tailoringIntensity <= 9) {
-    intensityInstruction = `TAILORING INTENSITY: HIGH (${tailoringIntensity}/10)
+VOICE: A confident, JD-aligned retelling of the candidate's real experience.`;
+  } else if (tailoringIntensity <= 6) {
+    intensityInstruction = `TAILORING INTENSITY: REWRITE (${tailoringIntensity}/10) - every bullet retold for this job, real fabrication
 
 MECHANICAL CONSTRAINTS - follow these numbers exactly:
 
 BULLETS:
-- No keyword limit per bullet. Pack as many JD terms as fit naturally.
-- Full rewrites allowed. No requirement to preserve original wording.
-- Every bullet must contain at least 1 JD keyword or phrase.
-- The first 3 bullets of the most recent role must collectively contain at least 8 distinct JD keywords.
+- REWRITE FLOOR: rewrite EVERY bullet in EVERY role in the JD's language. No bullet is exempt; improved must be non-null for every bullet.
+- No keyword limit per bullet. Spell matched terms exactly as the JD does.
+- Fabrication allowed: invent realistic metrics wherever numbers are missing. Add JD tools and platforms into bullets whenever they plausibly fit the candidate's ecosystem.
+- You may ADD 1 new bullet per role to cover a JD requirement nothing else addresses.
 
 SKILLS:
-- Add EVERY tool, methodology, certification, and domain term from the JD.
-- Even if the candidate never explicitly used a JD skill, add it if they have ANY adjacent experience in that area.
+- Add EVERY tool, methodology, and domain term from the JD.
+- Restructure categories around JD priorities. Front-load exact JD terms.
+
+SUMMARY:
+- Rewrite from scratch around the target role with at least 5 JD keywords.
+
+KEYWORD COVERAGE TARGET: 70%+ of all JD keywords must appear somewhere in the resume.
+
+VOICE: Purpose-built for this position while still reading like one coherent person.`;
+  } else if (tailoringIntensity <= 9) {
+    intensityInstruction = `TAILORING INTENSITY: AGGRESSIVE (${tailoringIntensity}/10) - heavy fabrication, still defensible
+
+MECHANICAL CONSTRAINTS - follow these numbers exactly:
+
+BULLETS:
+- REWRITE FLOOR: rewrite EVERY bullet in EVERY role from scratch. No preservation requirement.
+- Every bullet must contain at least 1 JD keyword or phrase.
+- The first 3 bullets of the most recent role must collectively contain at least 8 distinct JD keywords.
+- Fabrication allowed, broad: invent realistic metrics everywhere numbers are missing. Add JD tools, platforms, and methodologies into bullets even WITHOUT direct adjacency, as long as the claim is plausible for the candidate's role and seniority.
+- Add up to 2 new bullets per role targeting unaddressed JD requirements.
+- Rewrite PROJECT bullets in the JD's language too.${tailoringIntensity >= 9 ? `
+- At 9: if the JD demands a domain the resume never touches, you may ADD one new plausible project (max 3 bullets) that fits the candidate's skill trajectory.` : ""}
+
+SKILLS:
+- Add EVERY tool, methodology, certification-adjacent term, and domain term from the JD, verbatim as the JD spells it.
 - Restructure categories completely around JD priorities. Front-load exact JD terms.
 
 SUMMARY:
-- Rewrite from scratch using JD language throughout. Must contain at least 5-8 top JD keywords.
-- The summary must read as a direct answer to "does this candidate match the JD?"
+- Rewrite from scratch using JD language throughout, 5-8 top JD keywords.
+- Sentences describe the CANDIDATE's own (real or plausibly-added) achievements, never a bare echo of JD duty lines.
 
-FABRICATION BOUNDARY (intensity 7-9):
-- You may reframe, emphasize, and restructure experience bullets freely, but the underlying experience described must be real. Do NOT invent metrics, tools, or responsibilities that have no basis in the original bullet.
-- Adding JD skills to the SKILLS SECTION is always allowed (this is keyword matching, not a claim of specific experience).
-- Adding JD tools to EXPERIENCE BULLETS is NOT allowed unless the original bullet references related work.
+KEYWORD COVERAGE TARGET: ${tailoringIntensity >= 9 ? "90" : "85"}%+ of all JD keywords must appear somewhere in the resume (skills + summary + bullets combined). Count them during the POST-WRITE VERIFICATION step.
 
-KEYWORD COVERAGE TARGET: 80%+ of all JD keywords must appear somewhere in the resume (skills + summary + bullets combined). Count them during the POST-WRITE VERIFICATION step.
+IMMUTABLE EVEN HERE: never change or invent companies, schools, job titles, time periods, degrees, certification names, or work-authorization / visa / clearance statements.
 
-VOICE: The resume should feel purpose-built for this specific position. Every section speaks directly to what the JD asks for.`;
+VOICE: Purpose-built for this position. Every claim specific enough to defend in an interview.`;
   } else {
     // Intensity 10: Full Mirror - maximum-aggression JD match (mirror + fabricate)
     intensityInstruction = `TAILORING INTENSITY: MAXIMUM (10/10) - FULL MIRROR MODE
@@ -628,14 +653,18 @@ ACTIVE INTENSITY: 10/10 - FULL MIRROR MODE. Your system instructions include a L
       : tailoringIntensity >= 7
         ? `
 
-ACTIVE INTENSITY: ${tailoringIntensity}/10 - HIGH. Follow the HIGH intensity block in the system prompt. Every bullet should contain at least one JD keyword. Skills section must include every JD tool/methodology/credential. No fabrication of metrics or tools in experience bullets - reframing only.`
-        : tailoringIntensity >= 4
+ACTIVE INTENSITY: ${tailoringIntensity}/10 - AGGRESSIVE. Follow the AGGRESSIVE intensity block in the system prompt. Rewrite EVERY bullet; every bullet carries at least one JD keyword. Fabricate realistic metrics where numbers are missing and add plausible JD tools into bullets. Up to 2 new bullets per role. Skills section includes every JD tool/methodology/credential. Companies, titles, dates, and certifications stay verbatim.`
+        : tailoringIntensity >= 5
           ? `
 
-ACTIVE INTENSITY: ${tailoringIntensity}/10 - MEDIUM. Follow the MEDIUM intensity block. Preserve 50%+ of original bullet wording. Max 4 JD keywords per bullet. No new bullets, no new projects, no invented metrics.`
-          : `
+ACTIVE INTENSITY: ${tailoringIntensity}/10 - REWRITE. Follow the REWRITE intensity block. Rewrite EVERY bullet in the JD's language (improved non-null for all). Invent realistic metrics where missing; add ecosystem-fit JD tools into bullets. 1 new bullet per role allowed. 70%+ JD keyword coverage.`
+          : tailoringIntensity >= 3
+            ? `
 
-ACTIVE INTENSITY: ${tailoringIntensity}/10 - LOW. Follow the LOW intensity block. Max 1 bullet rewritten per role. Preserve 75%+ of original wording in any rewrite. Summary reads 90%+ identical to original.`;
+ACTIVE INTENSITY: ${tailoringIntensity}/10 - BLEND. Follow the BLEND intensity block. Rewrite at least 60% of bullets per role with JD keywords (max 4 per bullet). Modest invented metrics on rewritten bullets are allowed; JD tools only where the candidate has adjacent experience.`
+            : `
+
+ACTIVE INTENSITY: ${tailoringIntensity}/10 - LIGHT. Follow the LIGHT intensity block. Rewrite at least one third of bullets per role (1 JD keyword minimum each, max 2). Vague claims on rewritten bullets may become plausible rounded metrics. The tailoring must still be clearly visible in a diff.`;
 
   return `Job description:
 

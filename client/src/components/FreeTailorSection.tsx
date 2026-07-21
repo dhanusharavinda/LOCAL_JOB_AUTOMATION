@@ -553,7 +553,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                   </label>
                   <span
                     className="text-[10px] text-[var(--text-ghost)]"
-                    title="How aggressively the AI rewrites your bullets and injects JD keywords"
+                    title="How aggressively the AI rewrites your bullets and how much plausible detail (metrics, tools, bullets) it may invent. Employers, titles, dates, and certifications are never altered at any level."
                   >
                     ⓘ
                   </span>
@@ -575,22 +575,41 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                 className="w-full accent-[#c9a94e] cursor-pointer"
               />
               <div className="flex items-center justify-between mt-1.5">
-                <span className={`text-[10px] ${intensity <= 3 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
-                  Light (preserve wording)
+                <span className={`text-[10px] ${intensity <= 2 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                  Light
                 </span>
-                <span className={`text-[10px] ${intensity > 3 && intensity <= 6 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
-                  Medium
+                <span className={`text-[10px] ${intensity > 2 && intensity <= 4 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                  Blend
+                </span>
+                <span className={`text-[10px] ${intensity > 4 && intensity <= 6 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                  Rewrite
                 </span>
                 <span className={`text-[10px] ${intensity > 6 && intensity <= 9 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
-                  High
+                  Aggressive
                 </span>
                 <span className={`text-[10px] ${intensity === 10 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
-                  Maximum (mirror-mode)
+                  Mirror
                 </span>
               </div>
+              <p className="text-[10px] text-[var(--text-ghost)] mt-1.5">
+                {intensity <= 2
+                  ? "Rewrites about a third of your bullets with the job's keywords. Vague claims may become plausible rounded numbers."
+                  : intensity <= 4
+                  ? "Rewrites most bullets in the job's language. Invents modest realistic metrics where numbers are missing."
+                  : intensity <= 6
+                  ? "Rewrites every bullet for this job. Invents realistic metrics and adds job-relevant tools that fit your background."
+                  : intensity <= 9
+                  ? "Rewrites everything and fabricates freely: metrics, tools, extra bullets. Claims stay plausible for your seniority."
+                  : "Full mirror: maximum keyword match with the JD's exact wording plus fabricated supporting detail."}
+              </p>
+              {intensity >= 7 && intensity <= 9 && (
+                <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300 leading-relaxed">
+                  <strong className="font-semibold">Fabrication is on at this level.</strong> The AI invents plausible metrics, tools, and bullets to match the job. Review every change in the editor: anything it added is something you must be able to defend in an interview. (Employers, titles, dates, and certifications are never altered, at any level.)
+                </div>
+              )}
               {intensity === 10 && (
                 <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
-                  <strong className="font-semibold">Full Mirror mode.</strong> Intensity 10 simulates how an ATS screens you (modeled on the logic of a major commercial ATS platform) and pushes for 90%+ keyword match - mirroring the JD's exact wording <em>and</em> fabricating plausible metrics, tools, and projects to get there. Your machine ATS score goes way up, but every added line is something you must be ready to defend in an interview, and heavy mirroring is visible to human recruiters. Use the review editor to check each change. 7-9 gives aggressive tailoring without the fabrication. (Employers, titles, dates, and certifications are never altered, at any level.)
+                  <strong className="font-semibold">Full Mirror mode.</strong> Intensity 10 simulates how an ATS screens you and pushes for 90%+ keyword match - mirroring the JD's exact wording <em>and</em> fabricating plausible metrics, tools, and projects to get there. Your machine ATS score goes way up, but every added line is something you must be ready to defend in an interview, and heavy mirroring is visible to human recruiters. Use the review editor to check each change. (Employers, titles, dates, and certifications are never altered, at any level.)
                 </div>
               )}
             </div>

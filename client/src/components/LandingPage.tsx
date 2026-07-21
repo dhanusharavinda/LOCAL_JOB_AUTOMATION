@@ -1748,12 +1748,13 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                         <label className="text-xs text-[var(--text-secondary)]">Resume Tailoring Intensity</label>
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            config.TAILORING_INTENSITY <= 3 ? "bg-emerald-500/10 text-emerald-400" :
+                            config.TAILORING_INTENSITY <= 2 ? "bg-emerald-500/10 text-emerald-400" :
+                            config.TAILORING_INTENSITY <= 4 ? "bg-lime-500/10 text-lime-400" :
                             config.TAILORING_INTENSITY <= 6 ? "bg-amber-500/10 text-amber-400" :
                             config.TAILORING_INTENSITY <= 9 ? "bg-orange-500/10 text-orange-400" :
                             "bg-red-500/10 text-red-400"
                           }`}>
-                            {config.TAILORING_INTENSITY <= 3 ? "Light" : config.TAILORING_INTENSITY <= 6 ? "Balanced" : config.TAILORING_INTENSITY <= 9 ? "Aggressive" : "Mirror Mode"}
+                            {config.TAILORING_INTENSITY <= 2 ? "Light" : config.TAILORING_INTENSITY <= 4 ? "Blend" : config.TAILORING_INTENSITY <= 6 ? "Rewrite" : config.TAILORING_INTENSITY <= 9 ? "Aggressive" : "Mirror Mode"}
                           </span>
                           <span className="text-lg font-mono font-bold text-[var(--accent)]">{config.TAILORING_INTENSITY}</span>
                         </div>
@@ -1773,17 +1774,24 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                         <span>10 · mirror the JD</span>
                       </div>
                       <p className="text-xs text-[var(--text-tertiary)] mt-2">
-                        {config.TAILORING_INTENSITY <= 3
-                          ? "Keeps your wording almost as-is. Light keyword nudges only."
+                        {config.TAILORING_INTENSITY <= 2
+                          ? "Rewrites about a third of your bullets with the job's keywords. Vague claims may become plausible rounded numbers."
+                          : config.TAILORING_INTENSITY <= 4
+                          ? "Rewrites most bullets in the job's language. Invents modest realistic metrics where numbers are missing."
                           : config.TAILORING_INTENSITY <= 6
-                          ? "Rewrites bullets in the job's language. Your voice stays intact."
+                          ? "Rewrites every bullet for the role. Invents realistic metrics and adds job-relevant tools that fit your background."
                           : config.TAILORING_INTENSITY <= 9
-                          ? "Heavy rewrite. Every bullet carries target keywords, skills section is reordered for the role."
-                          : "Mirror mode. Fabricates plausible metrics and tools to hit 90%+ keyword match. Titles, companies, dates and certifications stay locked."}
+                          ? "Rewrites everything and fabricates freely: metrics, tools, extra bullets. Claims stay plausible for your seniority."
+                          : "Mirror mode. Maximum keyword match with the JD's exact wording plus fabricated supporting detail. Titles, companies, dates and certifications stay locked."}
                       </p>
+                      {config.TAILORING_INTENSITY >= 7 && config.TAILORING_INTENSITY <= 9 && (
+                        <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300 leading-relaxed">
+                          <strong className="font-semibold">Fabrication is on at this level.</strong> The AI invents plausible metrics, tools, and bullets to match each job. Anything it added is something you must be able to defend in an interview. Employers, titles, dates, and certifications are never altered.
+                        </div>
+                      )}
                       {config.TAILORING_INTENSITY === 10 && (
                         <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
-                          <strong className="font-semibold">Mirror-mode warning.</strong> Intensity 10 will fabricate plausible metrics, tools, and projects to try and match the JD. Your ATS score goes up, but recruiters who screen dozens of CVs a day spot JD-mirroring instantly and it reads as lazy or manipulative. Stay at 7-9 for aggressive tailoring without the fabrication tax.
+                          <strong className="font-semibold">Mirror-mode warning.</strong> Intensity 10 fabricates plausible metrics, tools, and projects to mirror the JD as closely as possible. Your ATS score goes up, but recruiters who screen dozens of CVs a day spot heavy JD-mirroring instantly. Every added line is something you must be ready to defend in an interview.
                         </div>
                       )}
                     </div>
