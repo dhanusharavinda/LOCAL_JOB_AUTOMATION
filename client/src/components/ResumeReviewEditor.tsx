@@ -54,6 +54,27 @@ const labelCls =
   "font-mono text-[10px] uppercase tracking-wider text-[var(--text-ghost)] font-semibold block mb-1";
 const sectionTitleCls =
   "font-mono text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold";
+// Dashed "add another row" affordance used by every section.
+const addBtnCls =
+  "text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1.5 rounded-md border border-dashed border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[#c9a94e] hover:border-[#c9a94e]/40 transition-colors";
+// Small ✕ that removes a row / entry; red on hover so intent is obvious.
+const removeBtnCls =
+  "shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-ghost)] hover:text-red-400 hover:bg-red-500/10 transition-colors";
+
+/** Fresh, empty structures for user-added rows. The bullet shape matches
+ *  the accept/reject model: once the user types, handleEdit promotes the
+ *  text into `improved` + accepted so it prints. */
+const newBullet = () => ({ original: "", improved: null, accepted: false });
+const newExperience = () => ({ title: "", company: "", date: "", location: "", bulletPoints: [newBullet()] });
+const newProject = () => ({ title: "", link: "", date: "", location: "", bulletPoints: [newBullet()] });
+const newEducation = () => ({ institution: "", degree: "", date: "", gpa: "" });
+const newCertification = () => ({ name: "", issuer: "", date: "" });
+const newAward = () => ({ title: "", issuer: "", date: "" });
+
+/** The text a bullet would actually print (accepted edit wins, else original). */
+function effectiveBulletText(bp: any): string {
+  return bp?.accepted && typeof bp?.improved === "string" ? bp.improved : (bp?.original || "");
+}
 
 function rowsFor(text: string): number {
   return Math.min(6, Math.max(2, Math.ceil((text || "").length / 90)));
@@ -210,7 +231,8 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
     ...extraPersonalKeys,
   ];
 
-  /** Merge the ordered skill rows back into an object at confirm time. */
+  /** Merge the ordered skill rows back into an object at confirm time,
+   *  and strip empty user-added rows so they never print as blank lines. */
   function buildConfirmedData(): any {
     const skills: Record<string, string> = {};
     for (const [k, v] of skillRows) {
@@ -220,7 +242,22 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
       // rather than silently dropping one (last-writer-wins would lose data).
       skills[key || "Skills"] = skills[key || "Skills"] ? `${skills[key || "Skills"]}, ${v}` : v;
     }
-    return { ...data, skills };
+
+    const cleanBullets = (bps: any[]) => (bps || []).filter((bp) => effectiveBulletText(bp).trim().length > 0);
+    const experience = (data?.experience || [])
+      .map((e: any) => ({ ...e, bulletPoints: cleanBullets(e?.bulletPoints) }))
+      .filter((e: any) => (e?.title || "").trim() || (e?.company || "").trim() || e.bulletPoints.length > 0);
+    const projects = (data?.projects || [])
+      .map((p: any) => ({ ...p, bulletPoints: cleanBullets(p?.bulletPoints) }))
+      .filter((p: any) => (p?.title || "").trim() || p.bulletPoints.length > 0);
+    const education = (data?.education || [])
+      .filter((e: any) => (e?.institution || "").trim() || (e?.degree || "").trim());
+    const certifications = (data?.certifications || [])
+      .filter((c: any) => (c?.name || "").trim());
+    const awards = (data?.awards || [])
+      .filter((a: any) => (a?.title || "").trim());
+
+    return { ...data, skills, experience, projects, education, certifications, awards };
   }
 
   return (
@@ -305,150 +342,280 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
         </section>
 
         {/* ── Skills ── */}
-        {skillRows.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2">
-              <h4 className={sectionTitleCls}>Skills</h4>
-              <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded">
-                AI-optimized
-              </span>
-            </div>
-            <div className="space-y-2 mt-2">
-              {skillRows.map(([cat, value], i) => (
-                <div key={i} className="grid grid-cols-[minmax(90px,180px)_1fr] gap-2">
-                  <input
-                    value={cat}
-                    onChange={(e) =>
-                      setSkillRows((rows) => rows.map((r, j) => (j === i ? [e.target.value, r[1]] : r)))
-                    }
-                    className={`${inputCls} font-semibold`}
-                  />
-                  <input
-                    value={value}
-                    onChange={(e) =>
-                      setSkillRows((rows) => rows.map((r, j) => (j === i ? [r[0], e.target.value] : r)))
-                    }
-                    className={inputCls}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        <section>
+          <div className="flex items-center gap-2">
+            <h4 className={sectionTitleCls}>Skills</h4>
+            <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded">
+              AI-optimized
+            </span>
+          </div>
+          <div className="space-y-2 mt-2">
+            {skillRows.map(([cat, value], i) => (
+              <div key={i} className="grid grid-cols-[minmax(90px,180px)_1fr_auto] gap-2 items-start">
+                <input
+                  value={cat}
+                  onChange={(e) =>
+                    setSkillRows((rows) => rows.map((r, j) => (j === i ? [e.target.value, r[1]] : r)))
+                  }
+                  placeholder="Category"
+                  className={`${inputCls} font-semibold`}
+                />
+                <input
+                  value={value}
+                  onChange={(e) =>
+                    setSkillRows((rows) => rows.map((r, j) => (j === i ? [r[0], e.target.value] : r)))
+                  }
+                  placeholder="skill1, skill2, skill3"
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSkillRows((rows) => rows.filter((_, j) => j !== i))}
+                  className={removeBtnCls}
+                  title="Remove this skill category"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSkillRows((rows) => [...rows, ["", ""]])}
+              className={addBtnCls}
+            >
+              + Add skill category
+            </button>
+          </div>
+        </section>
 
         {/* ── Experience ── */}
-        {(data?.experience || []).length > 0 && (
-          <section>
-            <h4 className={sectionTitleCls}>Experience</h4>
-            <div className="space-y-5 mt-2">
-              {(data.experience || []).map((exp: any, ei: number) => (
-                <div key={ei} className="border border-[var(--border-subtle)] rounded-xl p-3.5">
-                  <div className="grid sm:grid-cols-2 gap-2 mb-2.5">
-                    {(["title", "company", "date", "location"] as const).map((f) => (
-                      <div key={f}>
-                        <label className={labelCls}>{f}</label>
-                        <input
-                          value={exp?.[f] ?? ""}
-                          onChange={(e) => mutate((d) => { d.experience[ei][f] = e.target.value; })}
-                          className={inputCls}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    {(exp?.bulletPoints || []).map((bp: any, bi: number) => (
-                      <BulletRow
-                        key={bi}
-                        bp={bp}
-                        onChange={(next) => mutate((d) => { d.experience[ei].bulletPoints[bi] = next; })}
-                      />
-                    ))}
-                  </div>
+        <section>
+          <h4 className={sectionTitleCls}>Experience</h4>
+          <div className="space-y-5 mt-2">
+            {(data?.experience || []).map((exp: any, ei: number) => (
+              <div key={ei} className="border border-[var(--border-subtle)] rounded-xl p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-ghost)]">
+                    Role {ei + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => mutate((d) => { d.experience.splice(ei, 1); })}
+                    className={removeBtnCls}
+                    title="Remove this role"
+                  >
+                    ✕
+                  </button>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Projects ── */}
-        {(data?.projects || []).length > 0 && (
-          <section>
-            <h4 className={sectionTitleCls}>Projects</h4>
-            <div className="space-y-5 mt-2">
-              {(data.projects || []).map((proj: any, pi: number) => (
-                <div key={pi} className="border border-[var(--border-subtle)] rounded-xl p-3.5">
-                  <div className="grid sm:grid-cols-2 gap-2 mb-2.5">
-                    {(["title", "link", "date", "location"] as const).map((f) => (
-                      <div key={f}>
-                        <label className={labelCls}>{f === "link" ? "link (https://...)" : f}</label>
-                        <input
-                          value={proj?.[f] ?? ""}
-                          onChange={(e) => mutate((d) => { d.projects[pi][f] = e.target.value; })}
-                          className={inputCls}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    {(proj?.bulletPoints || []).map((bp: any, bi: number) => (
-                      <BulletRow
-                        key={bi}
-                        bp={bp}
-                        onChange={(next) => mutate((d) => { d.projects[pi].bulletPoints[bi] = next; })}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Education ── */}
-        {(data?.education || []).length > 0 && (
-          <section>
-            <h4 className={sectionTitleCls}>Education</h4>
-            <div className="space-y-3 mt-2">
-              {(data.education || []).map((edu: any, i: number) => (
-                <div key={i} className="grid sm:grid-cols-4 gap-2">
-                  {(["institution", "degree", "date", "gpa"] as const).map((f) => (
-                    <div key={f} className={f === "institution" || f === "degree" ? "sm:col-span-2 lg:col-span-1" : ""}>
+                <div className="grid sm:grid-cols-2 gap-2 mb-2.5">
+                  {(["title", "company", "date", "location"] as const).map((f) => (
+                    <div key={f}>
                       <label className={labelCls}>{f}</label>
                       <input
-                        value={edu?.[f] ?? ""}
-                        onChange={(e) => mutate((d) => { d.education[i][f] = e.target.value; })}
+                        value={exp?.[f] ?? ""}
+                        onChange={(e) => mutate((d) => { d.experience[ei][f] = e.target.value; })}
                         className={inputCls}
                       />
                     </div>
                   ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+                <div className="space-y-2">
+                  {(exp?.bulletPoints || []).map((bp: any, bi: number) => (
+                    <div key={bi} className="flex gap-1.5 items-start">
+                      <div className="flex-1 min-w-0">
+                        <BulletRow
+                          bp={bp}
+                          onChange={(next) => mutate((d) => { d.experience[ei].bulletPoints[bi] = next; })}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => mutate((d) => { d.experience[ei].bulletPoints.splice(bi, 1); })}
+                        className={removeBtnCls}
+                        title="Remove this bullet"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => mutate((d) => { d.experience[ei].bulletPoints = d.experience[ei].bulletPoints || []; d.experience[ei].bulletPoints.push(newBullet()); })}
+                    className={addBtnCls}
+                  >
+                    + Add bullet
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => mutate((d) => { d.experience = d.experience || []; d.experience.push(newExperience()); })}
+              className={addBtnCls}
+            >
+              + Add role
+            </button>
+          </div>
+        </section>
+
+        {/* ── Projects ── */}
+        <section>
+          <h4 className={sectionTitleCls}>Projects</h4>
+          <div className="space-y-5 mt-2">
+            {(data?.projects || []).map((proj: any, pi: number) => (
+              <div key={pi} className="border border-[var(--border-subtle)] rounded-xl p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-ghost)]">
+                    Project {pi + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => mutate((d) => { d.projects.splice(pi, 1); })}
+                    className={removeBtnCls}
+                    title="Remove this project"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-2 mb-2.5">
+                  {(["title", "link", "date", "location"] as const).map((f) => (
+                    <div key={f}>
+                      <label className={labelCls}>{f === "link" ? "link (https://...)" : f}</label>
+                      <input
+                        value={proj?.[f] ?? ""}
+                        onChange={(e) => mutate((d) => { d.projects[pi][f] = e.target.value; })}
+                        className={inputCls}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {(proj?.bulletPoints || []).map((bp: any, bi: number) => (
+                    <div key={bi} className="flex gap-1.5 items-start">
+                      <div className="flex-1 min-w-0">
+                        <BulletRow
+                          bp={bp}
+                          onChange={(next) => mutate((d) => { d.projects[pi].bulletPoints[bi] = next; })}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => mutate((d) => { d.projects[pi].bulletPoints.splice(bi, 1); })}
+                        className={removeBtnCls}
+                        title="Remove this bullet"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => mutate((d) => { d.projects[pi].bulletPoints = d.projects[pi].bulletPoints || []; d.projects[pi].bulletPoints.push(newBullet()); })}
+                    className={addBtnCls}
+                  >
+                    + Add bullet
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => mutate((d) => { d.projects = d.projects || []; d.projects.push(newProject()); })}
+              className={addBtnCls}
+            >
+              + Add project
+            </button>
+          </div>
+        </section>
+
+        {/* ── Education ── */}
+        <section>
+          <h4 className={sectionTitleCls}>Education</h4>
+          <div className="space-y-3 mt-2">
+            {(data?.education || []).map((edu: any, i: number) => (
+              <div key={i} className="grid sm:grid-cols-[repeat(4,1fr)_auto] gap-2 items-end">
+                {(["institution", "degree", "date", "gpa"] as const).map((f) => (
+                  <div key={f}>
+                    <label className={labelCls}>{f}</label>
+                    <input
+                      value={edu?.[f] ?? ""}
+                      onChange={(e) => mutate((d) => { d.education[i][f] = e.target.value; })}
+                      className={inputCls}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => mutate((d) => { d.education.splice(i, 1); })}
+                  className={`${removeBtnCls} mb-1`}
+                  title="Remove this education entry"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => mutate((d) => { d.education = d.education || []; d.education.push(newEducation()); })}
+              className={addBtnCls}
+            >
+              + Add education
+            </button>
+          </div>
+        </section>
 
         {/* ── Certifications & Awards ── */}
-        {((data?.certifications || []).length > 0 || (data?.awards || []).length > 0) && (
-          <section>
-            <h4 className={sectionTitleCls}>Certifications & Awards</h4>
-            <div className="space-y-2 mt-2">
-              {(data?.certifications || []).map((c: any, i: number) => (
-                <div key={`c${i}`} className="grid grid-cols-[2fr_1.5fr_1fr] gap-2">
-                  <input value={c?.name ?? ""} onChange={(e) => mutate((d) => { d.certifications[i].name = e.target.value; })} className={inputCls} placeholder="Certification" />
-                  <input value={c?.issuer ?? ""} onChange={(e) => mutate((d) => { d.certifications[i].issuer = e.target.value; })} className={inputCls} placeholder="Issuer" />
-                  <input value={c?.date ?? ""} onChange={(e) => mutate((d) => { d.certifications[i].date = e.target.value; })} className={inputCls} placeholder="Date" />
-                </div>
-              ))}
-              {(data?.awards || []).map((a: any, i: number) => (
-                <div key={`a${i}`} className="grid grid-cols-[2fr_1.5fr_1fr] gap-2">
-                  <input value={a?.title ?? ""} onChange={(e) => mutate((d) => { d.awards[i].title = e.target.value; })} className={inputCls} placeholder="Award" />
-                  <input value={a?.issuer ?? ""} onChange={(e) => mutate((d) => { d.awards[i].issuer = e.target.value; })} className={inputCls} placeholder="Issuer" />
-                  <input value={a?.date ?? ""} onChange={(e) => mutate((d) => { d.awards[i].date = e.target.value; })} className={inputCls} placeholder="Date" />
-                </div>
-              ))}
+        <section>
+          <h4 className={sectionTitleCls}>Certifications & Awards</h4>
+          <div className="space-y-2 mt-2">
+            {(data?.certifications || []).map((c: any, i: number) => (
+              <div key={`c${i}`} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-start">
+                <input value={c?.name ?? ""} onChange={(e) => mutate((d) => { d.certifications[i].name = e.target.value; })} className={inputCls} placeholder="Certification" />
+                <input value={c?.issuer ?? ""} onChange={(e) => mutate((d) => { d.certifications[i].issuer = e.target.value; })} className={inputCls} placeholder="Issuer" />
+                <input value={c?.date ?? ""} onChange={(e) => mutate((d) => { d.certifications[i].date = e.target.value; })} className={inputCls} placeholder="Date" />
+                <button
+                  type="button"
+                  onClick={() => mutate((d) => { d.certifications.splice(i, 1); })}
+                  className={removeBtnCls}
+                  title="Remove this certification"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {(data?.awards || []).map((a: any, i: number) => (
+              <div key={`a${i}`} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-start">
+                <input value={a?.title ?? ""} onChange={(e) => mutate((d) => { d.awards[i].title = e.target.value; })} className={inputCls} placeholder="Award" />
+                <input value={a?.issuer ?? ""} onChange={(e) => mutate((d) => { d.awards[i].issuer = e.target.value; })} className={inputCls} placeholder="Issuer" />
+                <input value={a?.date ?? ""} onChange={(e) => mutate((d) => { d.awards[i].date = e.target.value; })} className={inputCls} placeholder="Date" />
+                <button
+                  type="button"
+                  onClick={() => mutate((d) => { d.awards.splice(i, 1); })}
+                  className={removeBtnCls}
+                  title="Remove this award"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => mutate((d) => { d.certifications = d.certifications || []; d.certifications.push(newCertification()); })}
+                className={addBtnCls}
+              >
+                + Add certification
+              </button>
+              <button
+                type="button"
+                onClick={() => mutate((d) => { d.awards = d.awards || []; d.awards.push(newAward()); })}
+                className={addBtnCls}
+              >
+                + Add award
+              </button>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
       </fieldset>
 
       {/* Footer: skip / confirm */}
