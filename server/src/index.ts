@@ -43,6 +43,7 @@ import { generateLocalPdf } from "./pdf";
 import { parsePdfWithLinks, parseDocxWithLinks } from "./parse-links";
 import { requireAuth } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
+import { startSupabaseKeepalive } from "./keepalive";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -388,6 +389,9 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 
 const server = app.listen(PORT, async () => {
   console.log(`GO CANDID8 API running on http://localhost:${PORT}`);
+  // Keep the Supabase free-tier project from auto-pausing (7-day
+  // inactivity window): ping the DB + API gateway every 6 hours.
+  startSupabaseKeepalive();
   // Fire the DB connectivity check in the background so the port binds
   // immediately (useful for health probes) but the operator sees a clear
   // log line if the Postgres connection is misconfigured.
