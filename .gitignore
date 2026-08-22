@@ -23,8 +23,6 @@ node_modules/
 # Credentials & secrets — never commit these
 # ──────────────────────────────────────────────────────────────────────
 # OAuth / API tokens
-server/gmail-token.json
-gmail-token.json
 refresh-token.json
 oauth-token.json
 tokens.json

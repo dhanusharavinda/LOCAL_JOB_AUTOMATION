@@ -1,12 +1,26 @@
 {
+  "_comment": [
+    "REQUIRED BEFORE DEPLOYING: replace YOUR-BACKEND-HOST below with the",
+    "hostname of the API server you deployed (Railway, Render, Fly, your own",
+    "box - anywhere the Express server in ../server is running).",
+    "",
+    "The dashboard calls the API with relative /api/* paths, so these rewrites",
+    "are the only thing connecting the frontend to the backend. If you leave",
+    "the placeholder in, every API call fails with a DNS error - which is",
+    "deliberate. A wrong-but-real URL here would silently send your users'",
+    "data to someone else's server.",
+    "",
+    "Local development does not use this file at all; client/vite.config.ts",
+    "proxies /api to http://127.0.0.1:3001 instead."
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://localjobautomation-production.up.railway.app/api/:path*"
+      "destination": "https://YOUR-BACKEND-HOST/api/:path*"
     },
     {
       "source": "/keep-alive",
-      "destination": "https://localjobautomation-production.up.railway.app/keep-alive"
+      "destination": "https://YOUR-BACKEND-HOST/keep-alive"
     },
     {
       "source": "/(.*)",

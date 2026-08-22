@@ -29,8 +29,6 @@ out
 .env.*
 !.env.example
 google-service-account.json
-server/gmail-token.json
-gmail-token.json
 **/service-account*.json
 **/*-credentials.json
 *.pem

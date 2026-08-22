@@ -955,7 +955,6 @@ export interface UsageInfo {
 export interface LimitsInfo {
   jobs_scraped: number;
   resumes_tailored: number;
-  gmail_sync: boolean;
 }
 
 export interface MeResponse {
@@ -1012,7 +1011,7 @@ export interface AdminUserRow {
   approved_at: string | null;
   created_at: string;
   // Usage aggregates - populated server-side from usage_tracking +
-  // free_tailor_log + jobs + gmail_tokens in a single query.
+  // free_tailor_log + jobs in a single query.
   jobs_scraped_today: number;
   resumes_tailored_today: number;
   pipeline_runs_today: number;
@@ -1022,7 +1021,6 @@ export interface AdminUserRow {
   total_jobs: number;
   manual_tailors_today: number;
   manual_tailors_total: number;
-  gmail_connected: boolean;
   last_active_date: string | null; // ISO date (YYYY-MM-DD) or null if never
 }
 
@@ -1286,7 +1284,17 @@ export async function interviewTurn(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error("Decide step failed");
+  if (!res.ok) {
+    // Carry the real cause up. This error is now logged and surfaced when
+    // a follow-up gets skipped, and "Decide step failed" told nobody
+    // whether the token had expired, the rate limiter had tripped, or
+    // OpenAI was down.
+    const body = await res.json().catch(() => null as any);
+    const detail = body?.error || `HTTP ${res.status}`;
+    if (res.status === 401) throw new Error("session expired, sign in again");
+    if (res.status === 429) throw new Error("interview rate limit hit, wait a minute");
+    throw new Error(detail);
+  }
   return res.json();
 }
 

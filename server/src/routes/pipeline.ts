@@ -375,7 +375,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
   // Spawn the pipeline as a subprocess. Env is an ALLOWLIST, not the full
   // `process.env` - a prompt-injection or exfil bug in the pipeline must
   // not be able to exfiltrate unrelated secrets (Supabase service-role key,
-  // Gmail client secret, DB URL, etc.). Only what the pipeline actually
+  // DB URL, etc.). Only what the pipeline actually
   // needs to run ships through.
   const allowedParentKeys = [
     "PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "SystemRoot", "SYSTEMROOT",

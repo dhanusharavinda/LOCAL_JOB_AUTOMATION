@@ -410,7 +410,7 @@ router.post("/track", async (req: Request, res: Response) => {
 
   try {
     // Rank-aware status update: only promote to 'applied' from less-
-    // advanced statuses. Mirrors gmail.ts:459-465.
+    // advanced statuses.
     const rank: Record<string, number> = {
       filtered: 0, saved: 1, applied: 2, interviewing: 3, offer: 4, rejected: 1,
     };

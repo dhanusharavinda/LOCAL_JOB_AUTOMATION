@@ -53,7 +53,7 @@ export default function CandidatesPage({ user, onNavigateToLanding, onNavigateTo
       await updateCandidate(id, { tier } as any);
       setCandidates((prev) => prev.map((c) => c.id === id ? {
         ...c, tier,
-        limits: { gmail_sync: c.limits?.gmail_sync ?? true, jobs_scraped: TIER_LABELS[tier].scrape, resumes_tailored: TIER_LABELS[tier].tailor },
+        limits: { jobs_scraped: TIER_LABELS[tier].scrape, resumes_tailored: TIER_LABELS[tier].tailor },
       } : c));
     } catch (err: any) { setError(err.message); }
   }

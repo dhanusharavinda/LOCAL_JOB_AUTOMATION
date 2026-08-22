@@ -363,25 +363,6 @@ drop policy if exists "usage_self_all" on public.usage_tracking;
 create policy "usage_self_all" on public.usage_tracking
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- ──────────────────────────────────────────────────────────────────────────
--- gmail_tokens
--- ──────────────────────────────────────────────────────────────────────────
-create table if not exists public.gmail_tokens (
-  user_id       uuid primary key references public.profiles(id) on delete cascade,
-  access_token  text not null,
-  refresh_token text not null,
-  scope         text,
-  token_type    text,
-  expiry_date   bigint,
-  connected_at  timestamptz not null default now(),
-  last_sync_at  timestamptz
-);
-
-alter table public.gmail_tokens enable row level security;
-drop policy if exists "gmail_tokens_self_all" on public.gmail_tokens;
-create policy "gmail_tokens_self_all" on public.gmail_tokens
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-
 -- ============================================================================
 -- Storage bucket policies (run AFTER creating the buckets in the dashboard)
 -- ============================================================================

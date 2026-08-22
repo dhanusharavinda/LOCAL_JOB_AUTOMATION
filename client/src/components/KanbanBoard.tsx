@@ -15,6 +15,21 @@ const COLUMN_DESC: Record<JobStatus, string> = {
   rejected: "Not moving forward. Drag here, or keep for your records.",
 };
 
+/**
+ * How many cards each column renders before the "show more" control.
+ *
+ * This is a drag-performance guard, not cosmetic. @hello-pangea/dnd
+ * measures the bounding rect of EVERY mounted <Draggable> when a drag
+ * begins. On a mature board the Filtered column alone can hold several
+ * hundred jobs, and measuring ~500 complex cards costs multiple seconds
+ * of forced layout - the drag appears frozen until it finishes.
+ *
+ * Capping the mounted set keeps drag start effectively instant. Nothing
+ * is hidden permanently: the header still shows the true column count and
+ * "Show N more" reveals the rest a page at a time.
+ */
+const COLUMN_PAGE_SIZE = 50;
+
 interface Props {
   jobs: Job[];
   onDragEnd: (jobId: number, newStatus: JobStatus) => void;
@@ -53,6 +68,14 @@ export default function KanbanBoard({
     typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false
   );
   const [mobileStatus, setMobileStatus] = useState<JobStatus>("filtered");
+  // Per-column render cap. Keyed by status; absent means COLUMN_PAGE_SIZE.
+  const [shownCount, setShownCount] = useState<Partial<Record<JobStatus, number>>>({});
+
+  const showMore = (status: JobStatus) =>
+    setShownCount((prev) => ({
+      ...prev,
+      [status]: (prev[status] ?? COLUMN_PAGE_SIZE) + COLUMN_PAGE_SIZE,
+    }));
 
   // Keep isMobile in sync with viewport - fires on rotation / resize.
   useEffect(() => {
@@ -118,6 +141,8 @@ export default function KanbanBoard({
       <div className={`${isMobile ? "flex flex-col px-3 pt-2 pb-3 overflow-y-auto" : "flex gap-3 overflow-auto px-4 pb-3"} h-full`}>
         {visibleColumns.map((col) => {
           const columnJobs = getJobsByStatus(col.id);
+          const shown = shownCount[col.id] ?? COLUMN_PAGE_SIZE;
+          const hiddenCount = Math.max(0, columnJobs.length - shown);
           return (
             <div
               key={col.id}
@@ -201,7 +226,7 @@ export default function KanbanBoard({
                         )}
                       </div>
                     )}
-                    {columnJobs.map((job, index) => (
+                    {columnJobs.slice(0, shown).map((job, index) => (
                       <JobCard
                         key={job.id}
                         job={job}
@@ -215,6 +240,15 @@ export default function KanbanBoard({
                       />
                     ))}
                     {provided.placeholder}
+                    {hiddenCount > 0 && (
+                      <button
+                        onClick={() => showMore(col.id)}
+                        className="w-full mt-1 py-2 rounded-lg font-mono text-[11px] text-[#555872] border border-dashed border-[rgba(255,255,255,0.08)] hover:text-[#c9a94e] hover:border-[#c9a94e]/30 transition-colors"
+                      >
+                        Show {Math.min(hiddenCount, COLUMN_PAGE_SIZE)} more
+                        <span className="text-[#2e3148]"> ({hiddenCount} hidden)</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </Droppable>

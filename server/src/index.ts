@@ -41,7 +41,7 @@ import jobMatchesRouter from "./routes/job-matches";
 import feedbackRouter from "./routes/feedback";
 import { generateLocalPdf } from "./pdf";
 import { parsePdfWithLinks, parseDocxWithLinks } from "./parse-links";
-import { requireAuth } from "./middleware/auth";
+import { requireAuth, requireApproved } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
 import { startSupabaseKeepalive } from "./keepalive";
 
@@ -205,7 +205,7 @@ app.use("/api/feedback", apiLimiter, feedbackRouter);
 // Max 2MB decoded payload protects against 1.3× base64 inflation attacks
 // where a tiny compressed request balloons into a huge buffer in memory.
 const MAX_PARSE_BUFFER_BYTES = 2 * 1024 * 1024;
-app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, async (req, res) => {
+app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, requireApproved, async (req, res) => {
   try {
     const { base64 } = req.body || {};
     if (!base64 || typeof base64 !== "string") { res.status(400).json({ error: "Missing base64 PDF data" }); return; }
@@ -227,7 +227,7 @@ app.post("/api/parse-pdf", parseLimiter, parseBodyLimit, requireAuth, async (req
   }
 });
 
-app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, async (req, res) => {
+app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, requireApproved, async (req, res) => {
   try {
     const { base64 } = req.body || {};
     if (!base64 || typeof base64 !== "string") { res.status(400).json({ error: "Missing base64 DOCX data" }); return; }
@@ -271,7 +271,14 @@ app.post("/api/parse-docx", parseLimiter, parseBodyLimit, requireAuth, async (re
 // previous `optionalAuth` + `req.user?.id ?? 1` fallback pattern means
 // we never silently attribute a request to a default user when the
 // caller is anonymous.
-app.use("/api", apiLimiter, requireAuth);
+//
+// requireApproved is the server-side half of the waitlist. The client
+// shows <WaitlistScreen /> to pending/rejected users, but that alone is
+// just a render decision - the user still holds a valid JWT and could
+// curl these routes directly. Everything an unapproved user legitimately
+// needs (/api/auth/me to render the waitlist, /api/feedback to contact
+// support) is mounted above and unaffected.
+app.use("/api", apiLimiter, requireAuth, requireApproved);
 
 // Register expiry routes BEFORE jobs router so specific routes match first
 app.use("/api/jobs", expiryRouter);

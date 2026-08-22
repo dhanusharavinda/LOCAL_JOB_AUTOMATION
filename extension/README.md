@@ -107,7 +107,7 @@ ATS site DOM (LinkedIn / Greenhouse / Lever / Ashby / Workable / Workday)
 
 - **Workday is brittle.** Enterprise tenants customise the form, so a
   selector that works on IBM Workday may break on Capital One Workday.
-  Expect 50–70% field coverage on Workday and review before submit.
+  Expect 50-70% field coverage on Workday and review before submit.
 - **LinkedIn rate-limit risk.** LinkedIn flags suspiciously fast
   apply patterns (~50 / 10 min). The engine deliberately doesn't queue
   multi-job applies - humans pace themselves naturally.

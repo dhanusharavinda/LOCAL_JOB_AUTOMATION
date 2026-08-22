@@ -10,8 +10,13 @@ import { submitFeedback } from "../api";
  * "Send" posts to POST /api/feedback (captured server-side so nothing is
  * lost and the user gets a real confirmation). A mailto: link is kept as a
  * fallback for anyone who'd rather email directly.
+ *
+ * The fallback address comes from VITE_SUPPORT_EMAIL so each deployment
+ * points at its own inbox. If it is unset the mailto: link is hidden
+ * rather than defaulting to someone else's address - the in-app form
+ * still works, so nothing is lost.
  */
-const CONTACT_EMAIL = "dhanushgoku997@gmail.com";
+const CONTACT_EMAIL = (import.meta.env.VITE_SUPPORT_EMAIL || "").trim();
 
 type Category = "bug" | "feature" | "general";
 
@@ -141,13 +146,15 @@ export default function ContactUsButton() {
               />
             </div>
 
-            <div style={emailRow}>
-              <span style={emailLabel}>Goes to:</span>
-              <code style={emailValue}>{CONTACT_EMAIL}</code>
-              <button onClick={copyEmail} style={copyBtn}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
+            {CONTACT_EMAIL && (
+              <div style={emailRow}>
+                <span style={emailLabel}>Goes to:</span>
+                <code style={emailValue}>{CONTACT_EMAIL}</code>
+                <button onClick={copyEmail} style={copyBtn}>
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            )}
 
             {err && <p style={{ color: "#f87171", fontSize: 12, margin: "0 0 8px" }}>{err}</p>}
             {sent ? (
@@ -156,14 +163,16 @@ export default function ContactUsButton() {
               </div>
             ) : (
               <div style={footerRow}>
-                <a
-                  href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-                    `[${CATEGORY_LABEL[category]}] GO CANDID8 feedback`
-                  )}&body=${encodeURIComponent(message.trim() || "(write your feedback here)")}`}
-                  style={{ ...secondaryBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
-                >
-                  Email instead
-                </a>
+                {CONTACT_EMAIL && (
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+                      `[${CATEGORY_LABEL[category]}] GO CANDID8 feedback`
+                    )}&body=${encodeURIComponent(message.trim() || "(write your feedback here)")}`}
+                    style={{ ...secondaryBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+                  >
+                    Email instead
+                  </a>
+                )}
                 <button
                   onClick={send}
                   disabled={sending}

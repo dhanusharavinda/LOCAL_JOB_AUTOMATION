@@ -30,12 +30,18 @@ import { downloadResumeText } from "../storage";
 const router = Router();
 router.use(requireAuth);
 
-// Tighter limiter than the global apiLimiter because every endpoint
-// here makes an OpenAI call. 30 requests/min/IP is enough for a single
-// practice session even with rapid follow-ups.
+// Tighter limiter than the global apiLimiter because every endpoint here
+// makes an OpenAI call.
+//
+// Budget per turn is three requests: /tts to ask, /stt to transcribe, and
+// /turn to decide. A follow-up costs a further three. So a brisk stretch
+// of question -> answer -> follow-up -> answer can burn ~12 requests in a
+// couple of minutes, and the old 30/min ceiling left very little headroom
+// before a 429 started silently costing the user their follow-ups.
+// 60/min keeps the abuse ceiling meaningful while leaving that headroom.
 const interviewLimiter = rateLimit({
   windowMs: 60_000,
-  limit: 30,
+  limit: envInt("INTERVIEW_RATE_LIMIT_PER_MIN", 60),
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many interview requests. Please wait a minute." },

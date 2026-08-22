@@ -10,8 +10,9 @@ FROM node:20-slim
 
 # ── System deps ─────────────────────────────────────────────────────────
 # chromium + its transitive X/GL/audio libs are required by Puppeteer.
-# build-essential + python3 are needed for any native npm modules that
-# still ship with a postinstall compile step (better-sqlite3 legacy, etc.).
+# build-essential + python3 are kept as a safety net for any dependency
+# that falls back to a node-gyp compile on this platform (the tree is
+# currently pure-JS, so this is belt-and-braces rather than required).
 # Everything else is minimal runtime support (certs, fonts).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \

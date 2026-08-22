@@ -193,6 +193,59 @@ async function ensureProfile(
 }
 
 /**
+ * Approval gate - 403s any signed-in user whose profile hasn't been
+ * approved by an admin yet.
+ *
+ * The client renders <WaitlistScreen /> for pending/rejected users, but
+ * that's only a render decision: the user still holds a fully valid
+ * Supabase JWT, so without this middleware they can skip the UI entirely
+ * and hit /api/* directly with curl - running the pipeline, tailoring
+ * resumes and burning OpenAI credit while nominally sitting on the
+ * waitlist. A rejected user keeps that access too. This is the
+ * server-side half of the gate.
+ *
+ * Mount AFTER requireAuth (it reads req.user). Routes that must stay
+ * reachable for an unapproved user - /api/auth (so /me can drive the
+ * waitlist screen) and /api/feedback (public contact form) - are
+ * registered before this runs and are therefore unaffected.
+ *
+ * Admins bypass, mirroring the client: a freshly-seeded owner account
+ * starts as 'pending' and would otherwise be locked out of the very
+ * admin panel used to approve it.
+ */
+export function requireApproved(req: Request, res: Response, next: NextFunction): void {
+  const user = req.user;
+  if (!user) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (isAdminEmail(user.email)) { next(); return; }
+  if (user.approval_status === "approved") { next(); return; }
+  res.status(403).json({
+    error:
+      user.approval_status === "rejected"
+        ? "Your account was not approved for access."
+        : "Your account is awaiting approval.",
+    approval_status: user.approval_status,
+    pending_approval: true,
+  });
+}
+
+/**
+ * Local copy of the ADMIN_EMAILS lookup. Duplicated rather than imported
+ * from routes/auth.ts to keep the middleware layer free of a dependency
+ * on the route layer (routes/auth.ts already imports from here, and a
+ * cycle would leave one side undefined at module-init time).
+ */
+function isAdminEmail(email: string | undefined): boolean {
+  if (!email) return false;
+  const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
+  if (!adminCsv) return false;
+  return adminCsv
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email.toLowerCase());
+}
+
+/**
  * Required auth - 401s when no valid Supabase JWT is present.
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {

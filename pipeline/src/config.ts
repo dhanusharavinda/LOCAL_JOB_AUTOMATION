@@ -63,12 +63,6 @@ export const config = {
   // Job Tracker
   JOB_TRACKER_URL: optional("JOB_TRACKER_URL", "http://localhost:3001"),
 
-  // PDF Backend
-  PDF_BACKEND_URL: optional(
-    "PDF_BACKEND_URL",
-    "https://rewrite-backend-b5wj.onrender.com/v1/get-resume"
-  ),
-
   // LinkedIn Search (dynamic URL builder)
   // Empty default - the user's role-expander on the landing page fills
   // this. Hardcoding a software default biased every new account toward

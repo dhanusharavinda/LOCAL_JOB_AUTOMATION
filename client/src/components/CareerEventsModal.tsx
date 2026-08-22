@@ -434,9 +434,6 @@ export default function CareerEventsModal({ onClose }: Props) {
                           {isNewlyScraped(ev.scraped_at) && (
                             <span className="text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5 rounded">NEW</span>
                           )}
-                          {ev.source === "gmail" && (
-                            <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">From Gmail</span>
-                          )}
                         </div>
                         <h3 className="text-sm font-semibold text-gray-100">{ev.title}</h3>
                         {ev.organizer && <p className="text-xs text-gray-500 mt-0.5">{ev.organizer}</p>}
@@ -509,9 +506,6 @@ export default function CareerEventsModal({ onClose }: Props) {
                                 <span className="text-[10px] font-bold text-amber-400">
                                   {days === 0 ? "TODAY" : `${days}d away`}
                                 </span>
-                              )}
-                              {ev.source === "gmail" && (
-                                <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">Gmail</span>
                               )}
                             </div>
                             <h3 className="text-sm font-semibold text-gray-100 leading-snug">{ev.title}</h3>

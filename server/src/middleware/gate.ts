@@ -1,4 +1,3 @@
-import { Request, Response, NextFunction } from "express";
 import { sql } from "../db";
 
 /**
@@ -19,17 +18,17 @@ import { sql } from "../db";
 const TEST_MODE = false;
 
 export const PLAN_LIMITS = TEST_MODE ? {
-  free: { jobs_scraped: 10, resumes_tailored: 5, gmail_sync: false, candidates: 0, pipeline: true },
-  pro: { jobs_scraped: 10, resumes_tailored: 5, gmail_sync: true, candidates: 0, pipeline: true },
+  free: { jobs_scraped: 10, resumes_tailored: 5, candidates: 0, pipeline: true },
+  pro: { jobs_scraped: 10, resumes_tailored: 5, candidates: 0, pipeline: true },
   enterprise: {
-    gmail_sync: true, candidates: 9999, pipeline: true,
+    candidates: 9999, pipeline: true,
     tiers: { 1: { jobs_scraped: 10, resumes_tailored: 5 }, 2: { jobs_scraped: 10, resumes_tailored: 5 }, 3: { jobs_scraped: 10, resumes_tailored: 5 } },
   },
 } as const : {
-  free: { jobs_scraped: 5, resumes_tailored: 1, gmail_sync: false, candidates: 0, pipeline: true },
-  pro: { jobs_scraped: 50, resumes_tailored: 25, gmail_sync: true, candidates: 0, pipeline: true },
+  free: { jobs_scraped: 5, resumes_tailored: 1, candidates: 0, pipeline: true },
+  pro: { jobs_scraped: 50, resumes_tailored: 25, candidates: 0, pipeline: true },
   enterprise: {
-    gmail_sync: true, candidates: 9999, pipeline: true,
+    candidates: 9999, pipeline: true,
     tiers: { 1: { jobs_scraped: 20, resumes_tailored: 10 }, 2: { jobs_scraped: 35, resumes_tailored: 20 }, 3: { jobs_scraped: 50, resumes_tailored: 50 } },
   },
 } as const;
@@ -168,7 +167,6 @@ export function getLimitsForUser(plan: string, candidateId?: number | null, tier
       return {
         jobs_scraped: PLAN_LIMITS.pro.jobs_scraped,
         resumes_tailored: PLAN_LIMITS.pro.resumes_tailored,
-        gmail_sync: true,
       };
     }
     void candidateId;
@@ -177,13 +175,12 @@ export function getLimitsForUser(plan: string, candidateId?: number | null, tier
     return {
       jobs_scraped: tierLimits.jobs_scraped,
       resumes_tailored: tierLimits.resumes_tailored,
-      gmail_sync: true,
     };
   }
   if (plan === "pro") {
-    return { jobs_scraped: PLAN_LIMITS.pro.jobs_scraped, resumes_tailored: PLAN_LIMITS.pro.resumes_tailored, gmail_sync: true };
+    return { jobs_scraped: PLAN_LIMITS.pro.jobs_scraped, resumes_tailored: PLAN_LIMITS.pro.resumes_tailored };
   }
-  return { jobs_scraped: PLAN_LIMITS.free.jobs_scraped, resumes_tailored: PLAN_LIMITS.free.resumes_tailored, gmail_sync: false };
+  return { jobs_scraped: PLAN_LIMITS.free.jobs_scraped, resumes_tailored: PLAN_LIMITS.free.resumes_tailored };
 }
 
 // Plan quotas are enforced by default. Set PIPELINE_LIMIT_DISABLED=true ONLY
@@ -282,21 +279,4 @@ export async function setLastRunStatus(
       DO UPDATE SET last_run_status = ${status}, updated_at = NOW()
     `;
   }
-}
-
-/**
- * Middleware: require a specific feature to be available on the user's plan.
- */
-export function requireFeature(feature: "gmail_sync" | "pipeline") {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const plan = req.user?.plan || "free";
-    const limits = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS];
-
-    if (feature === "gmail_sync" && !(limits as any).gmail_sync) {
-      res.status(403).json({ error: "Gmail sync requires a Pro or Enterprise plan", upgrade: true });
-      return;
-    }
-
-    next();
-  };
 }

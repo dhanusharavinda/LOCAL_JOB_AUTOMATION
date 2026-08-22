@@ -1,0 +1,22 @@
+-- ============================================================================
+-- GO CANDID8 - Remove the Gmail integration
+-- ============================================================================
+-- The Gmail sync feature (OAuth connect + AI classification of application
+-- status emails) was withdrawn. Its API routes are gone, the plan flag is
+-- gone, and nothing in the UI references it.
+--
+-- This migration drops the last remaining artefact: the gmail_tokens table,
+-- which stored per-user OAuth access + refresh tokens. Dropping it is the
+-- point of the migration, not a side effect - those are live credentials and
+-- they should not sit in the database once the feature that used them is
+-- gone.
+--
+-- On a fresh install this is a no-op: 0001_initial_schema.sql no longer
+-- creates the table. On an existing database it removes the table and the
+-- tokens inside it.
+--
+-- Idempotent: safe to re-run.
+-- ============================================================================
+
+drop policy if exists "gmail_tokens_self_all" on public.gmail_tokens;
+drop table if exists public.gmail_tokens cascade;

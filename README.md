@@ -134,7 +134,7 @@ The pipeline reads everything from env vars (server injects per-user config when
 | `RELEVANCE_SCORE_THRESHOLD` | `5` | Min relevance score (1-10 scale) to keep a job |
 | `ADMIN_EMAILS` | `""` | CSV; admins get unlimited manual tailors + admin panel |
 
-Server-only vars live in [`server/.env.example`](server/.env.example) - Supabase URL + service-role key, CORS allow-list, Gmail OAuth credentials, etc.
+Server-only vars live in [`server/.env.example`](server/.env.example) - Supabase URL + service-role key, OpenAI key, CORS allow-list, admin emails, etc.
 
 ---
 

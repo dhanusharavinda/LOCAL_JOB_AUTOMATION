@@ -696,6 +696,16 @@ export default function InterviewSession({
         interviewTurn({ sessionId, qIdx: qIdxFor, answer, followUpDepth }),
         12_000,
         { action: "next" as const, followUpQuestion: undefined, ack: undefined },
+        (reason, err) => {
+          // Moving on is still the right recovery - a stalled decide step
+          // must not strand the candidate mid-interview - but it is a
+          // degraded turn, not a decision the interviewer made, so say so.
+          const detail = reason === "timeout"
+            ? "the decide step took longer than 12s"
+            : ((err as any)?.message || "the decide step failed");
+          console.error(`[interview] follow-up skipped: ${detail}`, err ?? "");
+          setListenWarning(`Skipped the follow-up - ${detail}. Continuing with the next question.`);
+        },
       );
       // The decider returns a short spoken reaction ("Nice - that's a
       // concrete example.") that we prepend to whatever comes next so
@@ -1391,12 +1401,28 @@ function fmtSecs(s: number): string {
  * promise's resolved value, OR `fallback` if the timer fires first.
  * Used to keep /turn from stranding the user when OpenAI is slow.
  */
-function raceWithTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+/**
+ * Resolve `p`, or the fallback if it rejects or outruns `ms`.
+ *
+ * `onFallback` is what makes a silent degradation debuggable. Without it
+ * this helper turned EVERY /turn failure - an expired token, a 429 from
+ * the interview limiter, a 500, a dropped connection - into a perfectly
+ * ordinary-looking `{ action: "next" }`. The interview just stopped
+ * asking follow-ups and nothing anywhere said why: no console entry, no
+ * banner, no failed request the user could point at. Callers now get told
+ * which happened so they can log it and warn the user.
+ */
+function raceWithTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  fallback: T,
+  onFallback?: (reason: "timeout" | "error", err?: unknown) => void,
+): Promise<T> {
   return new Promise((resolve) => {
-    const t = window.setTimeout(() => resolve(fallback), ms);
+    const t = window.setTimeout(() => { onFallback?.("timeout"); resolve(fallback); }, ms);
     p.then(
       (v) => { window.clearTimeout(t); resolve(v); },
-      () => { window.clearTimeout(t); resolve(fallback); },
+      (err) => { window.clearTimeout(t); onFallback?.("error", err); resolve(fallback); },
     );
   });
 }

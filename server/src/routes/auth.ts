@@ -158,8 +158,8 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
   try {
     // Aggregate usage per user in one query. The LEFT JOIN + GROUP BY
     // folds every usage_tracking row into a single counter per profile,
-    // plus the subselects pull total jobs / manual tailors / gmail
-    // connectivity. Kept under one round-trip so the admin list scales
+    // plus the subselects pull total jobs / manual tailors and
+    // last-active date. Kept under one round-trip so the admin list scales
     // past a few hundred users without N+1 queries.
     const rows = status
       ? await sql`
@@ -174,7 +174,6 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
             (SELECT COUNT(*)::int FROM jobs              WHERE user_id = p.id)                                                     AS total_jobs,
             (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
             (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text)                                                     AS manual_tailors_total,
-            EXISTS(SELECT 1 FROM gmail_tokens            WHERE user_id = p.id)                                                     AS gmail_connected,
             (SELECT MAX(period) FROM usage_tracking      WHERE user_id = p.id)                                                     AS last_active_date
           FROM profiles p
           LEFT JOIN usage_tracking ut ON ut.user_id = p.id
@@ -195,7 +194,6 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
             (SELECT COUNT(*)::int FROM jobs              WHERE user_id = p.id)                                                     AS total_jobs,
             (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS manual_tailors_today,
             (SELECT COUNT(*)::int FROM free_tailor_log   WHERE user_id = p.id::text)                                                     AS manual_tailors_total,
-            EXISTS(SELECT 1 FROM gmail_tokens            WHERE user_id = p.id)                                                     AS gmail_connected,
             (SELECT MAX(period) FROM usage_tracking      WHERE user_id = p.id)                                                     AS last_active_date
           FROM profiles p
           LEFT JOIN usage_tracking ut ON ut.user_id = p.id

@@ -355,7 +355,7 @@ started
  ○22:28:44 ○ Not relevant (score: 4/10): The candidate's skills and experience do not match the requirements for the Senior Software Engineer role at Sony Interactive Entertainment.
 22:28:45 [94/138] Electrical Project Manager | Dublin @ SSA Recruitment Ireland
  ○22:28:45 ○ Not relevant (score: 2/10): The role is fundamentally misaligned with the candidate's engineering focus and entry-level preference.
-22:28:46 [95/138] Senior Software Engineer – Sensors (Cork, Ireland) @ Qualcomm
+22:28:46 [95/138] Senior Software Engineer - Sensors (Cork, Ireland) @ Qualcomm
  ○22:28:46 ○ Not relevant (score: 2/10): The candidate's profile is fundamentally mismatched with the Account Executive role.
 22:28:47 [96/138] Senior Process Engineer - South Dublin (DT18627) @ ICDS Recruitment Consultants
  ○22:28:47 ○ Not relevant (score: 2/10): The candidate is not suited for this Account Executive position due to a fundamental category mismatch.
@@ -402,7 +402,7 @@ started
  ○22:29:25 ○ Not relevant (score: 4/10): The role is a senior position, which does not align with the candidate's entry-level preference.
 22:29:26 [123/138] Full Stack AI Engineer @ Nicoll Curtin
 22:29:27 [124/138] Data Engineer @ K&K Talents
-22:29:27 [125/138] Mid-Level Data & BI Engineer – Career progression! @ Archer Recruitment
+22:29:27 [125/138] Mid-Level Data & BI Engineer - Career progression! @ Archer Recruitment
  ○22:29:27 ○ Not relevant (score: 4/10): The candidate's entry-level preference does not align with the seniority required for this Mid-Level Data & BI Engineer role.
 22:29:27 [126/138] Senior Data Engineer @ Elevate Partners
  ○22:29:27 ○ Not relevant (score: 4/10): The candidate is not a fit for the Senior Investment Data Engineer role due to significant experience and seniority mismatches.
