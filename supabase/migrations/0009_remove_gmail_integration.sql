@@ -18,5 +18,11 @@
 -- Idempotent: safe to re-run.
 -- ============================================================================
 
-drop policy if exists "gmail_tokens_self_all" on public.gmail_tokens;
+-- Note: no separate "drop policy" statement here on purpose.
+-- DROP POLICY IF EXISTS still requires the TABLE to exist - the IF EXISTS
+-- guards the policy, not the relation - so on a fresh install (where
+-- 0001 never creates gmail_tokens) it fails with
+--   ERROR: relation "public.gmail_tokens" does not exist
+-- DROP TABLE ... CASCADE removes the table's policies along with it, so
+-- this single statement is both sufficient and safe to run either way.
 drop table if exists public.gmail_tokens cascade;
