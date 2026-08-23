@@ -1,3 +1,8 @@
+> **Sample run log.** Captured output from one pipeline run configured for a
+> single target country. It is a record of that run, not a statement of
+> supported coverage - the platform targets Ireland, the UK, the Netherlands,
+> India and New Zealand in any combination. Left unedited on purpose.
+
 started
 >>>Initializing pipeline...
 ╔══════════════════════════════════════════╗

@@ -37,6 +37,35 @@ Every step is bounded (`APIFY_JOB_COUNT`, `MAX_TAILOR_COUNT`, `RELEVANCE_SCORE_T
 
 ---
 
+## Geographic coverage
+
+Nothing in the system is tied to one country. `TARGET_COUNTRIES` drives
+which regional scrapers run, which LinkedIn geoId is used, and how the
+location filter judges a posting. Set it to wherever you are hunting.
+
+| Country | Slug | Regional sources |
+|---|---|---|
+| Ireland | `ireland` | Jobs.ie, IrishJobs, Indeed IE, GradIreland |
+| United Kingdom | `uk` | Indeed UK |
+| Netherlands | `netherlands` | Indeed NL |
+| India | `india` | Naukri, Instahyre, Indeed IN |
+| New Zealand | `newzealand` | Regional boards |
+
+Combine them freely - `TARGET_COUNTRIES=ireland,uk,india` runs all three
+sets in one pass.
+
+On top of the regional sources, these global boards run on every job
+regardless of country: **RemoteOK, Remotive, Jobicy, WeWorkRemotely,
+Hacker News Who's Hiring, dev.to, Arbeitnow** (EU-wide) and **CareerJet**
+(multi-country). Each has its own `SCRAPE_*` toggle.
+
+Adding a country means one entry in
+[`pipeline/src/countries.ts`](pipeline/src/countries.ts) (label, LinkedIn
+geoId, location terms, scraper keys) plus a scraper module for any
+country-specific board. The rest of the pipeline needs no changes.
+
+---
+
 ## Recent architectural changes (this session)
 
 ### 1. Keyword expansion - beats "ETL Engineer" misses
@@ -77,7 +106,10 @@ The relevance scorer now coerces non-numeric `score` fields from the LLM via `Nu
 
 ## Updated cost per run
 
-Default config: Ireland target, no India, no Upwork, `APIFY_JOB_COUNT=100`, `MAX_KEYWORDS_PER_SCRAPER=3`, expansion ON.
+Measured with the shipped defaults (a single target country, no Upwork,
+`APIFY_JOB_COUNT=100`, `MAX_KEYWORDS_PER_SCRAPER=3`, expansion ON). Adding
+more countries to `TARGET_COUNTRIES` increases the scrape and scoring lines
+roughly in proportion to the extra jobs they return.
 
 | Step | Provider | Approximate cost |
 |---|---|---|
@@ -128,7 +160,7 @@ The pipeline reads everything from env vars (server injects per-user config when
 | `STRICT_SENIORITY_FILTER` | `false` | Send `f_E` to LinkedIn as hard filter (was the old behavior) |
 | `SCRAPE_TRUEFETCH` | `true` | Multi-source aggregator scraper |
 | `SCRAPE_UPWORK` | `false` | Freelance / contract gigs (turn on if hunting contract) |
-| `TARGET_COUNTRIES` | `ireland` | CSV of country slugs; controls Indeed domain + Naukri-on-India |
+| `TARGET_COUNTRIES` | `ireland` | CSV of country slugs: `ireland`, `uk`, `netherlands`, `india`, `newzealand`. Controls which regional scrapers run, the LinkedIn geoId, and the location filter. Combine freely |
 | `LINKEDIN_TIME_FILTER` | `r604800` | `r86400`=1d, `r604800`=1w, `r2592000`=30d |
 | `LINKEDIN_EXPERIENCE` | `""` | CSV of f_E codes; now used as soft AI hint unless STRICT_SENIORITY_FILTER=true |
 | `RELEVANCE_SCORE_THRESHOLD` | `5` | Min relevance score (1-10 scale) to keep a job |
