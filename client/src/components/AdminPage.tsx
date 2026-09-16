@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval } from "../api";
+import AdminInvites from "./AdminInvites";
 
 // Small monospace pill for a single usage counter. Keeps the admin row
 // scannable - zero values render greyed out so non-zero activity visually
@@ -61,6 +62,8 @@ export default function AdminPage({
   onNavigateToDashboard,
   onLogout,
 }: Props) {
+  // Invite links are the day-to-day launch workflow, so they open first.
+  const [section, setSection] = useState<"invites" | "users">("invites");
   const [tab, setTab] = useState<Tab>("pending");
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,11 +166,41 @@ export default function AdminPage({
 
       {/* Hero */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-4">
-        <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-primary)] mb-1">Tester approvals</h1>
+        <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-primary)] mb-1">
+          {section === "invites" ? "Invite links" : "Users"}
+        </h1>
         <p className="text-sm text-[var(--text-secondary)]">
-          Review and approve new signups. Approved users can access the dashboard on their next sign-in.
+          {section === "invites"
+            ? "Create a personal link for each person who asks, then paste it into their DM. They get in as soon as they open it and sign up."
+            : "Everyone who has signed up. Approving someone here gives them early access with no expiry."}
         </p>
+        <div className="mt-4 inline-flex gap-1 p-1 bg-[var(--bg-raised)] rounded-xl border border-[var(--border-subtle)]">
+          {([
+            { id: "invites", label: "Invite links" },
+            { id: "users", label: "Users" },
+          ] as const).map((sct) => (
+            <button
+              key={sct.id}
+              onClick={() => setSection(sct.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                section === sct.id
+                  ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm"
+                  : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              {sct.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {section === "invites" && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
+          <AdminInvites />
+        </div>
+      )}
+
+      {section === "users" && (<>
 
       {/* Tabs + search */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-4 flex flex-wrap items-center gap-3">
@@ -377,6 +410,7 @@ export default function AdminPage({
           Showing {filtered.length} user{filtered.length === 1 ? "" : "s"}. Approved users pick up access on their next sign-in.
         </p>
       </div>
+      </>)}
     </div>
   );
 }

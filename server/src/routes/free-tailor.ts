@@ -34,8 +34,14 @@ router.use(requireAuth);
 
 // Strict per-plan daily quotas for the resume tailor hook. Shape the
 // quotas so the STRICTEST bound wins if plan strings drift.
+// Early-access launch: everyone invited gets EARLY_ACCESS_DAILY_TAILORS
+// (default 3) per day, no upsell. Pro stays at 5 for admin-set test plans.
+function envQuota(name: string, fallback: number): number {
+  const n = parseInt(process.env[name] || "", 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 const DAILY_QUOTA: Record<"free" | "pro", number> = {
-  free: 1,
+  free: envQuota("EARLY_ACCESS_DAILY_TAILORS", 3),
   pro: 5,
 };
 
@@ -235,13 +241,9 @@ router.post("/", async (req: Request, res: Response) => {
     }
   }
   if (used >= quota) {
-    const isPro = plan === "pro" || plan === "enterprise";
-    const upgradeHint = isPro
-      ? `You have used all ${quota} manual tailors for today. Your quota resets at 00:00 UTC.`
-      : `You have used your ${quota} free tailor for today. Upgrade to Pro for 5 per day. Resets at 00:00 UTC.`;
     res.status(429).json({
-      error: upgradeHint,
-      upgrade: !isPro,
+      error: `You've used all ${quota} tailors for today. You get ${quota} fresh ones after 00:00 UTC.`,
+      upgrade: false,
       plan,
       quota,
       used,

@@ -6,6 +6,10 @@ interface Props {
   onNavigateToLanding: () => void;
   onNavigateToPricing: () => void;
   onAuth: (user: AuthUser) => void;
+  /** Which tab to open on (the invite flow opens "signup"). */
+  initialMode?: "login" | "signup";
+  /** Invite-only launch: hide pricing, use early-access wording. */
+  launchMode?: boolean;
 }
 
 /**
@@ -15,8 +19,8 @@ interface Props {
  * hand it to the parent via onAuth. Token storage is delegated to
  * supabase-js (persistSession + autoRefreshToken).
  */
-export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onAuth }: Props) {
-  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
+export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onAuth, initialMode = "login", launchMode = false }: Props) {
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -93,11 +97,17 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
     }
   }
 
-  const titleMap = {
-    login:  { title: "Welcome back",  sub: "Sign in to put your job search back on autopilot" },
-    signup: { title: "Get started",   sub: "Create an account and let your job search run itself" },
-    forgot: { title: "Reset password", sub: "We'll email you a link to set a new one" },
-  };
+  const titleMap = launchMode
+    ? {
+        login:  { title: "Welcome back",  sub: "Sign in to continue tailoring your resume" },
+        signup: { title: "Claim your early access", sub: "Create your account and start tailoring your resume in minutes" },
+        forgot: { title: "Reset password", sub: "We'll email you a link to set a new one" },
+      }
+    : {
+        login:  { title: "Welcome back",  sub: "Sign in to put your job search back on autopilot" },
+        signup: { title: "Get started",   sub: "Create an account and let your job search run itself" },
+        forgot: { title: "Reset password", sub: "We'll email you a link to set a new one" },
+      };
   const title = titleMap[mode];
 
   return (
@@ -112,12 +122,14 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
             <span className="font-display text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">GO CANDID8</span>
           </button>
           <nav className="flex items-center gap-6">
-            <button
-              onClick={onNavigateToPricing}
-              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-            >
-              Pricing
-            </button>
+            {!launchMode && (
+              <button
+                onClick={onNavigateToPricing}
+                className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Pricing
+              </button>
+            )}
             <button
               onClick={onNavigateToLanding}
               className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"

@@ -944,6 +944,107 @@ export interface AuthUser {
   // is re-verified server-side so tampering with this flag locally
   // doesn't grant any real access.
   is_admin?: boolean;
+  // Invite-only launch. access_state picks the screen the app shows:
+  //   admin   - everything
+  //   active  - early access (Resume Tailor), until access_expires_at
+  //   expired - free early-access period ended
+  //   invite_required / rejected - needs an invite link
+  // The server enforces the same rules; these are display hints.
+  access_state?: AccessState;
+  access_expires_at?: string | null;
+  features?: LaunchFeatures;
+}
+
+export type AccessState = "admin" | "active" | "expired" | "invite_required" | "rejected";
+
+export interface LaunchFeatures {
+  tailor: boolean;
+  pipeline: boolean;
+  autoApply: boolean;
+  interview: boolean;
+  dashboard: boolean;
+  storyBank: boolean;
+  careerCoach: boolean;
+}
+
+// ─── Invite links (invite-only launch) ──────────────────────────────
+
+export type InviteCheck =
+  | { valid: true; access_days: number }
+  | { valid: false; reason: "not_found" | "used" | "revoked" };
+
+export async function checkInvite(token: string): Promise<InviteCheck> {
+  const res = await fetch(`/api/invites/check/${encodeURIComponent(token)}`);
+  if (!res.ok) throw new Error("Couldn't check this invite right now.");
+  return res.json();
+}
+
+export async function redeemInvite(
+  token: string,
+): Promise<{ ok: true; alreadyHasAccess?: boolean; access_expires_at: string | null }> {
+  const res = await fetch("/api/invites/redeem", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const body = await res.json().catch(() => null as any);
+  if (!res.ok) {
+    const e: any = new Error(body?.error || "Couldn't use this invite link.");
+    e.code = body?.code;
+    throw e;
+  }
+  return body;
+}
+
+export interface AdminInvite {
+  id: number;
+  token: string | null; // null once used or cancelled
+  label: string | null;
+  access_days: number;
+  created_at: string;
+  redeemed_at: string | null;
+  revoked_at: string | null;
+  redeemed_user_id: string | null;
+  redeemed_email: string | null;
+  redeemed_name: string | null;
+  access_expires_at: string | null;
+}
+
+async function adminJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  const body = await res.json().catch(() => null as any);
+  if (!res.ok) throw new Error(body?.error || `Request failed (HTTP ${res.status})`);
+  return body as T;
+}
+
+export async function adminListInvites(): Promise<AdminInvite[]> {
+  const data = await adminJson<{ invites: AdminInvite[] }>("/api/invites");
+  return data.invites;
+}
+
+export async function adminCreateInvites(input: { count: number; label?: string; days: number }): Promise<AdminInvite[]> {
+  const data = await adminJson<{ invites: AdminInvite[] }>("/api/invites", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return data.invites;
+}
+
+export async function adminRevokeInvite(id: number): Promise<void> {
+  await adminJson(`/api/invites/${id}/revoke`, { method: "POST" });
+}
+
+export async function adminExtendAccess(userId: string, days: number): Promise<{ access_expires_at: string }> {
+  return adminJson(`/api/invites/users/${userId}/extend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ days }),
+  });
+}
+
+export async function adminEndAccess(userId: string): Promise<{ access_expires_at: string }> {
+  return adminJson(`/api/invites/users/${userId}/end`, { method: "POST" });
 }
 
 export interface UsageInfo {

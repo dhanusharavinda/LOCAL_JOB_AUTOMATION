@@ -22,6 +22,9 @@ import AuthPage from "./components/AuthPage";
 import PricingPage from "./components/PricingPage";
 import WaitlistScreen from "./components/WaitlistScreen";
 import AdminPage from "./components/AdminPage";
+import InviteGate from "./components/InviteGate";
+import LaunchHome from "./components/LaunchHome";
+import { captureInviteFromUrl, clearStoredInvite } from "./invite";
 import CandidatesPage from "./components/CandidatesPage";
 
 interface ConfirmDialog {
@@ -36,6 +39,13 @@ export default function App() {
   const [page, setPage] = useState<"landing" | "dashboard" | "auth" | "pricing" | "candidates" | "admin">("landing");
   const [activeCandidateId, setActiveCandidateId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  // Invite-only launch. The token from an /invite/<token> link is kept
+  // (in localStorage too) until the signed-in user redeems it.
+  const [inviteToken, setInviteToken] = useState<string | null>(() => captureInviteFromUrl());
+  // True once the persisted Supabase session has been checked, so a
+  // returning user never sees the signed-out invite screen flash first.
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   // The plan-derived limits from GET /api/auth/me. Drives client-side
   // clamping of slider maxes so a Free user can't nudge "Jobs to Scrape"
   // past 5. Refreshed whenever currentUser changes (login, plan switch,
@@ -127,17 +137,21 @@ export default function App() {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (data.session) {
-        try {
-          const me = await authMe();
-          if (mounted) { setCurrentUser(me.user); setUserLimits(me.limits); }
-        } catch {
-          // Token was stale or server rejected it; sign out cleanly.
-          await supabase.auth.signOut();
-          if (mounted) { setCurrentUser(null); setUserLimits(null); }
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (data.session) {
+          try {
+            const me = await authMe();
+            if (mounted) { setCurrentUser(me.user); setUserLimits(me.limits); }
+          } catch {
+            // Token was stale or server rejected it; sign out cleanly.
+            await supabase.auth.signOut();
+            if (mounted) { setCurrentUser(null); setUserLimits(null); }
+          }
         }
+      } finally {
+        if (mounted) setAuthChecked(true);
       }
     })();
 
@@ -173,6 +187,16 @@ export default function App() {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // A user who already has access (admin, or early access still active)
+  // keeps any invite link they opened unused, so it can go to someone else.
+  useEffect(() => {
+    if (!inviteToken || !currentUser) return;
+    if (currentUser.is_admin || currentUser.access_state === "active") {
+      clearStoredInvite();
+      setInviteToken(null);
+    }
+  }, [currentUser, inviteToken]);
 
   // Map of job_id → the optimistic local row the user just produced
   // (via drag, flag toggle, or any other inline mutation). loadJobs
@@ -288,6 +312,7 @@ export default function App() {
   // when effect deps change while the tour is already running.
   useEffect(() => {
     if (!currentUser) return;
+    if (!currentUser.is_admin) return; // early-access home has no tour anchors
     if (currentUser.onboarded_at) return; // already done on another device
     if (page !== "landing") return;
     if (getTourState()) return; // already running or queued for dashboard
@@ -312,6 +337,7 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
+    if (!currentUser.is_admin) return;
     if (currentUser.onboarded_at) return;
     if (page !== "dashboard") return;
     if (getTourState() !== "dashboard") return;
@@ -811,38 +837,69 @@ export default function App() {
     );
   }
 
-  // Route guard: dashboard and candidates make authenticated API calls.
-  // Landing is PUBLIC - anonymous visitors see the marketing-bait
-  // FreeTailor feature without being forced through auth first.
-  // Pricing + the auth page itself remain publicly accessible.
-  const needsAuth = page === "dashboard" || page === "candidates";
-  if (needsAuth && !currentUser) {
+  // ── Invite-only launch gate ──────────────────────────────────────
+  // Signed out: the invite front door (or the sign-in page).
+  // Signed in, not admin: early-access home (Resume Tailor + coming
+  // soon), or the invite/expired screen. Admins fall through to the
+  // full app below. The server enforces the same rules on every API
+  // call (server/src/access.ts); this only decides what to render.
+  if (!currentUser) {
+    if (!authChecked) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)]">
+          <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
+    if (page === "auth") {
+      return (
+        <AuthPage
+          key={authMode}
+          initialMode={authMode}
+          launchMode
+          onNavigateToLanding={() => setPage("landing")}
+          onNavigateToPricing={() => setPage("landing")}
+          onAuth={(user) => setCurrentUser(user)}
+        />
+      );
+    }
     return (
-      <AuthPage
-        onNavigateToLanding={() => setPage("landing")}
-        onNavigateToPricing={() => setPage("pricing")}
-        onAuth={(user) => setCurrentUser(user)}
-      />
+      <>
+        <InviteGate
+          inviteToken={inviteToken}
+          onInviteTokenChange={setInviteToken}
+          onSignIn={() => { setAuthMode("login"); setPage("auth"); }}
+          onCreateAccount={() => { setAuthMode("signup"); setPage("auth"); }}
+        />
+        <ContactUsButton />
+      </>
     );
   }
 
-  // Approval gate - signed-in users who haven't been approved yet get the
-  // waitlist screen, full stop. The only route they can escape through is
-  // sign-out (which takes them back to the landing page as an anonymous
-  // visitor). Pre-signup visitors (currentUser === null) see the normal
-  // landing page, so the marketing flow is unaffected.
-  //
-  // Admins bypass the gate even if their row is pending - otherwise a
-  // freshly-seeded admin account would have no way to self-approve, and
-  // locking the owner out of their own deploy is a strictly worse failure
-  // mode than showing them the dashboard a few seconds early.
-  if (
-    currentUser &&
-    currentUser.approval_status &&
-    currentUser.approval_status !== "approved" &&
-    !currentUser.is_admin
-  ) {
-    return <WaitlistScreen currentUser={currentUser} onSignOut={handleLogout} />;
+  if (!currentUser.is_admin) {
+    // Fall back to approval_status if the server predates access_state.
+    const accessState = currentUser.access_state
+      ?? (currentUser.approval_status === "approved" ? "active" : "invite_required");
+    if (accessState === "active") {
+      return (
+        <>
+          <LaunchHome currentUser={currentUser} onLogout={handleLogout} />
+          <ContactUsButton />
+        </>
+      );
+    }
+    return (
+      <>
+        <WaitlistScreen
+          currentUser={currentUser}
+          inviteToken={inviteToken}
+          onInviteConsumed={() => setInviteToken(null)}
+          onAccessGranted={refreshCurrentUser}
+          onSignOut={handleLogout}
+        />
+        <ContactUsButton />
+      </>
+    );
   }
 
   if (page === "landing") {

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { getUsage, getLimitsForUser, PLAN_LIMITS } from "../middleware/gate";
+import { isAdminEmail, accessStateFor, launchFeatures } from "../access";
 
 /**
  * Auth routes - Postgres edition.
@@ -30,9 +31,12 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
     // Admin status is server-determined from ADMIN_EMAILS (CSV env).
     // Computing it here means the client never has to know the admin list
     // - it just reads `is_admin` from /me and shows/hides the admin UI.
-    const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
-    const admins = adminCsv ? adminCsv.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean) : [];
-    const isAdmin = admins.includes(user.email.toLowerCase());
+    const isAdmin = isAdminEmail(user.email);
+    // Invite-only launch: tells the client which screen to show
+    // (admin / active / expired / invite_required / rejected) and which
+    // features are live for this user. The server enforces the same
+    // rules in requireLaunchAccess, so these are display hints only.
+    const accessState = accessStateFor(user);
 
     res.json({
       user: {
@@ -43,6 +47,9 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
         onboarded_at: user.onboarded_at,
         approval_status: user.approval_status,
         is_admin: isAdmin,
+        access_state: accessState,
+        access_expires_at: user.access_expires_at ?? null,
+        features: launchFeatures(isAdmin),
       },
       usage,
       limits,
@@ -90,6 +97,12 @@ router.post("/onboarded", requireAuth, async (req: Request, res: Response) => {
 // Test-phase plan switching. Enterprise is NOT available to test users - 
 // only free and pro. Stripe wiring replaces this endpoint entirely later.
 router.put("/plan", requireAuth, async (req: Request, res: Response) => {
+  // Invite-only launch: plans aren't for sale yet, so only admins can
+  // switch (for testing). Early-access users all share the same limits.
+  if (!isAdminEmail(req.user!.email)) {
+    res.status(403).json({ error: "Plans aren't available yet. Early access is free.", code: "coming_soon" });
+    return;
+  }
   const { plan } = req.body;
   if (!["free", "pro"].includes(plan)) {
     res.status(400).json({
@@ -133,11 +146,7 @@ router.patch("/me", requireAuth, async (req: Request, res: Response) => {
 // Exported so other routes (e.g. free-tailor.ts) can bypass quotas for
 // the owner without duplicating the ADMIN_EMAILS lookup.
 export function isAdmin(email: string | undefined): boolean {
-  if (!email) return false;
-  const adminCsv = (process.env.ADMIN_EMAILS || "").trim();
-  if (!adminCsv) return false;
-  const admins = adminCsv.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return admins.includes(email.toLowerCase());
+  return isAdminEmail(email);
 }
 
 function requireAdmin(req: Request, res: Response): boolean {

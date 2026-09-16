@@ -1,105 +1,160 @@
-import { AuthUser } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { AuthUser, redeemInvite } from "../api";
 import { supabase } from "../supabaseClient";
+import { extractInviteToken, clearStoredInvite } from "../invite";
 
 interface Props {
   currentUser: AuthUser;
+  /** Invite token picked up from a link, redeemed automatically. */
+  inviteToken: string | null;
+  onInviteConsumed: () => void;
+  /** Re-fetch /me after access is granted so the app swaps screens. */
+  onAccessGranted: () => Promise<void>;
   onSignOut: () => void | Promise<void>;
 }
 
 /**
- * WaitlistScreen - shown between AuthPage and the dashboard when a newly
- * signed-up user hasn't been approved yet. During the private testing
- * phase every signup lands here; the owner vets them from the admin
- * panel (or directly via the Supabase SQL editor) and flips their
- * approval_status to 'approved' to unlock the dashboard.
+ * Shown to signed-in users who can't use the app yet during the
+ * invite-only launch:
+ *   - invite_required / rejected: no invite redeemed on this account
+ *   - expired: the free early-access period has ended
  *
- * Two flavours: 'pending' (friendly, "we'll email you soon") and
- * 'rejected' (terminal, one-sided sign-out CTA). No auto-refresh - the
- * user has to sign out + sign back in once approved, which gives the
- * server a clean /me read rather than stale client state.
+ * If the user arrived through an invite link, the token is redeemed
+ * automatically. Otherwise they can paste their link here.
  */
-export default function WaitlistScreen({ currentUser, onSignOut }: Props) {
-  const rejected = currentUser.approval_status === "rejected";
+export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsumed, onAccessGranted, onSignOut }: Props) {
+  const expired = currentUser.access_state === "expired";
+  const [redeeming, setRedeeming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pasted, setPasted] = useState("");
+  const attempted = useRef<string | null>(null);
+
+  async function redeem(token: string) {
+    setRedeeming(true);
+    setError(null);
+    try {
+      await redeemInvite(token);
+      clearStoredInvite();
+      onInviteConsumed();
+      await onAccessGranted();
+    } catch (e: any) {
+      // A dead link shouldn't be retried on every visit.
+      if (["used", "revoked", "not_found"].includes(e?.code)) {
+        clearStoredInvite();
+        onInviteConsumed();
+      }
+      setError(e?.message || "Couldn't use this invite link.");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
+  // Auto-redeem once per token (guards against React double-invoking).
+  useEffect(() => {
+    if (inviteToken && attempted.current !== inviteToken) {
+      attempted.current = inviteToken;
+      redeem(inviteToken);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteToken]);
+
+  function submitPasted() {
+    const token = extractInviteToken(pasted);
+    if (!token) {
+      setError("That doesn't look like an invite link. Paste the full link you received.");
+      return;
+    }
+    setPasted("");
+    redeem(token);
+  }
 
   async function handleSignOut() {
     try { await supabase.auth.signOut(); } catch { /* ignore */ }
     await onSignOut();
   }
 
+  const firstName = (currentUser.name || "").split(" ")[0] || "there";
+
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
-      <header className="shrink-0 px-6 py-5">
-        <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
-            <span className="text-[var(--accent)] text-base">◆</span>
+      <header className="shrink-0 px-5 sm:px-6 py-5">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+              <span className="text-[var(--accent)] text-base">◆</span>
+            </div>
+            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
           </div>
-          <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
-        </div>
-      </header>
-
-      <div className="flex-1 flex items-center justify-center px-6 pb-20">
-        <div className="w-full max-w-lg bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-8 text-center">
-          <div className={`mx-auto mb-5 w-14 h-14 rounded-2xl flex items-center justify-center ${
-            rejected
-              ? "bg-red-500/10 border border-red-500/20"
-              : "bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)]"
-          }`}>
-            {rejected ? (
-              <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="w-7 h-7 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </div>
-
-          <h2 className="font-display text-2xl text-[var(--text-primary)] mb-2">
-            {rejected ? "Access not available" : "You're on the waitlist"}
-          </h2>
-
-          {rejected ? (
-            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">
-              Your account doesn't have access during the current private testing phase.
-              If you believe this is a mistake, reply to the invitation you received or reach
-              out to the project owner directly.
-            </p>
-          ) : (
-            <>
-              <p className="text-sm text-[var(--text-secondary)] mb-2 leading-relaxed">
-                Thanks for signing up, <span className="text-[var(--text-primary)] font-medium">{currentUser.name}</span>.
-              </p>
-              <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">
-                GO CANDID8 is in private testing. Every signup is manually vetted so we can
-                keep quality high while we iterate. We'll email <span className="font-mono text-[var(--text-primary)]">{currentUser.email}</span>
-                &nbsp;as soon as your account is approved, usually within 24 hours.
-              </p>
-
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 mb-6 text-left">
-                <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                  While you wait
-                </div>
-                <ul className="space-y-1.5 text-sm text-[var(--text-secondary)]">
-                  <li className="flex gap-2">
-                    <span className="text-[var(--accent)]">•</span>
-                    <span>Keep an eye on your inbox (check spam too).</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="text-[var(--accent)]">•</span>
-                    <span>Once approved, sign out and back in to land straight on your dashboard.</span>
-                  </li>
-                </ul>
-              </div>
-            </>
-          )}
-
           <button
             onClick={handleSignOut}
-            className="w-full py-2.5 px-4 rounded-xl border border-[var(--border-subtle)] bg-transparent text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all"
+            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             Sign out
           </button>
+        </div>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center px-5 sm:px-6 pb-20">
+        <div className="w-full max-w-lg bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 sm:p-8">
+          {redeeming ? (
+            <div className="py-10 flex flex-col items-center gap-3 text-center">
+              <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-[var(--text-secondary)]">Activating your early access...</p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <div className="text-4xl mb-3" aria-hidden>{expired ? "⏳" : "👋"}</div>
+                <h1 className="font-display text-2xl text-[var(--text-primary)] mb-2">
+                  {expired ? "Your free early access has ended" : `Almost there, ${firstName}`}
+                </h1>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  {expired
+                    ? "Thank you for trying GO CANDID8 early. If you'd like more time, send a message with the Contact button or paste a new invite link below."
+                    : "Your account is ready, but GO CANDID8 is invite-only right now. Open your personal invite link, or paste it below."}
+                </p>
+              </div>
+
+              {error && (
+                <div className="mt-5 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="mt-6">
+                <label className="block text-xs text-[var(--text-tertiary)] mb-2">Paste your invite link</label>
+                <div className="flex gap-2">
+                  <input
+                    value={pasted}
+                    onChange={(e) => { setPasted(e.target.value); setError(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitPasted(); }}
+                    placeholder="https://.../invite/..."
+                    className="flex-1 min-w-0 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
+                  />
+                  <button
+                    onClick={submitPasted}
+                    disabled={!pasted.trim()}
+                    className="px-4 rounded-xl bg-[var(--accent)] text-[#0c0e14] font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40"
+                  >
+                    Activate
+                  </button>
+                </div>
+              </div>
+
+              {!expired && (
+                <div className="mt-6 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-2">No invite yet?</div>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                    Comment <span className="text-[var(--text-primary)] font-medium">"send link"</span> on the GO CANDID8 launch post on LinkedIn and you'll get one by DM.
+                  </p>
+                </div>
+              )}
+
+              <p className="mt-6 text-center text-xs text-[var(--text-ghost)]">
+                Signed in as <span className="font-mono">{currentUser.email}</span>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

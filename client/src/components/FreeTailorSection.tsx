@@ -6,11 +6,13 @@ import ResumeReviewEditor from "./ResumeReviewEditor";
 interface Props {
   currentUser: AuthUser | null;
   onNavigateToPricing: () => void;
+  /** Invite-only launch: no pricing or upgrade prompts anywhere. */
+  launchMode?: boolean;
 }
 
 type Phase = "input" | "tailoring" | "review" | "result";
 
-export default function FreeTailorSection({ currentUser, onNavigateToPricing }: Props) {
+export default function FreeTailorSection({ currentUser, onNavigateToPricing, launchMode = false }: Props) {
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [intensity, setIntensity] = useState(5);
@@ -153,11 +155,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
     try {
       const status = await checkFreeTailorStatus();
       if (status.remaining <= 0) {
-        const isPro = status.plan === "pro" || status.plan === "enterprise";
-        const hint = isPro
-          ? `You have used all ${status.quota} tailors for today. Quota resets at 00:00 UTC.`
-          : `You have used your ${status.quota} free tailor for today. Upgrade to Pro for 5 per day. Resets at 00:00 UTC.`;
-        setError(hint);
+        setError(`You've used all ${status.quota} tailors for today. You get ${status.quota} fresh ones after 00:00 UTC.`);
         return;
       }
     } catch {}
@@ -348,7 +346,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
         {/* Section Header */}
         <div className="text-center mb-10">
           <span className="inline-block font-mono text-xs uppercase tracking-widest text-[#c9a94e] bg-[#c9a94e]/10 border border-[#c9a94e]/20 px-3 py-1 rounded-full mb-4">
-            Free Tool
+            {launchMode ? "Included in your early access" : "Free Tool"}
           </span>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-3">
             Tailor Your Resume in Seconds
@@ -688,7 +686,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               {error && (
                 <div className="mb-3 px-3 py-2 rounded-lg text-xs bg-red-500/10 border border-red-500/20 text-red-400">
                   {error}
-                  {error.includes("Upgrade") && (
+                  {!launchMode && error.includes("Upgrade") && (
                     <button
                       onClick={onNavigateToPricing}
                       className="ml-2 underline hover:text-red-300 transition-colors"
@@ -700,7 +698,9 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               )}
               <div className="flex items-center justify-between">
                 <p className="text-[11px] text-[var(--text-ghost)]">
-                  {!currentUser
+                  {launchMode
+                    ? "Free during early access. Daily tailors refresh at 00:00 UTC."
+                    : !currentUser
                     ? "Sign up to tailor your resume, 1 free per day."
                     : currentUser.plan === "pro" || currentUser.plan === "enterprise"
                       ? "5 tailors per day on Pro."
@@ -923,7 +923,11 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
               const plan: "free" | "pro" = rawPlan === "free" ? "free" : "pro";
               const canTailorMore = remaining > 0;
 
-              const headline = !canTailorMore
+              const headline = launchMode
+                ? canTailorMore
+                  ? `${remaining} of ${result.quota} tailors left today`
+                  : "That's all your tailors for today"
+                : !canTailorMore
                 ? plan === "pro"
                   ? "You have used all 5 tailors for today"
                   : "You have used your free tailor for today"
@@ -931,7 +935,11 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
                   ? "Want this for every application?"
                   : `${remaining} of ${result.quota} tailors remaining today`;
 
-              const body = !canTailorMore
+              const body = launchMode
+                ? canTailorMore
+                  ? "Got another job in mind? Tailor your resume for it too."
+                  : "You get fresh ones after 00:00 UTC. See you tomorrow!"
+                : !canTailorMore
                 ? plan === "pro"
                   ? "Your quota resets at 00:00 UTC."
                   : "Upgrade to Pro for 5 per day, or come back after 00:00 UTC."
@@ -941,7 +949,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing }: 
 
               // Upgrade CTA: free users always see it; pro users don't - 
               // there's nothing to upgrade to during testing.
-              const showUpgradeCta = plan === "free";
+              const showUpgradeCta = !launchMode && plan === "free";
 
               return (
                 <div className="bg-gradient-to-br from-[#c9a94e]/8 to-transparent border border-[#c9a94e]/20 rounded-2xl p-6 text-center">
