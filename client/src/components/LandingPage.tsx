@@ -770,7 +770,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
   }
 
   return (
-    <div className="h-screen overflow-y-auto bg-[var(--bg-base)] relative">
+    <div className="min-h-screen bg-[var(--bg-base)] relative">
       {/* ── Auth Modal (header Sign In) ── */}
       {authModal && (
         <AuthModal

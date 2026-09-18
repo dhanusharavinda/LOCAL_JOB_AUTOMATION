@@ -1025,7 +1025,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex bg-[#07080a] overflow-hidden relative">
+    <div className="h-[100dvh] flex bg-[#07080a] overflow-hidden relative">
       {/* Subtle animated video background - loops behind everything.
           Opacity is deliberately low (~0.08) so it stays a texture and
           never competes with the cards. pointer-events-none so it can't

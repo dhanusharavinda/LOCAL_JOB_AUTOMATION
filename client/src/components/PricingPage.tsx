@@ -107,12 +107,11 @@ export default function PricingPage({
   onNavigateToDashboard,
   onNavigateToAuth,
 }: Props) {
-  // `body { overflow: hidden }` is set globally (see index.css) so the
-  // dashboard can hold a fixed viewport layout without double scrollbars.
-  // That means every "long" page needs to be its own scroll container.
-  // We use `h-screen overflow-y-auto` here (matching LandingPage) instead
-  // of `min-h-screen`, since min-height lets the div grow to content
-  // height and then there's nothing left to overflow within itself.
+  // Long pages scroll with the document (min-h-screen) rather than
+  // inside their own 100vh box. The old approach existed because body
+  // carried `overflow: hidden` for the dashboard's fixed layout. That
+  // global lock is gone: an inner scroll container broke touch
+  // scrolling on phones and silently no-oped every window.scrollTo.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // `switching` holds the plan id currently being upgraded/downgraded to
   // so we can show per-card "switching…" state without blocking the other
@@ -199,7 +198,7 @@ export default function PricingPage({
   }
 
   return (
-    <div className="h-screen overflow-y-auto bg-[var(--bg-base)]">
+    <div className="min-h-screen bg-[var(--bg-base)]">
       {/* Nav */}
       <header className="shrink-0 px-4 sm:px-6 py-4 sm:py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 relative">
