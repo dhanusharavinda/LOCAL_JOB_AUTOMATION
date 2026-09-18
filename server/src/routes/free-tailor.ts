@@ -4,7 +4,6 @@ import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { generateLocalPdf, estimateResumePages } from "../pdf";
 import { capWords, JD_WORD_CAP } from "../text";
-import { uploadResumePdf } from "../storage";
 import { isAdmin } from "./auth";
 import { ATS_ENGINE_BLOCK } from "../prompts/ats-engine";
 
@@ -414,28 +413,13 @@ router.post("/", async (req: Request, res: Response) => {
     // Generate PDF
     const pdfBuffer = await generateLocalPdf(inner, { targetPages });
 
-    // Upload to storage so the user can re-download later. Use the
-    // uploaded resume's original filename (minus extension) prefixed
-    // with MODIFIED_ so the tailored PDF is visually paired with the
-    // source file on disk. Fall back to a timestamp if the client
-    // didn't send a name. We sanitise to safe filesystem characters.
-    const rawOriginal = typeof (req.body as any).originalFilename === "string"
-      ? (req.body as any).originalFilename
-      : "";
-    const baseName = rawOriginal
-      .replace(/\.(pdf|docx?|rtf|txt)$/i, "")
-      .replace(/[^A-Za-z0-9._-]+/g, "_")
-      .slice(0, 80);
-    const filename = baseName
-      ? `MODIFIED_${baseName}.pdf`
-      : `MODIFIED_free-tailor-${Date.now()}.pdf`;
-    let pdfUrl: string | null = null;
-    try {
-      const result = await uploadResumePdf(userId, filename, pdfBuffer);
-      pdfUrl = result.signedUrl;
-    } catch {
-      // Fall back to inline base64 if storage isn't configured.
-    }
+    // Nothing to store. The PDF ships inline in this response and the
+    // browser downloads it directly, so keeping a copy in Supabase
+    // Storage bought nothing but ~225KB per run against a 1GB free tier
+    // (and a copy of someone's resume sitting in a bucket). The tracked-
+    // job pipeline still uploads its own PDFs, because auto-apply needs
+    // to re-read them later; the manual tailor never does.
+    const pdfUrl: string | null = null;
 
     // Usage row was already inserted under the advisory lock above; no
     // second insert here. Report the post-reservation count to the client.

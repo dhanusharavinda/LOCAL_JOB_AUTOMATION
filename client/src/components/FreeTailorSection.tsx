@@ -273,16 +273,28 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
     // backend always produces PDFs regardless of the source format.
     const base = (uploadedFileName || "tailored-resume").replace(/\.(pdf|docx?|rtf|txt)$/i, "");
     const outName = `MODIFIED_${base}.pdf`;
-    if (result.pdfUrl) {
-      // Signed URL path - open in a new tab. Browsers honour the Content-
-      // Disposition the server sent, so filename control is server-side.
-      window.open(result.pdfUrl, "_blank");
-      return;
+    // The PDF always arrives inline, so download it from its bytes. A
+    // blob URL beats a data: URI here: mobile Safari refuses to navigate
+    // to large data: URIs, which silently broke the download on phones.
+    try {
+      const bytes = Uint8Array.from(atob(result.pdfBase64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = outName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Give the browser a moment to start the download before revoking.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch {
+      // Last resort: the older data: URI path.
+      const link = document.createElement("a");
+      link.href = `data:application/pdf;base64,${result.pdfBase64}`;
+      link.download = outName;
+      link.click();
     }
-    const link = document.createElement("a");
-    link.href = `data:application/pdf;base64,${result.pdfBase64}`;
-    link.download = outName;
-    link.click();
   }
 
   function handleStartOver() {
