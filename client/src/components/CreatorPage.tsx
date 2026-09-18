@@ -1,5 +1,6 @@
 import Ambient, { BrandMark } from "./Ambient";
 import { ShieldIcon, LinkedInIcon, InstagramIcon } from "./icons";
+import { FeatureBadges, ResultQuote, HonestyNote, BANNED_WORD_COUNT } from "./Badges";
 
 /**
  * Creator page. Who made GO CANDID8, and where to reach him.
@@ -54,20 +55,33 @@ export default function CreatorPage({ onBack }: Props) {
 
             <div className="mt-6 space-y-4 text-[15px] text-[var(--text-secondary)] leading-relaxed">
               <p>
-                Job hunting means rewriting the same resume for every single posting. It's slow,
-                and it's the part everyone skips when they're tired, which is exactly when
-                applications stop landing.
+                <span className="text-[var(--text-primary)] font-medium">This exists because of my LinkedIn community.</span>{" "}
+                They watched the whole thing: the ups, the downs, the events I turned up to, the
+                projects I kept building when nothing was landing. They encouraged me, shared my
+                work, and pushed me to keep going, and that support is a real part of how I ended
+                up with a job.
               </p>
               <p>
-                So I built the thing I wanted: paste a job description, get a resume written
-                for that job in seconds, edit anything you want, download the PDF. That's it.
-                It's free to use, and I'd rather people just have it.
+                So this is me giving something back. Everyone who was there for me gets the tool
+                that got me there, for free.
               </p>
               <p>
-                I'm still building. More of the product is on the way, and everything new shows
-                up in your account automatically.
+                I built it because I had already tried the other resume tools. They charge a lot,
+                and what comes out reads like every other AI paragraph on the internet: passionate,
+                results-driven, leveraging cutting-edge solutions. A recruiter spots that in
+                seconds, and so does an ATS that is looking for the actual words in the job ad.
+              </p>
+              <p>
+                So I went the other way. I banned{" "}
+                <span className="text-[var(--accent)] font-medium">{BANNED_WORD_COUNT.toLocaleString()}+ words and phrases</span>{" "}
+                that AI reaches for by default, and tuned the prompts around how applicant tracking
+                systems actually score a resume. The output is a clean, LaTeX-style PDF that reads
+                like a person wrote it, because the only thing in it is your real work.
               </p>
             </div>
+
+            <ResultQuote className="mt-6" />
+            <FeatureBadges className="mt-6 justify-start" />
 
             <div className="mt-7 flex flex-col sm:flex-row gap-3">
               <a
@@ -88,6 +102,8 @@ export default function CreatorPage({ onBack }: Props) {
               </a>
             </div>
           </div>
+
+          <HonestyNote className="mt-5" />
 
           {/* Privacy, spelled out properly. This is the question people
               actually have before uploading a CV to a stranger's site. */}
@@ -113,7 +129,8 @@ export default function CreatorPage({ onBack }: Props) {
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Want access?</h2>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
               GO CANDID8 is invite-only while I keep an eye on things. Message me on LinkedIn,
-              or comment on my launch post, and I'll send you your own link. It's free.
+              or comment on my launch post, and I'll send you your own link. It's free, and it
+              stays free for the people who supported me.
             </p>
             <a
               href={CREATOR.linkedin}

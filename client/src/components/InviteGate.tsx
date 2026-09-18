@@ -5,6 +5,7 @@ import { ComingSoonGrid } from "./ComingSoon";
 import { CREATOR } from "./CreatorPage";
 import Ambient, { BrandMark } from "./Ambient";
 import { TicketIcon, CheckIcon, ClockIcon, SparkleIcon, LinkedInIcon, PrivacyNote } from "./icons";
+import { FeatureBadges, ResultQuote } from "./Badges";
 
 interface Props {
   /** Token from the invite link (URL or localStorage), if any. */
@@ -133,6 +134,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                       I already have an account
                     </button>
                   </div>
+                  <FeatureBadges className="mt-6" />
                   <PrivacyNote className="mt-5 text-left" />
                 </>
               )}
@@ -178,7 +180,10 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                 <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">
                   Free to use. Invite-only for now, so I can keep an eye on things while it grows.
                 </p>
+                <FeatureBadges className="mt-6" />
               </div>
+
+              <ResultQuote className="mt-8" />
 
               <div className="mt-8 bg-[var(--bg-raised)]/80 backdrop-blur-xl border border-[var(--border-default)] rounded-3xl p-6 shadow-2xl shadow-black/40">
                 <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">How to get your invite</h2>

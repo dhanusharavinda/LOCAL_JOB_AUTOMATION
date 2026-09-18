@@ -4,6 +4,7 @@ import { ComingSoonGrid } from "./ComingSoon";
 import { CREATOR } from "./CreatorPage";
 import Ambient, { BrandMark } from "./Ambient";
 import { PrivacyNote, LinkedInIcon, InstagramIcon } from "./icons";
+import { FeatureBadges } from "./Badges";
 
 interface Props {
   currentUser: AuthUser;
@@ -57,6 +58,7 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Thank you for being one of the first. Everything here is free to use.
           </p>
+          <FeatureBadges className="mt-4 justify-start" />
           <PrivacyNote className="mt-4" />
         </div>
       </div>

@@ -6,6 +6,7 @@ import { generateLocalPdf, estimateResumePages } from "../pdf";
 import { capWords, JD_WORD_CAP } from "../text";
 import { isAdmin } from "./auth";
 import { ATS_ENGINE_BLOCK } from "../prompts/ats-engine";
+import { bannedWordsBlock, countBannedPhrases } from "../prompts/banned-words";
 
 // Admins get an effectively unlimited daily count for the free-tailor
 // hook. We don't say "Infinity" because the client renders the number,
@@ -344,6 +345,12 @@ router.post("/", async (req: Request, res: Response) => {
     });
 
     const raw = completion.choices[0].message.content || "{}";
+    // Measure what still got through. Not fatal (the review editor lets
+    // the user fix anything), but it tells us where the blocklist leaks.
+    const slop = countBannedPhrases(raw);
+    if (slop.total > 0) {
+      console.warn("[free-tailor] banned phrases in output:", slop.hits.slice(0, 12).join(", "));
+    }
     let resumeData: any;
     try {
       resumeData = JSON.parse(raw);
@@ -478,7 +485,8 @@ router.post("/", async (req: Request, res: Response) => {
 
 Return: { "coverLetter": "the cover letter text here" }
 
-BANNED WORDS: "I am writing to express my interest", "I am confident", "Thank you for your time and consideration", "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "delve", "foster", "showcase", "pivotal", "cutting-edge", "synergy", "dynamic". NEVER use em-dashes.
+${bannedWordsBlock()}
+NEVER use em-dashes.
 
 RULES:
 - 3 short paragraphs, under 150 words total.
@@ -645,7 +653,8 @@ router.post("/cover-letter", async (req: Request, res: Response) => {
 
 Return: { "coverLetter": "the cover letter text here" }
 
-BANNED WORDS: "I am writing to express my interest", "I am confident", "Thank you for your time and consideration", "highly motivated", "results-driven", "passionate about", "leveraged", "transformative", "delve", "foster", "showcase", "pivotal", "cutting-edge", "synergy", "dynamic". NEVER use em-dashes.
+${bannedWordsBlock()}
+NEVER use em-dashes.
 
 RULES:
 - 3 short paragraphs, under 150 words total.
@@ -958,7 +967,7 @@ If you're unsure whether to include an item, INCLUDE IT. Omission is a failure.
 - Use strong action verbs. Lead with impact, not responsibilities.
 
 === ANTI-AI-SLOP ===
-BANNED words: "leveraged", "spearheaded", "orchestrated", "pioneered", "cutting-edge", "innovative", "dynamic", "passionate", "results-driven", "synergy", "transformative", "delve", "foster", "showcase", "pivotal", "crucial".
+${bannedWordsBlock()}
 BANNED punctuation: em dashes ( - ). Use commas, periods, or parentheses instead.
 Sound human. Vary sentence length. Be specific about tools and outcomes.
 
