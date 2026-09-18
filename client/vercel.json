@@ -1,17 +1,4 @@
 {
-  "_comment": [
-    "The dashboard calls the API with relative /api/* paths, so these rewrites",
-    "are the only thing connecting the frontend to the backend. They point at",
-    "the production API server on Railway.",
-    "",
-    "If you fork this and deploy your own copy, replace",
-    "localjobautomation-production.up.railway.app with the hostname of YOUR",
-    "API server. Leaving someone else's host here would send your users' data",
-    "to their server.",
-    "",
-    "Local development does not use this file at all; client/vite.config.ts",
-    "proxies /api to http://127.0.0.1:3001 instead."
-  ],
   "rewrites": [
     {
       "source": "/api/:path*",
