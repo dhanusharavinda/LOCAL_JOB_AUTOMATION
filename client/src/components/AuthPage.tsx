@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { authMe, AuthUser } from "../api";
+import { authMe, AuthUser, checkInvite } from "../api";
+import { getStoredInvite } from "../invite";
 
 interface Props {
   onNavigateToLanding: () => void;
@@ -8,6 +9,10 @@ interface Props {
   onAuth: (user: AuthUser) => void;
   /** Which tab to open on (the invite flow opens "signup"). */
   initialMode?: "login" | "signup";
+  /** Invite token from the link, if the visitor arrived with one. */
+  inviteToken?: string | null;
+  /** Take the visitor back to the invite page to request access. */
+  onNeedInvite?: () => void;
   /** Invite-only launch: hide pricing, use early-access wording. */
   launchMode?: boolean;
 }
@@ -19,7 +24,7 @@ interface Props {
  * hand it to the parent via onAuth. Token storage is delegated to
  * supabase-js (persistSession + autoRefreshToken).
  */
-export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onAuth, initialMode = "login", launchMode = false }: Props) {
+export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onAuth, initialMode = "login", launchMode = false, inviteToken = null, onNeedInvite }: Props) {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +32,32 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Accounts can only be created with a working invite link. Signing in
+  // stays open, because people who already joined come back without one
+  // (and an account with no redeemed invite can't reach anything: the
+  // server enforces that on every request).
+  const [canSignUp, setCanSignUp] = useState<boolean | null>(launchMode ? null : true);
+
+  useEffect(() => {
+    if (!launchMode) { setCanSignUp(true); return; }
+    const token = inviteToken || getStoredInvite();
+    if (!token) { setCanSignUp(false); return; }
+    let cancelled = false;
+    checkInvite(token)
+      .then((r) => { if (!cancelled) setCanSignUp(r.valid); })
+      .catch(() => { if (!cancelled) setCanSignUp(false); })
+      .finally(() => {
+        if (!cancelled) setMode((m) => (m === "signup" ? m : m));
+      });
+    return () => { cancelled = true; };
+  }, [launchMode, inviteToken]);
+
+  // If the tab was opened on signup but this visitor has no invite,
+  // drop them back to sign-in rather than showing a form that can't work.
+  useEffect(() => {
+    if (canSignUp === false && mode === "signup") setMode("login");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSignUp]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -143,8 +174,24 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
       {/* Auth Card */}
       <div className="flex-1 flex items-center justify-center px-6 pb-20">
         <div className="w-full max-w-md">
+          {launchMode && canSignUp === false && (
+            <div className="mb-6 rounded-2xl border border-[rgba(201,169,78,0.25)] bg-[var(--accent-muted)] px-4 py-3.5">
+              <p className="text-sm text-[var(--text-primary)] font-medium mb-1">New accounts need an invite</p>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                GO CANDID8 is invite-only, so accounts can only be created from a personal invite
+                link.{" "}
+                {onNeedInvite && (
+                  <button onClick={onNeedInvite} className="text-[var(--accent)] hover:underline font-medium">
+                    Ask for a link
+                  </button>
+                )}
+                {onNeedInvite ? ", it takes a second." : ""} Already joined? Sign in below.
+              </p>
+            </div>
+          )}
+
           {/* Tabs */}
-          {mode !== "forgot" && (
+          {mode !== "forgot" && canSignUp !== false && (
             <div className="flex gap-1 p-1 bg-[var(--bg-raised)] rounded-xl border border-[var(--border-subtle)] mb-8">
               <button
                 onClick={() => { setMode("login"); setError(null); setNotice(null); }}

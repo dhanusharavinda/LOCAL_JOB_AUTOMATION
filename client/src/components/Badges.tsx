@@ -71,9 +71,9 @@ export function HonestyNote({ className = "" }: { className?: string }) {
     <div className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-5 ${className}`}>
       <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">This is not about lying</h3>
       <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-        The point is not to invent a career you did not have. It is to describe the work you
-        genuinely did in the words that specific job description uses, so the screening software
-        and the recruiter both recognise the match. Same experience, better matched wording.
+        The point is not to fabricate your resume. It is to describe the work you genuinely
+        did in the words that specific job description uses, so the screening software and the
+        recruiter both recognise the match. Same experience, better matched wording.
       </p>
     </div>
   );

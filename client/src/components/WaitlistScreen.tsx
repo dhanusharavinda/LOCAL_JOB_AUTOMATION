@@ -4,7 +4,8 @@ import { supabase } from "../supabaseClient";
 import { extractInviteToken, clearStoredInvite } from "../invite";
 import { CREATOR } from "./CreatorPage";
 import Ambient, { BrandMark } from "./Ambient";
-import { ClockIcon, TicketIcon, LinkedInIcon, PrivacyNote } from "./icons";
+import { ClockIcon, TicketIcon, PrivacyNote } from "./icons";
+import RequestAccess from "./RequestAccess";
 
 interface Props {
   currentUser: AuthUser;
@@ -156,14 +157,7 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
                 <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                   Message me on LinkedIn, or comment <span className="text-[var(--text-primary)] font-medium">"send link"</span> on my launch post, and I'll send you a link.
                 </p>
-                <a
-                  href={CREATOR.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
-                >
-                  <LinkedInIcon size={16} /> Message {CREATOR.name.split(" ")[0]} on LinkedIn
-                </a>
+                <RequestAccess className="mt-3" title="Send me this" />
               </div>
 
               <PrivacyNote compact className="mt-6" />

@@ -25,6 +25,7 @@ import AdminPage from "./components/AdminPage";
 import InviteGate from "./components/InviteGate";
 import LaunchHome from "./components/LaunchHome";
 import CreatorPage from "./components/CreatorPage";
+import ResetPassword from "./components/ResetPassword";
 import { captureInviteFromUrl, clearStoredInvite } from "./invite";
 import CandidatesPage from "./components/CandidatesPage";
 
@@ -798,6 +799,22 @@ export default function App() {
     }
   }, []);
 
+  // ── Password reset ──
+  // The reset email links here. Handled before everything else so the
+  // screen shows even while the recovery session is still being read
+  // out of the URL.
+  if (typeof window !== "undefined" && window.location.pathname === "/reset-password") {
+    return (
+      <ResetPassword
+        onDone={() => {
+          try { window.history.replaceState({}, "", "/"); } catch { /* noop */ }
+          setPage("landing");
+          void refreshCurrentUser();
+        }}
+      />
+    );
+  }
+
   // ── Extension auth bridge ──
   // When the user lands here via the extension popup's "Sign in" CTA,
   // skip the entire app and just hand off the Supabase session.
@@ -861,6 +878,8 @@ export default function App() {
           key={authMode}
           initialMode={authMode}
           launchMode
+          inviteToken={inviteToken}
+          onNeedInvite={() => setPage("landing")}
           onNavigateToLanding={() => setPage("landing")}
           onNavigateToPricing={() => setPage("landing")}
           onAuth={(user) => setCurrentUser(user)}

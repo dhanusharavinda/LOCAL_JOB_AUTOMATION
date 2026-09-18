@@ -1,6 +1,7 @@
 import Ambient, { BrandMark } from "./Ambient";
 import { ShieldIcon, LinkedInIcon, InstagramIcon } from "./icons";
 import { FeatureBadges, ResultQuote, HonestyNote, BANNED_WORD_COUNT } from "./Badges";
+import RequestAccess from "./RequestAccess";
 
 /**
  * Creator page. Who made GO CANDID8, and where to reach him.
@@ -132,14 +133,7 @@ export default function CreatorPage({ onBack }: Props) {
               or comment on my launch post, and I'll send you your own link. It's free, and it
               stays free for the people who supported me.
             </p>
-            <a
-              href={CREATOR.linkedin}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--accent)] text-[#0c0e14] font-semibold text-sm hover:opacity-90 transition-opacity"
-            >
-              Message me for a link
-            </a>
+            <RequestAccess className="mt-4" />
           </div>
         </div>
       </main>

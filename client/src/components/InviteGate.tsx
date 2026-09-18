@@ -6,6 +6,7 @@ import { CREATOR } from "./CreatorPage";
 import Ambient, { BrandMark } from "./Ambient";
 import { TicketIcon, CheckIcon, ClockIcon, SparkleIcon, LinkedInIcon, PrivacyNote } from "./icons";
 import { FeatureBadges, ResultQuote } from "./Badges";
+import RequestAccess from "./RequestAccess";
 
 interface Props {
   /** Token from the invite link (URL or localStorage), if any. */
@@ -201,26 +202,17 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                     </li>
                   ))}
                 </ol>
-                <div className="mt-5 flex flex-col sm:flex-row gap-2">
+                <RequestAccess className="mt-5" />
+                {LAUNCH_POST_URL && (
                   <a
-                    href={CREATOR.linkedin}
+                    href={LAUNCH_POST_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+                    className="mt-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] font-semibold text-sm hover:border-[var(--border-default)] transition-all"
                   >
-                    <LinkedInIcon size={16} /> Message me on LinkedIn
+                    Open the launch post
                   </a>
-                  {LAUNCH_POST_URL && (
-                    <a
-                      href={LAUNCH_POST_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] font-semibold text-sm hover:border-[var(--border-default)] transition-all"
-                    >
-                      Open the launch post
-                    </a>
-                  )}
-                </div>
+                )}
 
                 <div className="mt-6 pt-5 border-t border-[var(--border-subtle)]">
                   <label className="block text-xs text-[var(--text-tertiary)] mb-2">Already got your link? Paste it here</label>
