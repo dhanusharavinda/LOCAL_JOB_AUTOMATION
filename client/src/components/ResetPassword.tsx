@@ -1,38 +1,97 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Ambient, { BrandMark } from "./Ambient";
+import { initialUrlParams } from "../urlSnapshot";
 
 /**
  * "Set a new password" screen, reached from the password-reset email.
  *
- * The reset mail links to /reset-password, and nothing used to handle
- * that path: the link just dropped people on the front page with no way
- * to finish, which makes a forgotten password unrecoverable from inside
- * the app. supabase-js turns the token in the URL into a session
- * (detectSessionInUrl), so by the time this renders the visitor is
- * authenticated just long enough to set a new password.
+ * Supabase verifies the emailed token and then redirects here with the
+ * session in the URL fragment (or, on the PKCE flow, a ?code= to
+ * exchange). If neither arrives there is no session and the password
+ * cannot be changed, which is what "Auth session missing" means. That
+ * happens when the link was already used, has expired, was opened in a
+ * different browser than it was requested from, or when the redirect
+ * URL is not allowlisted in Supabase.
+ *
+ * Rather than dead-ending on that error, this screen explains it and
+ * lets the visitor send themselves a fresh link without leaving.
  */
 export default function ResetPassword({ onDone }: { onDone: () => void }) {
-  const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  // Requesting a fresh link from this screen.
+  const [requestEmail, setRequestEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
-    // The recovery session may land a tick after mount while supabase-js
-    // parses the URL, so listen as well as checking once.
-    supabase.auth.getSession().then(({ data }) => {
+
+    (async () => {
+      // 1. Did Supabase hand back an error instead of a session?
+      // Read the URL as it was when the page opened: supabase-js has
+      // usually wiped the fragment by now.
+      const params = initialUrlParams();
+      const errCode = params.get("error_code");
+      const errDesc = params.get("error_description");
+      if (errCode || errDesc) {
+        if (!cancelled) {
+          setLinkError(
+            /expired|otp/i.test(errCode || "")
+              ? "That reset link has expired or was already used."
+              : (errDesc || "").replace(/\+/g, " ") || "That reset link didn't work."
+          );
+          setChecking(false);
+        }
+        return;
+      }
+
+      // 2. PKCE flow hands back ?code= to exchange for a session.
+      const code = params.get("code");
+      if (code) {
+        try {
+          await supabase.auth.exchangeCodeForSession(code);
+        } catch {
+          /* fall through to the session check below */
+        }
+      }
+
+      // 3. Otherwise supabase-js reads the fragment itself
+      //    (detectSessionInUrl), which can land a tick after mount.
+      const { data } = await supabase.auth.getSession();
       if (cancelled) return;
-      setEmail(data.session?.user?.email ?? null);
-      setReady(true);
-    });
+      if (data.session?.user?.email) {
+        setEmail(data.session.user.email);
+        setChecking(false);
+      } else {
+        // Give the URL parser a moment before declaring it missing.
+        setTimeout(async () => {
+          if (cancelled) return;
+          const again = await supabase.auth.getSession();
+          if (cancelled) return;
+          if (again.data.session?.user?.email) setEmail(again.data.session.user.email);
+          else setLinkError("This page was opened without a valid reset link.");
+          setChecking(false);
+        }, 1200);
+      }
+    })();
+
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (cancelled) return;
-      if (session?.user?.email) { setEmail(session.user.email); setReady(true); }
+      if (session?.user?.email) {
+        setEmail(session.user.email);
+        setLinkError(null);
+        setChecking(false);
+      }
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
@@ -48,9 +107,28 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
       if (err) throw err;
       setDone(true);
     } catch (err: any) {
-      setError(err?.message || "Could not set the new password. Open the link from your email again.");
+      setError(err?.message || "Could not set the new password.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleRequest(e: React.FormEvent) {
+    e.preventDefault();
+    const target = requestEmail.trim();
+    if (!target) return;
+    setSending(true);
+    setError(null);
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(target, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (err) throw err;
+      setSent(true);
+    } catch (err: any) {
+      setError(err?.message || "Could not send the email. Try again in a minute.");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -72,9 +150,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
           {done ? (
             <div className="text-center">
               <h1 className="font-display text-2xl text-[var(--text-primary)] mb-2">Password updated</h1>
-              <p className="text-sm text-[var(--text-secondary)] mb-6">
-                You're signed in with your new password.
-              </p>
+              <p className="text-sm text-[var(--text-secondary)] mb-6">You're signed in with your new password.</p>
               <button
                 onClick={onDone}
                 className="w-full py-3 rounded-xl bg-[var(--accent)] text-[#0c0e14] font-semibold text-sm hover:opacity-90 transition-opacity"
@@ -82,17 +158,17 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
                 Continue
               </button>
             </div>
-          ) : (
+          ) : checking ? (
+            <div className="py-10 flex flex-col items-center gap-3 text-center">
+              <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-[var(--text-secondary)]">Checking your reset link...</p>
+            </div>
+          ) : email ? (
             <>
               <h1 className="font-display text-2xl text-[var(--text-primary)] mb-1">Set a new password</h1>
               <p className="text-sm text-[var(--text-secondary)] mb-6">
-                {email
-                  ? <>For <span className="font-mono text-[var(--text-primary)]">{email}</span>.</>
-                  : ready
-                    ? "Open the most recent reset link from your email, then set your password here."
-                    : "Checking your reset link..."}
+                For <span className="font-mono text-[var(--text-primary)]">{email}</span>.
               </p>
-
               <form onSubmit={handleSave} className="space-y-3">
                 <input
                   type="password"
@@ -111,9 +187,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
                   className={inputCls}
                 />
                 {error && (
-                  <div className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                    {error}
-                  </div>
+                  <div className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
                 )}
                 <button
                   type="submit"
@@ -123,11 +197,48 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
                   {saving ? "Saving..." : "Save new password"}
                 </button>
               </form>
-
-              <button
-                onClick={onDone}
-                className="mt-4 w-full py-2.5 rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
-              >
+            </>
+          ) : sent ? (
+            <div className="text-center">
+              <h1 className="font-display text-2xl text-[var(--text-primary)] mb-2">Check your email</h1>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+                A fresh reset link is on its way to{" "}
+                <span className="font-mono text-[var(--text-primary)]">{requestEmail.trim()}</span>.
+                Open it in <span className="text-[var(--text-primary)]">this same browser</span>, and use the newest
+                email if you have several.
+              </p>
+              <button onClick={onDone} className="w-full py-3 rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
+                Back
+              </button>
+            </div>
+          ) : (
+            <>
+              <h1 className="font-display text-2xl text-[var(--text-primary)] mb-2">Reset link needed</h1>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
+                {linkError || "This page was opened without a valid reset link."} Send yourself a new one
+                and open it in this browser.
+              </p>
+              <form onSubmit={handleRequest} className="space-y-3">
+                <input
+                  type="email"
+                  value={requestEmail}
+                  onChange={(e) => { setRequestEmail(e.target.value); setError(null); }}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className={inputCls}
+                />
+                {error && (
+                  <div className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={sending || !requestEmail.trim()}
+                  className="w-full py-3 rounded-xl bg-[var(--accent)] text-[#0c0e14] font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {sending ? "Sending..." : "Email me a reset link"}
+                </button>
+              </form>
+              <button onClick={onDone} className="mt-4 w-full py-2.5 rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
                 Back
               </button>
             </>
