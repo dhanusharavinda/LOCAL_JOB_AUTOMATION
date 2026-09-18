@@ -341,7 +341,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
           }}
         />
       )}
-    <section className="relative py-20 px-4">
+    <section className="relative py-10 sm:py-16 md:py-20 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-10">
@@ -383,7 +383,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                 {editingResume ? (
                   /* Live resume-text editor - the exact text below is what the
                      AI reads. Add, remove, or replace anything. */
-                  <div className="flex flex-col h-[280px]">
+                  <div className="flex flex-col h-auto min-h-[220px] md:h-[280px]">
                     <textarea
                       value={resumeText}
                       onChange={(e) => {
@@ -432,7 +432,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleDrop}
                     onClick={() => !parsing && fileRef.current?.click()}
-                    className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all h-[280px] ${
+                    className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all py-8 md:py-0 h-auto min-h-[200px] md:h-[280px] ${
                       dragOver
                         ? "border-[#c9a94e] bg-[#c9a94e]/5"
                         : "border-[var(--border-subtle)] hover:border-[var(--text-ghost)] bg-[var(--bg-base)]"
@@ -471,7 +471,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                   </div>
                 ) : (
                   /* File uploaded state */
-                  <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/5 h-[280px]">
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-8 md:py-0 h-auto min-h-[200px] md:h-[280px]">
                     <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center mb-4">
                       <svg className="w-7 h-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -537,7 +537,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                   }}
                   placeholder={"Paste the full job description here...\n\nInclude requirements, responsibilities, and preferred qualifications for best results. Max 1000 words."}
                   rows={12}
-                  className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40 font-mono resize-none leading-relaxed h-[280px]"
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40 font-mono resize-y leading-relaxed h-[220px] md:h-[280px]"
                 />
               </div>
             </div>
@@ -699,7 +699,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
               <div className="flex items-center justify-between">
                 <p className="text-[11px] text-[var(--text-ghost)]">
                   {launchMode
-                    ? "Free during early access. Daily tailors refresh at 00:00 UTC."
+                    ? "Free to use. 5 resumes and 5 cover letters a day, refreshed at midnight UTC."
                     : !currentUser
                     ? "Sign up to tailor your resume, 1 free per day."
                     : currentUser.plan === "pro" || currentUser.plan === "enterprise"
@@ -871,7 +871,13 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                 because the inline cover-letter call failed. Gives them
                 a way to generate one without re-tailoring (which would
                 burn another daily quota). */}
-            {!result.coverLetter && !generatedCoverLetter && (
+            {result.coverLetterSkipped && !generatedCoverLetter && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-sm">
+                You've used all your cover letters for today. Your resume is ready below, and you get fresh cover letters after midnight UTC.
+              </div>
+            )}
+
+            {!result.coverLetter && !generatedCoverLetter && !result.coverLetterSkipped && (
               <div className="bg-[var(--bg-raised)] border border-blue-500/20 rounded-2xl px-6 py-5 shadow-2xl flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">

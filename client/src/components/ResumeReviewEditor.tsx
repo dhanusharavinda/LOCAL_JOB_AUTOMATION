@@ -263,7 +263,7 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
   return (
     <div className="bg-[var(--bg-raised)] border border-[var(--border-default)] rounded-2xl overflow-hidden shadow-2xl">
       {/* Header: change summary + bulk actions */}
-      <div className="px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between flex-wrap gap-3">
+      <div className="px-4 sm:px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-display text-lg font-bold text-[var(--text-primary)]">
             Review before your PDF
@@ -301,7 +301,7 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
       {/* Disabled while the PDF renders: a disabled fieldset natively disables
           every descendant input/textarea/button, so edits typed mid-render
           can't be silently discarded when the result phase swaps in. */}
-      <fieldset disabled={rendering} className="block border-0 m-0 px-6 py-5 space-y-7 max-h-[70vh] overflow-y-auto disabled:opacity-60 min-w-0">
+      <fieldset disabled={rendering} className="block border-0 m-0 px-4 sm:px-6 py-5 space-y-7 sm:max-h-[70vh] sm:overflow-y-auto disabled:opacity-60 min-w-0">
         {/* ── Contact ── */}
         <section>
           <h4 className={sectionTitleCls}>Contact</h4>
@@ -619,7 +619,7 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
       </fieldset>
 
       {/* Footer: skip / confirm */}
-      <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+      <div className="px-4 sm:px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
         {error && (
           <div className="mb-3 px-3 py-2 rounded-lg text-xs bg-red-500/10 border border-red-500/20 text-red-400">
             {error}

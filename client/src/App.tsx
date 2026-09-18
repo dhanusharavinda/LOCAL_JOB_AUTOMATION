@@ -24,6 +24,7 @@ import WaitlistScreen from "./components/WaitlistScreen";
 import AdminPage from "./components/AdminPage";
 import InviteGate from "./components/InviteGate";
 import LaunchHome from "./components/LaunchHome";
+import CreatorPage from "./components/CreatorPage";
 import { captureInviteFromUrl, clearStoredInvite } from "./invite";
 import CandidatesPage from "./components/CandidatesPage";
 
@@ -36,7 +37,7 @@ interface ConfirmDialog {
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [introFading, setIntroFading] = useState(false);
-  const [page, setPage] = useState<"landing" | "dashboard" | "auth" | "pricing" | "candidates" | "admin">("landing");
+  const [page, setPage] = useState<"landing" | "dashboard" | "auth" | "pricing" | "candidates" | "admin" | "creator">("landing");
   const [activeCandidateId, setActiveCandidateId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   // Invite-only launch. The token from an /invite/<token> link is kept
@@ -851,6 +852,9 @@ export default function App() {
         </div>
       );
     }
+    if (page === "creator") {
+      return <CreatorPage onBack={() => setPage("landing")} />;
+    }
     if (page === "auth") {
       return (
         <AuthPage
@@ -870,6 +874,7 @@ export default function App() {
           onInviteTokenChange={setInviteToken}
           onSignIn={() => { setAuthMode("login"); setPage("auth"); }}
           onCreateAccount={() => { setAuthMode("signup"); setPage("auth"); }}
+          onOpenCreator={() => setPage("creator")}
         />
         <ContactUsButton />
       </>
@@ -877,13 +882,16 @@ export default function App() {
   }
 
   if (!currentUser.is_admin) {
+    if (page === "creator") {
+      return <CreatorPage onBack={() => setPage("landing")} />;
+    }
     // Fall back to approval_status if the server predates access_state.
     const accessState = currentUser.access_state
       ?? (currentUser.approval_status === "approved" ? "active" : "invite_required");
     if (accessState === "active") {
       return (
         <>
-          <LaunchHome currentUser={currentUser} onLogout={handleLogout} />
+          <LaunchHome currentUser={currentUser} onLogout={handleLogout} onOpenCreator={() => setPage("creator")} />
           <ContactUsButton />
         </>
       );
@@ -973,6 +981,10 @@ export default function App() {
   // access falls through to the normal routing below; the server re-verifies
   // every /api/auth/admin/* call so a spoofed is_admin flag grants no real
   // access. Never call setPage() from the render body - React infinite-loops.
+  if (page === "creator") {
+    return <CreatorPage onBack={() => setPage("landing")} />;
+  }
+
   if (page === "admin" && currentUser?.is_admin) {
     return (
       <AdminPage

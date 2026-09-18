@@ -48,7 +48,9 @@ body {
   font-family: var(--font-body);
   background: var(--bg-base);
   color: var(--text-primary);
-  overflow: hidden;
+  /* No overflow lock here. Pages scroll normally (essential on mobile);
+     the dashboard shell opts out on its own with h-screen + overflow-hidden. */
+  -webkit-text-size-adjust: 100%;
 }
 
 /* Native date inputs render an illegible near-black calendar icon on a

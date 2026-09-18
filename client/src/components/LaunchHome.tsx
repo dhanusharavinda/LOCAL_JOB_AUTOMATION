@@ -1,16 +1,12 @@
 import { AuthUser } from "../api";
 import FreeTailorSection from "./FreeTailorSection";
 import { ComingSoonGrid } from "./ComingSoon";
+import { CREATOR } from "./CreatorPage";
 
 interface Props {
   currentUser: AuthUser;
   onLogout: () => void | Promise<void>;
-}
-
-function daysLeft(expiresAt: string | null | undefined): number | null {
-  if (!expiresAt) return null;
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / 86400000));
+  onOpenCreator: () => void;
 }
 
 /**
@@ -18,9 +14,8 @@ function daysLeft(expiresAt: string | null | undefined): number | null {
  * The Resume Tailor is the product right now; everything else is shown
  * as "coming soon" so people know what's on the way.
  */
-export default function LaunchHome({ currentUser, onLogout }: Props) {
+export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Props) {
   const firstName = (currentUser.name || "").split(" ")[0] || "there";
-  const left = daysLeft(currentUser.access_expires_at);
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
@@ -54,23 +49,13 @@ export default function LaunchHome({ currentUser, onLogout }: Props) {
 
       {/* Welcome */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
-        <div className="rounded-2xl border border-[rgba(201,169,78,0.2)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="font-display text-xl sm:text-2xl text-[var(--text-primary)]">
-              Welcome, {firstName} 👋
-            </h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Thank you for being one of the first. Your early access is completely free.
-            </p>
-          </div>
-          {left !== null && (
-            <div className="shrink-0 text-left sm:text-right">
-              <div className="font-display text-2xl text-[var(--accent)] tabular-nums leading-none">{left}</div>
-              <div className="text-[11px] text-[var(--text-tertiary)] mt-1">
-                {left === 1 ? "day" : "days"} of free access left
-              </div>
-            </div>
-          )}
+        <div className="rounded-2xl border border-[rgba(201,169,78,0.2)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5">
+          <h1 className="font-display text-xl sm:text-2xl text-[var(--text-primary)]">
+            Welcome, {firstName} 👋
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
+            Thank you for being one of the first. Everything here is free to use.
+          </p>
         </div>
       </div>
 
@@ -87,6 +72,24 @@ export default function LaunchHome({ currentUser, onLogout }: Props) {
         </div>
         <ComingSoonGrid />
       </section>
+
+      <footer className="border-t border-[var(--border-subtle)] px-4 sm:px-6 py-8">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <p className="text-sm text-[var(--text-tertiary)]">
+            Built by{" "}
+            <button onClick={onOpenCreator} className="text-[var(--accent)] hover:underline font-medium">{CREATOR.name}</button>
+            . Found a bug or have an idea? Message me.
+          </p>
+          <div className="flex items-center gap-2">
+            <a href={CREATOR.linkedin} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
+              LinkedIn
+            </a>
+            <a href={CREATOR.instagram} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
+              Instagram
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

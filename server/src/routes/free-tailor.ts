@@ -19,11 +19,11 @@ const ADMIN_QUOTA = 9999;
  *
  * Flow: anyone can open the landing page and fill the form, but the
  * client forces signup BEFORE calling this endpoint. Once authenticated,
- * the daily quota kicks in:
- *   free = 1/day
- *   pro  = 5/day
- * Counter resets at 00:00 UTC every day - mirrors the pipeline's
- * usage_tracking boundary so manual + auto tailors refill on the same tick.
+ * the daily quota kicks in: 5 tailored resumes and 5 cover letters per
+ * person per day (EARLY_ACCESS_DAILY_TAILORS, or profiles.tailor_limit
+ * for one person). Counters reset at 00:00 UTC every day - mirrors the
+ * pipeline's usage_tracking boundary so every allowance refills on the
+ * same tick. Admins are unlimited.
  *
  * Enterprise is off during the testing phase; auth middleware coerces
  * legacy enterprise rows to 'pro' before they reach this route.
@@ -34,25 +34,56 @@ router.use(requireAuth);
 
 // Strict per-plan daily quotas for the resume tailor hook. Shape the
 // quotas so the STRICTEST bound wins if plan strings drift.
-// Early-access launch: everyone invited gets EARLY_ACCESS_DAILY_TAILORS
-// (default 3) per day, no upsell. Pro stays at 5 for admin-set test plans.
+// Early access: 5 tailored resumes AND 5 cover letters per person per
+// day. The owner can raise or lower it for one person from the admin
+// panel (profiles.tailor_limit), which wins over this default.
 function envQuota(name: string, fallback: number): number {
   const n = parseInt(process.env[name] || "", 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
-const DAILY_QUOTA: Record<"free" | "pro", number> = {
-  free: envQuota("EARLY_ACCESS_DAILY_TAILORS", 3),
-  pro: 5,
-};
+const DEFAULT_DAILY_LIMIT = envQuota("EARLY_ACCESS_DAILY_TAILORS", 5);
 
-function quotaFor(plan: string | undefined, email?: string): number {
+/**
+ * free_tailor_log rows are tagged so resumes and cover letters get
+ * separate daily allowances, and profiles carries the per-user override.
+ * Created on demand (migration 0012 is the canonical copy) so a deploy
+ * that missed the migration still enforces quotas correctly.
+ */
+let quotaSchema: Promise<boolean> | null = null;
+function ensureQuotaSchema(): Promise<boolean> {
+  if (!quotaSchema) {
+    quotaSchema = (async () => {
+      try {
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'tailor'`;
+        await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tailor_limit INTEGER`;
+        return true;
+      } catch (err: any) {
+        console.error("[free-tailor] ensureQuotaSchema failed:", err?.message || err);
+        quotaSchema = null;
+        return false;
+      }
+    })();
+  }
+  return quotaSchema;
+}
+
+/** Daily allowance for one user: admin -> per-user override -> default. */
+async function limitFor(userId: string, email?: string): Promise<number> {
   // Admins (ADMIN_EMAILS env) get an effectively unlimited quota so the
   // owner can iterate on the tailor without daily caps. This is purely
   // server-side - the client doesn't know about the admin bypass and
   // doesn't need to.
   if (isAdmin(email)) return ADMIN_QUOTA;
-  if (plan === "pro" || plan === "enterprise") return DAILY_QUOTA.pro;
-  return DAILY_QUOTA.free;
+  if (!(await ensureQuotaSchema())) return DEFAULT_DAILY_LIMIT;
+  try {
+    const rows = await sql<{ tailor_limit: number | null }[]>`
+      SELECT tailor_limit FROM profiles WHERE id = ${userId} LIMIT 1
+    `;
+    const override = rows[0]?.tailor_limit;
+    return typeof override === "number" && override >= 0 ? override : DEFAULT_DAILY_LIMIT;
+  } catch {
+    return DEFAULT_DAILY_LIMIT;
+  }
 }
 
 /**
@@ -81,11 +112,13 @@ async function ensureTable(): Promise<void> {
   }
 }
 
-async function countUsedToday(userId: string): Promise<number> {
+async function countUsedToday(userId: string, kind: "tailor" | "cover_letter" = "tailor"): Promise<number> {
   try {
+    await ensureQuotaSchema();
     const rows = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM free_tailor_log
        WHERE user_id = ${userId}
+         AND kind = ${kind}
          AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
     `;
     return parseInt(rows[0]?.count || "0", 10);
@@ -131,14 +164,18 @@ router.get("/status", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const plan = req.user!.plan;
   const email = req.user!.email;
-  const quota = quotaFor(plan, email);
-  const used = await countUsedToday(userId);
+  const quota = await limitFor(userId, email);
+  const used = await countUsedToday(userId, "tailor");
+  const coverUsed = await countUsedToday(userId, "cover_letter");
   const remaining = Math.max(0, quota - used);
   res.json({
     plan,
     quota,
     used,
     remaining,
+    coverQuota: quota,
+    coverUsed,
+    coverRemaining: Math.max(0, quota - coverUsed),
     usedToday: remaining === 0,
   });
 });
@@ -149,7 +186,7 @@ router.post("/", async (req: Request, res: Response) => {
   const plan = req.user!.plan;
   const email = req.user!.email;
   const userIsAdmin = isAdmin(email);
-  const quota = quotaFor(plan, email);
+  const quota = await limitFor(userId, email);
   const { resumeText, jobDescription, generateCoverLetter, userInstructions } = req.body;
   // On-demand cover letter alongside the tailored resume. Off by
   // default - only generated when the client explicitly asks for it
@@ -200,7 +237,7 @@ router.post("/", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Input too large. Resume + job description must be under 25,000 characters combined." });
   }
 
-  // ── Plan-based daily quota: free=1, pro=5; admin unlimited ──
+  // ── Daily quota (default 5/day, per-user override); admin unlimited ──
   //
   // Admins skip the advisory-lock txn AND the log insert: no need to
   // serialize their own requests against themselves, and we don't want
@@ -225,13 +262,14 @@ router.post("/", async (req: Request, res: Response) => {
         const rows = await tx<{ count: string }[]>`
           SELECT COUNT(*) AS count FROM free_tailor_log
            WHERE user_id = ${userId}
+             AND kind = 'tailor'
              AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
         `;
         const current = parseInt(rows[0]?.count || "0", 10);
         if (current >= quota) return current;
         // Reserve the slot inside the same transaction so a second concurrent
         // request that re-reads after we commit sees the updated count.
-        await tx`INSERT INTO free_tailor_log (user_id) VALUES (${userId})`;
+        await tx`INSERT INTO free_tailor_log (user_id, kind) VALUES (${userId}, 'tailor')`;
         return current;
       }) as number;
     } catch (err: any) {
@@ -242,7 +280,7 @@ router.post("/", async (req: Request, res: Response) => {
   }
   if (used >= quota) {
     res.status(429).json({
-      error: `You've used all ${quota} tailors for today. You get ${quota} fresh ones after 00:00 UTC.`,
+      error: `You've used all ${quota} resume tailors for today. You get ${quota} fresh ones after midnight UTC.`,
       upgrade: false,
       plan,
       quota,
@@ -417,7 +455,15 @@ router.post("/", async (req: Request, res: Response) => {
     // resume PDF. Skipped entirely unless the client opted in via
     // `generateCoverLetter: true`.
     let coverLetter: string | null = null;
-    if (wantsCoverLetter) {
+    // The inline cover letter draws on the same daily cover-letter
+    // allowance as the standalone button, so five is five however the
+    // user asks for them.
+    let coverLetterSkipped = false;
+    if (wantsCoverLetter && !userIsAdmin) {
+      const coverUsed = await countUsedToday(userId, "cover_letter");
+      if (coverUsed >= quota) coverLetterSkipped = true;
+    }
+    if (wantsCoverLetter && !coverLetterSkipped) {
       try {
         // Try to pull a job title + company from the JD's first ~200
         // chars. If the model can't infer them, the cover letter falls
@@ -471,6 +517,9 @@ Return the JSON now.`;
         coverLetter = typeof clParsed.coverLetter === "string" && clParsed.coverLetter.trim().length > 0
           ? clParsed.coverLetter.trim()
           : null;
+        if (coverLetter && !userIsAdmin) {
+          await sql`INSERT INTO free_tailor_log (user_id, kind) VALUES (${userId}, 'cover_letter')`;
+        }
       } catch (err: any) {
         // Don't block the tailor response on cover-letter failures.
         // The client gets the resume; coverLetter just stays null and
@@ -488,6 +537,7 @@ Return the JSON now.`;
       targetPages,
       projectSwaps,
       coverLetter,
+      coverLetterSkipped,
       plan,
       quota,
       used: newUsed,
@@ -504,6 +554,7 @@ Return the JSON now.`;
          WHERE id = (
            SELECT id FROM free_tailor_log
             WHERE user_id = ${userId}
+              AND kind = 'tailor'
               AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
             ORDER BY created_at DESC
             LIMIT 1
@@ -547,6 +598,43 @@ router.post("/cover-letter", async (req: Request, res: Response) => {
   if (!openai) {
     res.status(503).json({ error: "AI service is not configured on the server." });
     return;
+  }
+
+  // Daily cover-letter allowance. Reserved under the same advisory lock
+  // the tailor uses so two tabs can't both spend the last one.
+  const clUserId = req.user!.id;
+  const clIsAdmin = isAdmin(req.user!.email);
+  const clQuota = await limitFor(clUserId, req.user!.email);
+  if (!clIsAdmin) {
+    let clUsed = 0;
+    try {
+      clUsed = await sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(${advisoryLockKey(clUserId).toString()}::bigint)`;
+        const rows = await tx<{ count: string }[]>`
+          SELECT COUNT(*) AS count FROM free_tailor_log
+           WHERE user_id = ${clUserId}
+             AND kind = 'cover_letter'
+             AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
+        `;
+        const current = parseInt(rows[0]?.count || "0", 10);
+        if (current >= clQuota) return current;
+        await tx`INSERT INTO free_tailor_log (user_id, kind) VALUES (${clUserId}, 'cover_letter')`;
+        return current;
+      }) as number;
+    } catch (err: any) {
+      console.error("[POST /api/free-tailor/cover-letter] quota txn failed", err?.message || err);
+      res.status(500).json({ error: "Could not verify quota. Please try again." });
+      return;
+    }
+    if (clUsed >= clQuota) {
+      res.status(429).json({
+        error: `You've used all ${clQuota} cover letters for today. You get ${clQuota} fresh ones after midnight UTC.`,
+        quota: clQuota,
+        used: clUsed,
+        remaining: 0,
+      });
+      return;
+    }
   }
 
   try {
@@ -605,6 +693,24 @@ Return the JSON now.`;
     res.json({ coverLetter });
   } catch (err: any) {
     console.error("[POST /api/free-tailor/cover-letter]", err?.message || err);
+    // Give the reserved slot back so a failed generation costs nothing.
+    if (!clIsAdmin) {
+      try {
+        await sql`
+          DELETE FROM free_tailor_log
+           WHERE id = (
+             SELECT id FROM free_tailor_log
+              WHERE user_id = ${clUserId}
+                AND kind = 'cover_letter'
+                AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
+              ORDER BY created_at DESC
+              LIMIT 1
+           )
+        `;
+      } catch (refundErr: any) {
+        console.error("[POST /api/free-tailor/cover-letter] refund failed", refundErr?.message || refundErr);
+      }
+    }
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });

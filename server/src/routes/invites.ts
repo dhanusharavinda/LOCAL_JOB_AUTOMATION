@@ -89,7 +89,12 @@ router.post("/redeem", async (req: Request, res: Response) => {
       const inv = rows[0];
       if (!inv) return { status: 404, body: { code: "not_found", error: "This invite link doesn't exist. Check you copied the whole link." } };
       if (inv.revoked_at) return { status: 410, body: { code: "revoked", error: "This invite link was cancelled. Ask for a new one." } };
-      if (inv.redeemed_by) return { status: 409, body: { code: "used", error: "This invite link has already been used. Each link works once. Ask for your own link." } };
+      // Same person re-opening their own link (a refresh, a second tab,
+      // or clicking the DM again) must not read as "already used" - that
+      // was reported as a confusing false alarm. Re-grant instead.
+      if (inv.redeemed_by && inv.redeemed_by !== user.id) {
+        return { status: 409, body: { code: "used", error: "This invite link has already been used. Each link works once. Ask for your own link." } };
+      }
 
       await tx`UPDATE invite_links SET redeemed_by = ${user.id}, redeemed_at = NOW() WHERE id = ${inv.id}`;
       const updated = await tx<{ access_expires_at: Date }[]>`
@@ -118,7 +123,12 @@ router.get("/", async (req: Request, res: Response) => {
     const rows = await sql<any[]>`
       SELECT i.id, i.token, i.label, i.access_days, i.created_at, i.redeemed_at, i.revoked_at,
              p.id AS redeemed_user_id, p.email AS redeemed_email, p.name AS redeemed_name,
-             p.access_expires_at
+             p.access_expires_at, p.approval_status, p.tailor_limit,
+             (SELECT COUNT(*)::int FROM free_tailor_log f
+               WHERE f.user_id = p.id::text AND f.kind = 'tailor'
+                 AND f.created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS tailors_today,
+             (SELECT COUNT(*)::int FROM free_tailor_log f
+               WHERE f.user_id = p.id::text) AS tailors_total
         FROM invite_links i
         LEFT JOIN profiles p ON p.id = i.redeemed_by
        ORDER BY i.created_at DESC
@@ -204,6 +214,56 @@ router.post("/users/:userId/extend", async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("[POST /api/invites/users/:userId/extend]", err?.message || err);
     res.status(500).json({ error: "Could not extend access." });
+  }
+});
+
+// ─── POST /api/invites/users/:userId/limit (admin) ──────────────────
+// Sets that person's daily allowance for resumes and cover letters.
+// null clears the override and puts them back on the default.
+router.post("/users/:userId/limit", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  if (!(await schemaOr503(res))) return;
+  const raw = (req.body || {}).limit;
+  const limit = raw === null || raw === "" || raw === undefined
+    ? null
+    : Math.min(500, Math.max(0, parseInt(String(raw), 10) || 0));
+  try {
+    await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tailor_limit INTEGER`;
+    const rows = await sql<{ tailor_limit: number | null }[]>`
+      UPDATE profiles SET tailor_limit = ${limit}
+       WHERE id = ${req.params.userId}
+      RETURNING tailor_limit
+    `;
+    if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+    res.json({ ok: true, tailor_limit: rows[0].tailor_limit });
+  } catch (err: any) {
+    console.error("[POST /api/invites/users/:userId/limit]", err?.message || err);
+    res.status(500).json({ error: "Could not update the daily limit." });
+  }
+});
+
+// ─── POST /api/invites/users/:userId/block (admin) ──────────────────
+// Blocks (or unblocks) someone. A blocked account keeps its data but
+// can't use anything until it is unblocked.
+router.post("/users/:userId/block", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  if (!(await schemaOr503(res))) return;
+  if (req.params.userId === req.user!.id) {
+    res.status(400).json({ error: "You can't block yourself." });
+    return;
+  }
+  const blocked = (req.body || {}).blocked !== false;
+  try {
+    const rows = await sql<{ approval_status: string }[]>`
+      UPDATE profiles SET approval_status = ${blocked ? "rejected" : "approved"}
+       WHERE id = ${req.params.userId}
+      RETURNING approval_status
+    `;
+    if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+    res.json({ ok: true, approval_status: rows[0].approval_status });
+  } catch (err: any) {
+    console.error("[POST /api/invites/users/:userId/block]", err?.message || err);
+    res.status(500).json({ error: "Could not update that account." });
   }
 });
 

@@ -126,7 +126,7 @@ export default function AdminPage({
   };
 
   return (
-    <div className="h-screen overflow-y-auto bg-[var(--bg-base)]">
+    <div className="min-h-screen bg-[var(--bg-base)]">
       {/* Nav */}
       <header className="shrink-0 px-4 sm:px-6 py-4 sm:py-5 border-b border-[var(--border-subtle)]">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">

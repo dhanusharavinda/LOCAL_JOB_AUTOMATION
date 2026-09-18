@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { checkInvite, InviteCheck } from "../api";
 import { extractInviteToken, storeInvite, clearStoredInvite } from "../invite";
 import { ComingSoonGrid } from "./ComingSoon";
+import { CREATOR } from "./CreatorPage";
 
 interface Props {
   /** Token from the invite link (URL or localStorage), if any. */
@@ -9,6 +10,7 @@ interface Props {
   onInviteTokenChange: (token: string | null) => void;
   onSignIn: () => void;
   onCreateAccount: () => void;
+  onOpenCreator: () => void;
 }
 
 // Optional: set VITE_LAUNCH_POST_URL on Vercel to link the LinkedIn post.
@@ -22,7 +24,7 @@ const LAUNCH_POST_URL = (import.meta as any).env?.VITE_LAUNCH_POST_URL as string
  * Without one: explains how to get an invite and offers sign-in for
  * people who already have access.
  */
-export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn, onCreateAccount }: Props) {
+export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn, onCreateAccount, onOpenCreator }: Props) {
   const [check, setCheck] = useState<InviteCheck | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
@@ -106,7 +108,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                   <div className="text-4xl mb-3" aria-hidden>🎉</div>
                   <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-primary)] mb-2">You're invited</h1>
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-                    You've got free early access to GO CANDID8 for <span className="text-[var(--accent)] font-semibold">{check.access_days} days</span>.
+                    You've got <span className="text-[var(--accent)] font-semibold">free access</span> to GO CANDID8.
                     Create your account to claim it. This link is just for you and works once.
                   </p>
 
@@ -168,7 +170,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                   Tailor your resume to any job in seconds
                 </h1>
                 <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">
-                  GO CANDID8 is opening up to a small group first, free for 30 days.
+                  Free to use. Invite-only for now, so I can keep an eye on things while it grows.
                 </p>
               </div>
 
@@ -176,9 +178,9 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                 <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">How to get your invite</h2>
                 <ol className="space-y-3">
                   {[
-                    "Find the GO CANDID8 launch post on LinkedIn.",
-                    'Comment "send link" on the post.',
-                    "You'll get a personal invite link by DM. Open it to get in.",
+                    'Comment "send link" on my launch post on LinkedIn, or just message me.',
+                    "I'll send you your own invite link by DM.",
+                    "Open the link, create your account, and you're in. It's free.",
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3 items-start">
                       <span className="w-6 h-6 shrink-0 rounded-full bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.25)] text-[var(--accent)] text-xs font-semibold flex items-center justify-center">
@@ -188,16 +190,26 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                     </li>
                   ))}
                 </ol>
-                {LAUNCH_POST_URL && (
+                <div className="mt-5 flex flex-col sm:flex-row gap-2">
                   <a
-                    href={LAUNCH_POST_URL}
+                    href={CREATOR.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-5 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
                   >
-                    Open the LinkedIn post
+                    Message me on LinkedIn
                   </a>
-                )}
+                  {LAUNCH_POST_URL && (
+                    <a
+                      href={LAUNCH_POST_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] font-semibold text-sm hover:border-[var(--border-default)] transition-all"
+                    >
+                      Open the launch post
+                    </a>
+                  )}
+                </div>
 
                 <div className="mt-6 pt-5 border-t border-[var(--border-subtle)]">
                   <label className="block text-xs text-[var(--text-tertiary)] mb-2">Already got your link? Paste it here</label>
@@ -224,6 +236,10 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
               <p className="text-center text-sm text-[var(--text-tertiary)] mt-5">
                 Already have access?{" "}
                 <button onClick={onSignIn} className="text-[var(--accent)] hover:underline font-medium">Sign in</button>
+              </p>
+              <p className="text-center text-sm text-[var(--text-tertiary)] mt-2">
+                Built by{" "}
+                <button onClick={onOpenCreator} className="text-[var(--accent)] hover:underline font-medium">{CREATOR.name}</button>
               </p>
             </>
           )}

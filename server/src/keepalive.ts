@@ -1,4 +1,5 @@
 import { sql } from "./db";
+import { pruneOldResumePdfs } from "./storage";
 
 /**
  * Supabase keep-alive heartbeat.
@@ -21,6 +22,8 @@ import { sql } from "./db";
 
 const BEAT_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const FIRST_BEAT_DELAY_MS = 60 * 1000;       // 1 min after boot (let DB settle)
+
+let beats = 0;
 
 async function beat(): Promise<void> {
   // 1. Database activity.
@@ -45,6 +48,20 @@ async function beat(): Promise<void> {
       console.warn("[keepalive] API ping failed:", err?.message || err);
     }
   }
+
+  // 3. Roughly once a day (every 4th six-hour beat), clear out tailored
+  //    PDFs nobody can download any more. Supabase's free tier only has
+  //    1GB of storage and each PDF is ~225KB, so without this a busy
+  //    launch fills the bucket in days and uploads start failing.
+  if (beats % 4 === 0) {
+    try {
+      const removed = await pruneOldResumePdfs();
+      if (removed > 0) console.log(`[keepalive] pruned ${removed} expired resume PDFs`);
+    } catch (err: any) {
+      console.warn("[keepalive] PDF prune failed:", err?.message || err);
+    }
+  }
+  beats++;
 }
 
 export function startSupabaseKeepalive(): void {

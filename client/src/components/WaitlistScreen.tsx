@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AuthUser, redeemInvite } from "../api";
 import { supabase } from "../supabaseClient";
 import { extractInviteToken, clearStoredInvite } from "../invite";
+import { CREATOR } from "./CreatorPage";
 
 interface Props {
   currentUser: AuthUser;
@@ -110,7 +111,7 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
                 </h1>
                 <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                   {expired
-                    ? "Thank you for trying GO CANDID8 early. If you'd like more time, send a message with the Contact button or paste a new invite link below."
+                    ? "Thanks for trying GO CANDID8. Message me and I'll turn your access back on, or paste a new invite link below."
                     : "Your account is ready, but GO CANDID8 is invite-only right now. Open your personal invite link, or paste it below."}
                 </p>
               </div>
@@ -141,14 +142,22 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
                 </div>
               </div>
 
-              {!expired && (
-                <div className="mt-6 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-2">No invite yet?</div>
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                    Comment <span className="text-[var(--text-primary)] font-medium">"send link"</span> on the GO CANDID8 launch post on LinkedIn and you'll get one by DM.
-                  </p>
+              <div className="mt-6 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+                  {expired ? "Want back in?" : "No invite yet?"}
                 </div>
-              )}
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Message me on LinkedIn, or comment <span className="text-[var(--text-primary)] font-medium">"send link"</span> on my launch post, and I'll send you a link.
+                </p>
+                <a
+                  href={CREATOR.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+                >
+                  Message {CREATOR.name.split(" ")[0]} on LinkedIn
+                </a>
+              </div>
 
               <p className="mt-6 text-center text-xs text-[var(--text-ghost)]">
                 Signed in as <span className="font-mono">{currentUser.email}</span>

@@ -211,6 +211,57 @@ export async function uploadResumePdf(
 }
 
 /**
+ * Delete tailored PDFs nobody can reach any more.
+ *
+ * Every tailored resume is ~225KB and Supabase's free tier gives 1GB of
+ * storage, so a busy launch would fill it in days. Download links are
+ * signed for 7 days and the client also receives the PDF inline, so a
+ * file older than the retention window is dead weight. We keep the
+ * newest few per person regardless of age so recent work is never lost.
+ *
+ * Safe to call repeatedly; returns how many objects were removed.
+ */
+const PDF_RETENTION_DAYS = parseInt(process.env.PDF_RETENTION_DAYS || "", 10) || 14;
+const PDF_KEEP_PER_USER = parseInt(process.env.PDF_KEEP_PER_USER || "", 10) || 3;
+
+export async function pruneOldResumePdfs(): Promise<number> {
+  const admin = getAdmin();
+  if (!admin) return 0;
+  const cutoff = Date.now() - PDF_RETENTION_DAYS * 86400000;
+  let removed = 0;
+  try {
+    // Top level of the bucket is one folder per user id.
+    const { data: folders, error: folderErr } = await admin.storage
+      .from(PDF_BUCKET)
+      .list("", { limit: 1000 });
+    if (folderErr || !folders) return 0;
+
+    for (const folder of folders) {
+      if (!folder.name) continue;
+      const { data: files, error: fileErr } = await admin.storage
+        .from(PDF_BUCKET)
+        .list(folder.name, { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
+      if (fileErr || !files || files.length === 0) continue;
+
+      const stale = files
+        .slice(PDF_KEEP_PER_USER) // always keep the newest few
+        .filter((f) => {
+          const ts = new Date((f as any).created_at || (f as any).updated_at || 0).getTime();
+          return Number.isFinite(ts) && ts > 0 && ts < cutoff;
+        })
+        .map((f) => `${folder.name}/${f.name}`);
+
+      if (stale.length === 0) continue;
+      const { error: rmErr } = await admin.storage.from(PDF_BUCKET).remove(stale);
+      if (!rmErr) removed += stale.length;
+    }
+  } catch (err: any) {
+    console.error("[storage] pruneOldResumePdfs failed:", err?.message || err);
+  }
+  return removed;
+}
+
+/**
  * Generate a fresh signed URL for an already-uploaded PDF. Used when a
  * previously-saved signed URL has expired and the client wants to
  * re-download the file.

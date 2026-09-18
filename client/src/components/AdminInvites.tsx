@@ -1,20 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AdminInvite, adminListInvites, adminCreateInvites, adminRevokeInvite, adminExtendAccess, adminEndAccess,
+  AdminInvite, adminListInvites, adminCreateInvites, adminRevokeInvite,
+  adminExtendAccess, adminEndAccess, adminSetTailorLimit, adminBlockUser,
 } from "../api";
+import { CREATOR } from "./CreatorPage";
 
 /**
  * Admin panel for the invite-only launch: generate single-use invite
- * links, copy them (bare or with a ready-to-send DM), cancel unused ones,
- * and extend or end access for people who joined.
+ * links, copy them (bare or as a ready-to-send DM), cancel unused ones,
+ * and control each person who joined (daily allowance, extra days,
+ * block, end access).
  */
 
 function inviteUrl(token: string): string {
   return `${window.location.origin}/invite/${token}`;
 }
 
-function dmMessage(token: string, days: number): string {
-  return `Hi! Thanks for commenting. Here's your personal invite to GO CANDID8, free for ${days} days: ${inviteUrl(token)}\n\nThe link works once, so it's just for you. Enjoy!`;
+/** Ready-to-paste LinkedIn DM. Intro + link + follow ask. */
+function dmMessage(token: string): string {
+  return [
+    "Hey! Thanks for commenting.",
+    "",
+    "I'm Dhanush, I built GO CANDID8: paste a job description, and it rewrites your resume for that exact job in seconds. You can edit everything before you download the PDF.",
+    "",
+    "Here's your personal invite link (free to use, and it works once, so it's just for you):",
+    inviteUrl(token),
+    "",
+    `If it helps you, a follow on LinkedIn would mean a lot: ${CREATOR.linkedin}`,
+    "",
+    "Any bugs or ideas, message me and I'll fix them.",
+  ].join("\n");
 }
 
 function ago(iso: string): string {
@@ -32,7 +47,21 @@ async function copyText(text: string): Promise<boolean> {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    return false;
+    // Clipboard API needs a secure context and can be blocked; fall back
+    // to a hidden textarea + execCommand so copying still works.
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -95,10 +124,15 @@ export default function AdminInvites() {
     finally { setBusy((b) => { const n = { ...b }; delete n[key]; return n; }); }
   }
 
+  /** Apply a change to every row belonging to one person. */
+  function patchUser(userId: string, patch: Partial<AdminInvite>) {
+    setInvites((prev) => prev.map((x) => (x.redeemed_user_id === userId ? { ...x, ...patch } : x)));
+  }
+
   const stats = useMemo(() => ({
     unused: invites.filter((i) => !i.redeemed_at && !i.revoked_at).length,
     used: invites.filter((i) => !!i.redeemed_at).length,
-    active: invites.filter((i) => i.redeemed_at && (daysLeft(i.access_expires_at) ?? 1) > 0).length,
+    active: invites.filter((i) => i.redeemed_at && i.approval_status !== "rejected" && (daysLeft(i.access_expires_at) ?? 1) > 0).length,
   }), [invites]);
 
   const visible = invites.filter((i) => {
@@ -112,53 +146,56 @@ export default function AdminInvites() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: "Unused links", value: stats.unused, cls: "text-[var(--accent)]" },
           { label: "People joined", value: stats.used, cls: "text-emerald-400" },
           { label: "Active now", value: stats.active, cls: "text-sky-400" },
         ].map((s) => (
-          <div key={s.label} className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-4">
-            <div className={`font-display text-2xl tabular-nums ${s.cls}`}>{s.value}</div>
-            <div className="text-xs text-[var(--text-tertiary)] mt-1">{s.label}</div>
+          <div key={s.label} className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-3 sm:p-4">
+            <div className={`font-display text-xl sm:text-2xl tabular-nums ${s.cls}`}>{s.value}</div>
+            <div className="text-[11px] sm:text-xs text-[var(--text-tertiary)] mt-1 leading-tight">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Generate */}
-      <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-5">
+      <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">Create invite links</h2>
         <p className="text-xs text-[var(--text-tertiary)] mt-1">
-          Each link works once and gives free early access (Resume Tailor) for the chosen number of days, starting when it's used.
+          Each link works once. Whoever opens it gets in straight away, with no approval step for you.
         </p>
 
-        <div className="mt-4 grid sm:grid-cols-[auto_auto_1fr_auto] gap-3 items-end">
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">How many</label>
-            <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)]">
-              {[1, 5, 10, 25].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setCount(n)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    count === n ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">How many</label>
+              <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)]">
+                {[1, 5, 10, 25].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCount(n)}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                      count === n ? "bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Free days</label>
-            <input
-              type="number"
-              min={1}
-              max={365}
-              value={days}
-              onChange={(e) => setDays(Math.min(365, Math.max(1, parseInt(e.target.value) || 1)))}
-              className="w-20 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-            />
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Access days</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={365}
+                value={days}
+                onChange={(e) => setDays(Math.min(365, Math.max(1, parseInt(e.target.value) || 1)))}
+                className="w-24 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Note (optional)</label>
@@ -167,20 +204,20 @@ export default function AdminInvites() {
               onChange={(e) => setLabel(e.target.value)}
               maxLength={120}
               placeholder="e.g. LinkedIn launch, or the person's name"
-              className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
+              className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
           <button
             onClick={handleCreate}
             disabled={creating}
-            className="px-5 py-2.5 rounded-xl bg-[var(--accent)] text-[#0c0e14] font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+            className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[var(--accent)] text-[#0c0e14] font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {creating ? "Creating..." : `Create ${count} link${count === 1 ? "" : "s"}`}
           </button>
         </div>
 
         {fresh.length > 0 && (
-          <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
+          <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-3 sm:p-4">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
               <span className="text-sm font-semibold text-emerald-300">
                 {fresh.length} new link{fresh.length === 1 ? "" : "s"} ready to send
@@ -188,7 +225,7 @@ export default function AdminInvites() {
               <div className="flex gap-2">
                 <button
                   onClick={() => flashCopy("all", fresh.map((f) => inviteUrl(f.token!)).join("\n"))}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                  className="text-xs font-medium px-3 py-2 rounded-lg border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 transition-colors"
                 >
                   {copied === "all" ? "Copied!" : "Copy all links"}
                 </button>
@@ -197,7 +234,7 @@ export default function AdminInvites() {
                 </button>
               </div>
             </div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-3 max-h-72 overflow-y-auto">
               {fresh.map((f) => (
                 <LinkRow key={f.id} invite={f} copied={copied} onCopy={flashCopy} />
               ))}
@@ -212,13 +249,13 @@ export default function AdminInvites() {
 
       {/* List */}
       <div>
-        <div className="flex flex-wrap items-center gap-3 mb-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
           <div className="flex gap-1 p-1 bg-[var(--bg-raised)] rounded-xl border border-[var(--border-subtle)]">
             {(["unused", "used", "all"] as Filter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
+                className={`px-3 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
                   filter === f ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
                 }`}
               >
@@ -230,12 +267,12 @@ export default function AdminInvites() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search note, name, or email..."
-            className="flex-1 min-w-[180px] bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
+            className="flex-1 min-w-[160px] bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
           />
           <button
             onClick={load}
             disabled={loading}
-            className="px-3 py-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-raised)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
+            className="px-3 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-raised)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
           >
             {loading ? "..." : "Refresh"}
           </button>
@@ -250,64 +287,24 @@ export default function AdminInvites() {
               {filter === "unused" ? "No unused links. Create some above." : filter === "used" ? "Nobody has joined yet." : "No invite links yet."}
             </div>
           )}
+
           {visible.map((i) => {
             if (i.redeemed_at) {
-              const left = daysLeft(i.access_expires_at);
-              const expired = left !== null && left <= 0;
-              const key = `u${i.redeemed_user_id}`;
               return (
-                <div key={i.id} className="px-4 sm:px-5 py-3.5 flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm text-[var(--text-primary)] truncate">
-                      {i.redeemed_name || "Unknown"} <span className="text-[var(--text-tertiary)] font-mono text-xs">{i.redeemed_email}</span>
-                    </div>
-                    <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                      Joined {ago(i.redeemed_at)}{i.label ? ` · ${i.label}` : ""}
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    left === null ? "bg-[var(--bg-surface)] text-[var(--text-tertiary)]"
-                      : expired ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"
-                  }`}>
-                    {left === null ? "No expiry" : expired ? "Expired" : `${left} day${left === 1 ? "" : "s"} left`}
-                  </span>
-                  {i.redeemed_user_id && (
-                    <div className="flex gap-1.5">
-                      <button
-                        disabled={!!busy[key]}
-                        onClick={() => withBusy(key, async () => {
-                          const r = await adminExtendAccess(i.redeemed_user_id!, 30);
-                          setInvites((prev) => prev.map((x) => x.redeemed_user_id === i.redeemed_user_id ? { ...x, access_expires_at: r.access_expires_at } : x));
-                        })}
-                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                      >
-                        +30 days
-                      </button>
-                      {!expired && (
-                        <button
-                          disabled={!!busy[key]}
-                          onClick={() => {
-                            if (!window.confirm(`End access for ${i.redeemed_email}? They'll be locked out right away.`)) return;
-                            withBusy(key, async () => {
-                              const r = await adminEndAccess(i.redeemed_user_id!);
-                              setInvites((prev) => prev.map((x) => x.redeemed_user_id === i.redeemed_user_id ? { ...x, access_expires_at: r.access_expires_at } : x));
-                            });
-                          }}
-                          className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--text-tertiary)] hover:text-red-400 hover:border-red-500/30 transition-colors disabled:opacity-50"
-                        >
-                          End access
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <JoinedRow
+                  key={i.id}
+                  invite={i}
+                  busy={busy}
+                  withBusy={withBusy}
+                  patchUser={patchUser}
+                />
               );
             }
             if (i.revoked_at) {
               return (
                 <div key={i.id} className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3 opacity-60">
                   <span className="text-sm text-[var(--text-tertiary)] truncate">{i.label || "Invite link"}</span>
-                  <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-tertiary)]">
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-tertiary)] shrink-0">
                     Cancelled {ago(i.revoked_at)}
                   </span>
                 </div>
@@ -315,7 +312,7 @@ export default function AdminInvites() {
             }
             const key = `r${i.id}`;
             return (
-              <div key={i.id} className="px-4 sm:px-5 py-3">
+              <div key={i.id} className="px-4 sm:px-5 py-3.5">
                 <LinkRow
                   invite={i}
                   copied={copied}
@@ -328,7 +325,7 @@ export default function AdminInvites() {
                         setInvites((prev) => prev.map((x) => x.id === i.id ? { ...x, revoked_at: new Date().toISOString(), token: null } : x));
                         setFresh((prev) => prev.filter((x) => x.id !== i.id));
                       })}
-                      className="text-xs px-2.5 py-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-red-400 transition-colors disabled:opacity-50"
+                      className="text-xs px-3 py-2 rounded-lg text-[var(--text-tertiary)] hover:text-red-400 transition-colors disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -339,6 +336,144 @@ export default function AdminInvites() {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** One person who joined, with every control for their account. */
+function JoinedRow({
+  invite: i, busy, withBusy, patchUser,
+}: {
+  invite: AdminInvite;
+  busy: Record<string, boolean>;
+  withBusy: (key: string, fn: () => Promise<void>) => Promise<void>;
+  patchUser: (userId: string, patch: Partial<AdminInvite>) => void;
+}) {
+  const userId = i.redeemed_user_id;
+  const key = `u${userId}`;
+  const isBusy = !!busy[key];
+  const left = daysLeft(i.access_expires_at);
+  const blocked = i.approval_status === "rejected";
+  const expired = left !== null && left <= 0;
+  const [addDays, setAddDays] = useState(30);
+  const [limitDraft, setLimitDraft] = useState<string>(
+    i.tailor_limit === null || i.tailor_limit === undefined ? "" : String(i.tailor_limit)
+  );
+
+  const statusPill = blocked
+    ? { text: "Blocked", cls: "bg-red-500/10 text-red-400" }
+    : expired
+      ? { text: "Expired", cls: "bg-amber-500/10 text-amber-400" }
+      : left === null
+        ? { text: "Active", cls: "bg-emerald-500/10 text-emerald-400" }
+        : { text: `${left}d left`, cls: "bg-emerald-500/10 text-emerald-400" };
+
+  return (
+    <div className="px-4 sm:px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm text-[var(--text-primary)] truncate">{i.redeemed_name || "Unknown"}</div>
+          <div className="text-xs text-[var(--text-tertiary)] font-mono truncate">{i.redeemed_email}</div>
+          <div className="text-xs text-[var(--text-tertiary)] mt-1">
+            Joined {ago(i.redeemed_at!)}
+            {i.label ? ` · ${i.label}` : ""}
+            {typeof i.tailors_today === "number" ? ` · ${i.tailors_today} today` : ""}
+            {typeof i.tailors_total === "number" ? ` · ${i.tailors_total} total` : ""}
+          </div>
+        </div>
+        <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${statusPill.cls}`}>
+          {statusPill.text}
+        </span>
+      </div>
+
+      {userId && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* Daily allowance */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-[var(--text-tertiary)]">Daily limit</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={500}
+              value={limitDraft}
+              placeholder="5"
+              onChange={(e) => setLimitDraft(e.target.value)}
+              className="w-16 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-2 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
+            />
+            <button
+              disabled={isBusy}
+              onClick={() => withBusy(key, async () => {
+                const value = limitDraft.trim() === "" ? null : Math.max(0, parseInt(limitDraft, 10) || 0);
+                const r = await adminSetTailorLimit(userId, value);
+                patchUser(userId, { tailor_limit: r.tailor_limit });
+              })}
+              className="text-xs font-medium px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
+              title="Resumes and cover letters per day. Leave empty for the default."
+            >
+              Save
+            </button>
+          </div>
+
+          {/* Extra days */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={365}
+              value={addDays}
+              onChange={(e) => setAddDays(Math.min(365, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-16 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-2 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+            />
+            <button
+              disabled={isBusy}
+              onClick={() => withBusy(key, async () => {
+                const r = await adminExtendAccess(userId, addDays);
+                patchUser(userId, { access_expires_at: r.access_expires_at });
+              })}
+              className="text-xs font-medium px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            >
+              Add days
+            </button>
+          </div>
+
+          {/* Block / unblock */}
+          <button
+            disabled={isBusy}
+            onClick={() => {
+              if (!blocked && !window.confirm(`Block ${i.redeemed_email}? They lose access until you unblock them.`)) return;
+              withBusy(key, async () => {
+                const r = await adminBlockUser(userId, !blocked);
+                patchUser(userId, { approval_status: r.approval_status as any });
+              });
+            }}
+            className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors disabled:opacity-50 ${
+              blocked
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                : "border-[var(--border-subtle)] text-[var(--text-tertiary)] hover:text-red-400 hover:border-red-500/30"
+            }`}
+          >
+            {blocked ? "Unblock" : "Block"}
+          </button>
+
+          {!expired && !blocked && (
+            <button
+              disabled={isBusy}
+              onClick={() => {
+                if (!window.confirm(`End access for ${i.redeemed_email} right now?`)) return;
+                withBusy(key, async () => {
+                  const r = await adminEndAccess(userId);
+                  patchUser(userId, { access_expires_at: r.access_expires_at });
+                });
+              }}
+              className="text-xs font-medium px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-[var(--text-tertiary)] hover:text-red-400 hover:border-red-500/30 transition-colors disabled:opacity-50"
+            >
+              End access
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -354,27 +489,29 @@ function LinkRow({
   if (!invite.token) return null;
   const url = inviteUrl(invite.token);
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
       <div className="min-w-0 flex-1">
         <div className="font-mono text-xs text-[var(--text-primary)] truncate" title={url}>{url}</div>
         <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
-          {invite.access_days} free days · created {ago(invite.created_at)}{invite.label ? ` · ${invite.label}` : ""}
+          {invite.access_days} days access · created {ago(invite.created_at)}{invite.label ? ` · ${invite.label}` : ""}
         </div>
       </div>
-      <button
-        onClick={() => onCopy(`l${invite.id}`, url)}
-        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors"
-      >
-        {copied === `l${invite.id}` ? "Copied!" : "Copy link"}
-      </button>
-      <button
-        onClick={() => onCopy(`m${invite.id}`, dmMessage(invite.token!, invite.access_days))}
-        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)] hover:opacity-90 transition-opacity"
-        title="Copies a friendly DM with the link, ready to paste into LinkedIn"
-      >
-        {copied === `m${invite.id}` ? "Copied!" : "Copy DM"}
-      </button>
-      {extra}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => onCopy(`m${invite.id}`, dmMessage(invite.token!))}
+          className="flex-1 sm:flex-none text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)] hover:opacity-90 transition-opacity"
+          title="Copies the full DM: who you are, the link, and your LinkedIn"
+        >
+          {copied === `m${invite.id}` ? "Copied!" : "Copy DM"}
+        </button>
+        <button
+          onClick={() => onCopy(`l${invite.id}`, url)}
+          className="flex-1 sm:flex-none text-xs font-medium px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors"
+        >
+          {copied === `l${invite.id}` ? "Copied!" : "Link"}
+        </button>
+        {extra}
+      </div>
     </div>
   );
 }

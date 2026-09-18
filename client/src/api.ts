@@ -714,6 +714,11 @@ export interface FreeTailorStatus {
   quota: number;
   used: number;
   remaining: number;
+  // Cover letters get their own daily allowance, the same size as the
+  // resume one. Older servers omit these fields.
+  coverQuota?: number;
+  coverUsed?: number;
+  coverRemaining?: number;
 }
 
 export interface FreeTailorResult {
@@ -728,6 +733,9 @@ export interface FreeTailorResult {
   // `generateCoverLetter: true`. null when the flag was off, or when
   // the cover-letter call failed (the resume PDF still ships).
   coverLetter: string | null;
+  // True when the cover letter was skipped because the user had already
+  // used their daily cover-letter allowance.
+  coverLetterSkipped?: boolean;
   plan: "free" | "pro" | "enterprise";
   quota: number;
   used: number;
@@ -1008,6 +1016,11 @@ export interface AdminInvite {
   redeemed_email: string | null;
   redeemed_name: string | null;
   access_expires_at: string | null;
+  // Only present once the link has been used (joined rows).
+  approval_status?: "pending" | "approved" | "rejected" | null;
+  tailor_limit?: number | null;   // null = the default daily allowance
+  tailors_today?: number;
+  tailors_total?: number;
 }
 
 async function adminJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -1045,6 +1058,24 @@ export async function adminExtendAccess(userId: string, days: number): Promise<{
 
 export async function adminEndAccess(userId: string): Promise<{ access_expires_at: string }> {
   return adminJson(`/api/invites/users/${userId}/end`, { method: "POST" });
+}
+
+/** Daily resume + cover letter allowance for one person. null = default. */
+export async function adminSetTailorLimit(userId: string, limit: number | null): Promise<{ tailor_limit: number | null }> {
+  return adminJson(`/api/invites/users/${userId}/limit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit }),
+  });
+}
+
+/** Block keeps the account but shuts off access until it is unblocked. */
+export async function adminBlockUser(userId: string, blocked: boolean): Promise<{ approval_status: string }> {
+  return adminJson(`/api/invites/users/${userId}/block`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ blocked }),
+  });
 }
 
 export interface UsageInfo {
