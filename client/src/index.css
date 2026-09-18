@@ -379,3 +379,22 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   outline: 2px solid rgba(201, 169, 78, 0.5) !important;
   outline-offset: 2px;
 }
+
+/* ── Ambient background drift ──
+   Two huge, heavily blurred glows that wander slowly behind the page.
+   Transform-only so it stays on the compositor, and it stops entirely
+   for anyone who asked for reduced motion. */
+@keyframes ambientDriftA {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4%, 3%, 0) scale(1.08); }
+}
+@keyframes ambientDriftB {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.04); }
+  50%      { transform: translate3d(-5%, -3%, 0) scale(1); }
+}
+.ambient-drift-a { animation: ambientDriftA 26s ease-in-out infinite; will-change: transform; }
+.ambient-drift-b { animation: ambientDriftB 32s ease-in-out infinite; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-drift-a, .ambient-drift-b { animation: none; }
+}

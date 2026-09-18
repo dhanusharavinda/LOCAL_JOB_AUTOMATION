@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { freeTailorResume, checkFreeTailorStatus, generateFreeTailorCoverLetter, renderResumePdf, FreeTailorResult, AuthUser, AuthRequiredError } from "../api";
 import AuthModal from "./AuthModal";
 import ResumeReviewEditor from "./ResumeReviewEditor";
+import { PrivacyNote } from "./icons";
 
 interface Props {
   currentUser: AuthUser | null;
@@ -367,6 +368,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
             Upload your resume and paste a job description. Our AI rewrites your bullets, optimizes keywords, and generates a PDF ready to submit.
             {!currentUser && <span className="text-[#c9a94e]"> Free to try - just create an account.</span>}
           </p>
+          <PrivacyNote compact className="mt-4" />
         </div>
 
         {/* ── Input Phase ── */}

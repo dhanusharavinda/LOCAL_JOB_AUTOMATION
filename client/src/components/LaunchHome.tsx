@@ -2,6 +2,8 @@ import { AuthUser } from "../api";
 import FreeTailorSection from "./FreeTailorSection";
 import { ComingSoonGrid } from "./ComingSoon";
 import { CREATOR } from "./CreatorPage";
+import Ambient, { BrandMark } from "./Ambient";
+import { PrivacyNote, LinkedInIcon, InstagramIcon } from "./icons";
 
 interface Props {
   currentUser: AuthUser;
@@ -18,13 +20,12 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
   const firstName = (currentUser.name || "").split(" ")[0] || "there";
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)]">
-      <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/90 backdrop-blur" style={{ top: "env(safe-area-inset-top, 0px)" }}>
+    <div className="min-h-screen">
+      <Ambient />
+      <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/70 backdrop-blur-xl" style={{ top: "env(safe-area-inset-top, 0px)" }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 shrink-0 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
-              <span className="text-[var(--accent)] text-base">◆</span>
-            </div>
+            <BrandMark />
             <span className="font-display text-lg text-[var(--text-primary)] tracking-wide truncate">GO CANDID8</span>
             <span className="hidden sm:inline-block ml-1 text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
               Early access
@@ -51,11 +52,12 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
         <div className="rounded-2xl border border-[rgba(201,169,78,0.2)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5">
           <h1 className="font-display text-xl sm:text-2xl text-[var(--text-primary)]">
-            Welcome, {firstName} 👋
+            Welcome, {firstName}
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Thank you for being one of the first. Everything here is free to use.
           </p>
+          <PrivacyNote className="mt-4" />
         </div>
       </div>
 
@@ -81,11 +83,11 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
             . Found a bug or have an idea? Message me.
           </p>
           <div className="flex items-center gap-2">
-            <a href={CREATOR.linkedin} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
-              LinkedIn
+            <a href={CREATOR.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all">
+              <LinkedInIcon size={15} /> LinkedIn
             </a>
-            <a href={CREATOR.instagram} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
-              Instagram
+            <a href={CREATOR.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all">
+              <InstagramIcon size={15} /> Instagram
             </a>
           </div>
         </div>

@@ -3,6 +3,8 @@ import { AuthUser, redeemInvite } from "../api";
 import { supabase } from "../supabaseClient";
 import { extractInviteToken, clearStoredInvite } from "../invite";
 import { CREATOR } from "./CreatorPage";
+import Ambient, { BrandMark } from "./Ambient";
+import { ClockIcon, TicketIcon, LinkedInIcon, PrivacyNote } from "./icons";
 
 interface Props {
   currentUser: AuthUser;
@@ -77,13 +79,12 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
   const firstName = (currentUser.name || "").split(" ")[0] || "there";
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
+    <div className="min-h-screen flex flex-col">
+      <Ambient variant={expired ? "warm" : "default"} />
       <header className="shrink-0 px-5 sm:px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
-              <span className="text-[var(--accent)] text-base">◆</span>
-            </div>
+            <BrandMark />
             <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
           </div>
           <button
@@ -96,7 +97,7 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
       </header>
 
       <div className="flex-1 flex items-center justify-center px-5 sm:px-6 pb-20">
-        <div className="w-full max-w-lg bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 sm:p-8">
+        <div className="w-full max-w-lg bg-[var(--bg-raised)]/80 backdrop-blur-xl border border-[var(--border-default)] rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/40">
           {redeeming ? (
             <div className="py-10 flex flex-col items-center gap-3 text-center">
               <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
@@ -105,7 +106,13 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
           ) : (
             <>
               <div className="text-center">
-                <div className="text-4xl mb-3" aria-hidden>{expired ? "⏳" : "👋"}</div>
+                <div className={`mx-auto mb-4 w-16 h-16 rounded-2xl border flex items-center justify-center ${
+                  expired
+                    ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                    : "bg-[var(--accent-muted)] border-[rgba(201,169,78,0.3)] text-[var(--accent)]"
+                }`}>
+                  {expired ? <ClockIcon size={28} /> : <TicketIcon size={28} />}
+                </div>
                 <h1 className="font-display text-2xl text-[var(--text-primary)] mb-2">
                   {expired ? "Your free early access has ended" : `Almost there, ${firstName}`}
                 </h1>
@@ -155,11 +162,13 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
                   rel="noopener noreferrer"
                   className="mt-3 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
-                  Message {CREATOR.name.split(" ")[0]} on LinkedIn
+                  <LinkedInIcon size={16} /> Message {CREATOR.name.split(" ")[0]} on LinkedIn
                 </a>
               </div>
 
-              <p className="mt-6 text-center text-xs text-[var(--text-ghost)]">
+              <PrivacyNote compact className="mt-6" />
+
+              <p className="mt-4 text-center text-xs text-[var(--text-ghost)]">
                 Signed in as <span className="font-mono">{currentUser.email}</span>
               </p>
             </>

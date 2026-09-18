@@ -3,6 +3,8 @@ import { checkInvite, InviteCheck } from "../api";
 import { extractInviteToken, storeInvite, clearStoredInvite } from "../invite";
 import { ComingSoonGrid } from "./ComingSoon";
 import { CREATOR } from "./CreatorPage";
+import Ambient, { BrandMark } from "./Ambient";
+import { TicketIcon, CheckIcon, ClockIcon, SparkleIcon, LinkedInIcon, PrivacyNote } from "./icons";
 
 interface Props {
   /** Token from the invite link (URL or localStorage), if any. */
@@ -63,13 +65,12 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
   const invalidReason = check && !check.valid ? check.reason : null;
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
+    <div className="min-h-screen flex flex-col">
+      <Ambient />
       <header className="shrink-0 px-5 sm:px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
-              <span className="text-[var(--accent)] text-base">◆</span>
-            </div>
+            <BrandMark />
             <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
           </div>
           <button
@@ -85,7 +86,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
         <div className="max-w-xl mx-auto pt-6 sm:pt-12">
           {/* ── Invite link present ── */}
           {inviteToken && (
-            <div className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6 sm:p-8 text-center">
+            <div className="bg-[var(--bg-raised)]/80 backdrop-blur-xl border border-[var(--border-default)] rounded-3xl p-6 sm:p-8 text-center shadow-2xl shadow-black/40">
               {checking && (
                 <div className="py-8 flex flex-col items-center gap-3">
                   <div className="w-7 h-7 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
@@ -105,7 +106,9 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
 
               {!checking && check?.valid && (
                 <>
-                  <div className="text-4xl mb-3" aria-hidden>🎉</div>
+                  <div className="mx-auto mb-4 w-16 h-16 rounded-2xl border border-[rgba(201,169,78,0.3)] bg-[var(--accent-muted)] flex items-center justify-center text-[var(--accent)]" style={{ boxShadow: "0 0 40px rgba(201,169,78,0.18)" }}>
+                    <TicketIcon size={28} />
+                  </div>
                   <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-primary)] mb-2">You're invited</h1>
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
                     You've got <span className="text-[var(--accent)] font-semibold">free access</span> to GO CANDID8.
@@ -116,9 +119,9 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                     <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-2">Included now</div>
                     <p className="text-sm text-[var(--text-primary)] font-medium">AI Resume Tailor</p>
                     <ul className="mt-2 space-y-1.5 text-sm text-[var(--text-secondary)]">
-                      <li className="flex gap-2"><span className="text-[var(--accent)]">✓</span>Rewrites your resume for any job description in seconds</li>
-                      <li className="flex gap-2"><span className="text-[var(--accent)]">✓</span>Live editor to accept, change, or add anything</li>
-                      <li className="flex gap-2"><span className="text-[var(--accent)]">✓</span>Download a clean PDF, plus an optional cover letter</li>
+                      <li className="flex gap-2.5 items-start"><CheckIcon size={16} className="text-[var(--accent)] shrink-0 mt-0.5" />Rewrites your resume for any job description in seconds</li>
+                      <li className="flex gap-2.5 items-start"><CheckIcon size={16} className="text-[var(--accent)] shrink-0 mt-0.5" />Live editor to accept, change, or add anything</li>
+                      <li className="flex gap-2.5 items-start"><CheckIcon size={16} className="text-[var(--accent)] shrink-0 mt-0.5" />Download a clean PDF, plus an optional cover letter</li>
                     </ul>
                   </div>
 
@@ -130,12 +133,15 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                       I already have an account
                     </button>
                   </div>
+                  <PrivacyNote className="mt-5 text-left" />
                 </>
               )}
 
               {!checking && invalidReason && (
                 <>
-                  <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300 text-xl" aria-hidden>!</div>
+                  <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300">
+                    <ClockIcon size={24} />
+                  </div>
                   <h1 className="font-display text-2xl text-[var(--text-primary)] mb-2">
                     {invalidReason === "used" ? "This invite has already been used" : invalidReason === "revoked" ? "This invite was cancelled" : "This invite link isn't valid"}
                   </h1>
@@ -163,8 +169,8 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
           {!inviteToken && (
             <>
               <div className="text-center">
-                <span className="inline-block text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.25)] px-3 py-1 rounded-full mb-4">
-                  Invite-only early access
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.25)] px-3 py-1.5 rounded-full mb-5">
+                  <SparkleIcon size={12} /> Invite-only early access
                 </span>
                 <h1 className="font-display text-3xl sm:text-4xl text-[var(--text-primary)] mb-3 leading-tight">
                   Tailor your resume to any job in seconds
@@ -174,7 +180,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                 </p>
               </div>
 
-              <div className="mt-8 bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-6">
+              <div className="mt-8 bg-[var(--bg-raised)]/80 backdrop-blur-xl border border-[var(--border-default)] rounded-3xl p-6 shadow-2xl shadow-black/40">
                 <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">How to get your invite</h2>
                 <ol className="space-y-3">
                   {[
@@ -197,7 +203,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                     rel="noopener noreferrer"
                     className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0a66c2] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
                   >
-                    Message me on LinkedIn
+                    <LinkedInIcon size={16} /> Message me on LinkedIn
                   </a>
                   {LAUNCH_POST_URL && (
                     <a
@@ -237,6 +243,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                 Already have access?{" "}
                 <button onClick={onSignIn} className="text-[var(--accent)] hover:underline font-medium">Sign in</button>
               </p>
+              <PrivacyNote compact className="mt-5" />
               <p className="text-center text-sm text-[var(--text-tertiary)] mt-2">
                 Built by{" "}
                 <button onClick={onOpenCreator} className="text-[var(--accent)] hover:underline font-medium">{CREATOR.name}</button>
