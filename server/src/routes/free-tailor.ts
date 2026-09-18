@@ -53,11 +53,16 @@ function ensureQuotaSchema(): Promise<boolean> {
   if (!quotaSchema) {
     quotaSchema = (async () => {
       try {
+        // Lock timeout for the same reason as access.ts: an ALTER that
+        // queues would drag every query on these tables down with it.
+        await sql`SET lock_timeout = '4s'`;
         await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'tailor'`;
         await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tailor_limit INTEGER`;
+        await sql`RESET lock_timeout`;
         return true;
       } catch (err: any) {
         console.error("[free-tailor] ensureQuotaSchema failed:", err?.message || err);
+        try { await sql`RESET lock_timeout`; } catch { /* connection may be gone */ }
         quotaSchema = null;
         return false;
       }
@@ -73,14 +78,16 @@ async function limitFor(userId: string, email?: string): Promise<number> {
   // server-side - the client doesn't know about the admin bypass and
   // doesn't need to.
   if (isAdmin(email)) return ADMIN_QUOTA;
-  if (!(await ensureQuotaSchema())) return DEFAULT_DAILY_LIMIT;
   try {
     const rows = await sql<{ tailor_limit: number | null }[]>`
       SELECT tailor_limit FROM profiles WHERE id = ${userId} LIMIT 1
     `;
     const override = rows[0]?.tailor_limit;
     return typeof override === "number" && override >= 0 ? override : DEFAULT_DAILY_LIMIT;
-  } catch {
+  } catch (err: any) {
+    // Column not created yet: use the default and set it up in the
+    // background rather than making the user wait on DDL.
+    if (err?.code === "42703") void ensureQuotaSchema();
     return DEFAULT_DAILY_LIMIT;
   }
 }
@@ -113,7 +120,6 @@ async function ensureTable(): Promise<void> {
 
 async function countUsedToday(userId: string, kind: "tailor" | "cover_letter" = "tailor"): Promise<number> {
   try {
-    await ensureQuotaSchema();
     const rows = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM free_tailor_log
        WHERE user_id = ${userId}
@@ -121,7 +127,8 @@ async function countUsedToday(userId: string, kind: "tailor" | "cover_letter" = 
          AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
     `;
     return parseInt(rows[0]?.count || "0", 10);
-  } catch {
+  } catch (err: any) {
+    if (err?.code === "42703") void ensureQuotaSchema();
     await ensureTable();
     return 0;
   }

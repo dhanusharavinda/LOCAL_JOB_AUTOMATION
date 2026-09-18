@@ -60,6 +60,14 @@ export function ensureInviteSchema(): Promise<boolean> {
   if (!schemaPromise) {
     schemaPromise = (async () => {
       try {
+        // ADD COLUMN IF NOT EXISTS still takes an ACCESS EXCLUSIVE lock
+        // even when the column is already there. Without a lock timeout
+        // it waits behind any other session touching the table, and
+        // every later read of profiles then queues behind IT: one idle
+        // transaction is enough to hang every signed-in request. Fail
+        // fast instead; the next boot retries.
+        await sql`SET lock_timeout = '4s'`;
+        await sql`SET statement_timeout = '15s'`;
         await sql`
           CREATE TABLE IF NOT EXISTS invite_links (
             id BIGSERIAL PRIMARY KEY,
@@ -76,10 +84,13 @@ export function ensureInviteSchema(): Promise<boolean> {
         await sql`ALTER TABLE invite_links ENABLE ROW LEVEL SECURITY`;
         await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMPTZ`;
         await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS invite_id BIGINT`;
+        await sql`RESET lock_timeout`;
+        await sql`RESET statement_timeout`;
         return true;
       } catch (err: any) {
         console.error("[access] ensureInviteSchema failed:", err?.message || err);
-        schemaPromise = null; // retry on a later request
+        try { await sql`RESET lock_timeout`; await sql`RESET statement_timeout`; } catch { /* connection may be gone */ }
+        schemaPromise = null; // retry on a later boot / admin call
         return false;
       }
     })();

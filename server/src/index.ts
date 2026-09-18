@@ -44,7 +44,7 @@ import { parsePdfWithLinks, parseDocxWithLinks } from "./parse-links";
 import { requireAuth } from "./middleware/auth";
 import { ensureDbConnection, sql } from "./db";
 import { startSupabaseKeepalive } from "./keepalive";
-import { requireLaunchAccess } from "./access";
+import { requireLaunchAccess, ensureInviteSchema } from "./access";
 import invitesRouter, { checkInviteHandler } from "./routes/invites";
 
 const app = express();
@@ -411,6 +411,10 @@ const server = app.listen(PORT, async () => {
   // Keep the Supabase free-tier project from auto-pausing (7-day
   // inactivity window): ping the DB + API gateway every 6 hours.
   startSupabaseKeepalive();
+  // Create the invite / quota columns once, here, instead of on the
+  // first authenticated request. Not awaited: the API serves fine
+  // without it (queries fall back when a column is missing).
+  void ensureInviteSchema();
   // Fire the DB connectivity check in the background so the port binds
   // immediately (useful for health probes) but the operator sees a clear
   // log line if the Postgres connection is misconfigured.

@@ -400,6 +400,10 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       setLoading(false);
       return;
     }
+    // Safety net: if the API stops responding mid-flight the promise
+    // never settles and this page used to spin forever. After 20s we
+    // render with defaults instead of leaving a dead spinner on screen.
+    const settleTimer = window.setTimeout(() => setLoading(false), 20_000);
     fetchSettings()
       .then((data) => {
         setConfig(data.config as PipelineConfig);
@@ -436,7 +440,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           ENABLE_COVER_LETTER: false, ENABLE_WHY_FIT: false,
         } as PipelineConfig);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { window.clearTimeout(settleTimer); setLoading(false); });
 
     // Restore pipeline state (running or completed logs from previous view)
     fetch("/api/pipeline/logs").then((r) => r.json()).then((data: any) => {

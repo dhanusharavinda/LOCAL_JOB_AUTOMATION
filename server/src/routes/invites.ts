@@ -228,7 +228,6 @@ router.post("/users/:userId/limit", async (req: Request, res: Response) => {
     ? null
     : Math.min(500, Math.max(0, parseInt(String(raw), 10) || 0));
   try {
-    await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tailor_limit INTEGER`;
     const rows = await sql<{ tailor_limit: number | null }[]>`
       UPDATE profiles SET tailor_limit = ${limit}
        WHERE id = ${req.params.userId}

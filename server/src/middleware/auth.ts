@@ -125,18 +125,29 @@ async function tryInternalAuth(req: Request): Promise<AuthUser | null> {
   }
 }
 
-/** Read one profile, including access_expires_at when that column exists. */
+/**
+ * Read one profile, including access_expires_at when that column exists.
+ *
+ * This runs on EVERY authenticated request, so it never waits on schema
+ * setup: it just asks for the column and falls back if Postgres says it
+ * doesn't exist yet (42703). Awaiting DDL here previously meant one
+ * locked ALTER could hang the entire signed-in app.
+ */
 async function selectProfile(userId: string): Promise<AuthUser | null> {
-  const hasAccessCol = await ensureInviteSchema();
-  const rows = hasAccessCol
-    ? await sql<AuthUser[]>`
-        SELECT id, email, name, plan, onboarded_at, approval_status, access_expires_at
-          FROM profiles WHERE id = ${userId} LIMIT 1
-      `
-    : await sql<AuthUser[]>`
-        SELECT id, email, name, plan, onboarded_at, approval_status
-          FROM profiles WHERE id = ${userId} LIMIT 1
-      `;
+  let rows: AuthUser[];
+  try {
+    rows = await sql<AuthUser[]>`
+      SELECT id, email, name, plan, onboarded_at, approval_status, access_expires_at
+        FROM profiles WHERE id = ${userId} LIMIT 1
+    `;
+  } catch (err: any) {
+    if (err?.code !== "42703") throw err; // only "column does not exist"
+    void ensureInviteSchema(); // create it in the background, don't wait
+    rows = await sql<AuthUser[]>`
+      SELECT id, email, name, plan, onboarded_at, approval_status
+        FROM profiles WHERE id = ${userId} LIMIT 1
+    `;
+  }
   const row = rows[0];
   if (!row) return null;
   return { ...row, plan: coercePlan(row.plan) };
