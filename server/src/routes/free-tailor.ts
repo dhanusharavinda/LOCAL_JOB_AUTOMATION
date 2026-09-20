@@ -7,6 +7,7 @@ import { capWords, JD_WORD_CAP } from "../text";
 import { isAdmin } from "./auth";
 import { ATS_ENGINE_BLOCK } from "../prompts/ats-engine";
 import { bannedWordsBlock, countBannedPhrases } from "../prompts/banned-words";
+import { normalizeResumeData } from "../resume-shape";
 
 // Admins get an effectively unlimited daily count for the free-tailor
 // hook. We don't say "Infinity" because the client renders the number,
@@ -314,7 +315,7 @@ router.post("/", async (req: Request, res: Response) => {
     // 3 degrees + 5 roles, a 6000-char clamp silently drops the later
     // entries, which is exactly the "only 1 education shows up" bug.
     // 16000 chars is roughly 4000 tokens, well within the context budget.
-    const resume = resumeText.slice(0, 16000);
+    const resume = resumeText.slice(0, 24000);
     const jd = capWords(jobDescription, JD_WORD_CAP);
 
     // Rough counts nudge the model to return the correct number of
@@ -338,11 +339,20 @@ router.post("/", async (req: Request, res: Response) => {
       ],
       response_format: { type: "json_object" },
       temperature: 0.6,
-      // Generous ceiling - a 3-degree / 5-role resume can easily exceed
-      // the default cap, which manifests as truncated JSON (the model
-      // hits the limit mid-array and we only get the first few entries).
-      max_tokens: 4000,
+      // A long resume returns both the original AND improved text for
+      // every bullet, so the old 4000 ceiling could be hit mid-array.
+      // The JSON then fails to parse and the whole run is lost, so the
+      // cap is generous; unused headroom costs nothing.
+      max_tokens: 8000,
     });
+
+    if (completion.choices[0].finish_reason === "length") {
+      console.error("[free-tailor] output hit the token cap; resume too long for one pass");
+      res.status(500).json({
+        error: "Your resume is unusually long, so the tailored copy got cut off. Trim it a little and try again.",
+      });
+      return;
+    }
 
     const raw = completion.choices[0].message.content || "{}";
     // Measure what still got through. Not fatal (the review editor lets
@@ -359,8 +369,11 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
-    // The AI may return { resumeData: { ... } } or just { personalInfo, ... }
-    const inner = resumeData.resumeData || resumeData;
+    // The AI may return { resumeData: { ... } } or just { personalInfo, ... }.
+    // Normalising here means the section-loss guard below, the review
+    // editor and the PDF all read the same canonical shape, whichever
+    // field names the model happened to pick this run.
+    const inner = normalizeResumeData(resumeData.resumeData || resumeData);
     if (!inner.personalInfo) {
       res.status(500).json({ error: "AI output is missing required resume fields." });
       return;
@@ -413,6 +426,28 @@ router.post("/", async (req: Request, res: Response) => {
       console.warn("[free-tailor] resume text lacks canonical section keywords", {
         resumeChars: resumeText.length,
       });
+    }
+
+    // ── Section-loss guard ───────────────────────────────────────────
+    // With an awkward PDF parse (two columns, unusual headings) the model
+    // sometimes drops a whole section, and "where did my certifications
+    // go" is the loudest possible bug. Check what the resume clearly
+    // contains against what came back, and fetch anything missing.
+    const lost = missingSections(resumeText, inner);
+    if (lost.length > 0) {
+      console.warn("[free-tailor] sections missing from output:", lost.join(", "));
+      try {
+        const recovered = await recoverSections(openai, resume, lost);
+        for (const key of lost) {
+          const rows = (recovered as any)[key];
+          if (Array.isArray(rows) && rows.length > 0) (inner as any)[key] = rows;
+        }
+        console.warn("[free-tailor] recovered:", lost.map((k) => `${k}=${((inner as any)[k] || []).length}`).join(", "));
+      } catch (err: any) {
+        // Never fail the whole tailor over this; the review editor lets
+        // the user add anything that is still missing.
+        console.error("[free-tailor] section recovery failed:", err?.message || err);
+      }
     }
 
     // Match the output page count to the uploaded resume's page count:
@@ -714,6 +749,68 @@ Return the JSON now.`;
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
+
+/**
+ * Sections the resume plainly contains (it has the heading, or the
+ * telltale shape) but the tailored JSON came back without.
+ *
+ * Deliberately conservative: it only reports a section as lost when the
+ * output has NOTHING for it, so a legitimately short resume never
+ * triggers a pointless extra call.
+ */
+export function missingSections(resumeText: string, out: any): Array<"experience" | "certifications" | "projects" | "education"> {
+  const text = resumeText || "";
+  const has = (re: RegExp) => re.test(text);
+  const empty = (v: any) => !Array.isArray(v) || v.length === 0;
+  const lost: Array<"experience" | "certifications" | "projects" | "education"> = [];
+
+  // Headings, with or without their own line, plus common synonyms.
+  if (empty(out?.experience) && has(/\b(work\s+experience|professional\s+experience|employment(\s+history)?|experience)\b/i)) lost.push("experience");
+  if (empty(out?.certifications) && has(/\b(certifications?|licen[sc]es?|credentials)\b/i)) lost.push("certifications");
+  if (empty(out?.projects) && has(/\bprojects?\b/i)) lost.push("projects");
+  if (empty(out?.education) && has(/\beducation\b/i)) lost.push("education");
+  return lost;
+}
+
+/**
+ * Second, narrow call: pull the missing sections out of the resume
+ * VERBATIM. No tailoring here on purpose. Getting the candidate's real
+ * certifications and roles back on the page matters far more than having
+ * them keyword-optimised, and verbatim extraction cannot invent history.
+ * Bullets come back as originals (improved: null), so the review editor
+ * shows them as the user's own text, ready to accept or edit.
+ */
+export async function recoverSections(openai: OpenAI, resumeText: string, sections: string[]): Promise<any> {
+  const shapes: Record<string, string> = {
+    experience: '"experience": [{ "title": string, "company": string, "date": string, "location": string|null, "bulletPoints": [{ "original": string, "improved": null, "accepted": false }] }]',
+    certifications: '"certifications": [{ "name": string, "issuer": string|null, "date": string|null }]',
+    projects: '"projects": [{ "title": string, "link": string|null, "date": string|null, "location": string|null, "bulletPoints": [{ "original": string, "improved": null, "accepted": false }] }]',
+    education: '"education": [{ "institution": string, "degree": string, "date": string, "gpa": string|null }]',
+  };
+  const wanted = sections.filter((k) => shapes[k]);
+  const sys =
+    "Extract the requested sections from this resume EXACTLY as written. " +
+    "Copy names, employers, job titles, dates, certification names and issuers verbatim. " +
+    "Do NOT rewrite, summarise, translate, reorder or invent anything. If a field is absent, use null. " +
+    "Include EVERY entry you find, not just the first. Return STRICT JSON with only these keys:\n" +
+    wanted.map((k) => shapes[k]).join(",\n");
+
+  const completion = await openai.chat.completions.create({
+    model: TAILOR_CHAT_MODEL,
+    messages: [
+      { role: "system", content: sys },
+      { role: "user", content: "Resume:\n\n" + resumeText + "\n\nReturn the JSON now." },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0,
+    max_tokens: 3000,
+  });
+  try {
+    return JSON.parse(completion.choices[0]?.message?.content || "{}");
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Resume tailoring prompt. Mirrors the pipeline's 1-10 intensity scale

@@ -1,4 +1,5 @@
 import puppeteer, { Browser } from "puppeteer";
+import { normalizeResumeData } from "./resume-shape";
 
 let browser: Browser | null = null;
 let launching: Promise<Browser> | null = null;
@@ -122,7 +123,10 @@ function urlDisplay(url: string): string {
   return url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
 }
 
-function buildResumeHtml(data: any): string {
+function buildResumeHtml(raw: any): string {
+  // Accept the shape variants the model drifts into rather than rendering
+  // an empty section. See server/src/resume-shape.ts.
+  const data = normalizeResumeData(raw);
   const p = data.personalInfo || {};
   const summary = data.summary || "";
   const education = data.education || [];
@@ -531,6 +535,18 @@ async function renderPdf(html: string, targetPages: number): Promise<Buffer> {
         body.style.fontSize = (current * s) + "px";
       }, scale);
       await new Promise((r) => setTimeout(r, 60));
+      contentHeight = await measure();
+    }
+
+    // How many pages the content ACTUALLY needs after all the shrinking.
+    // Content that still overflows the budget gets the pages it needs (up
+    // to 3) instead of being cut off. Spilling onto a second page is a
+    // cosmetic problem; dropping someone's experience or certifications
+    // off the bottom of the page is a broken resume, and the trailing
+    // sections are exactly the ones a hard clip would eat.
+    const neededPages = Math.min(3, Math.max(targetPages, Math.ceil(contentHeight / letterHeightPx - 0.02)));
+    if (neededPages > targetPages) {
+      console.warn(`[pdf] content needs ${neededPages} pages at the ${MIN_SCALE}x floor (budget was ${targetPages}); keeping the overflow rather than clipping it`);
     }
 
     const pdfUint8 = await page.pdf({
@@ -538,10 +554,11 @@ async function renderPdf(html: string, targetPages: number): Promise<Buffer> {
       printBackground: true,
       tagged: true,
       margin: { top: "0", bottom: "0", left: "0", right: "0" },
-      // Cap output at the input's page count: 1 page in -> "1", 2 -> "1-2".
-      // The shrink passes above keep content within this budget; this range
-      // is the belt-and-suspenders clip for any residual overflow.
-      pageRanges: `1-${targetPages}`,
+      // Normally this is the input's page count (1 page in -> "1"), which
+      // the shrink passes above have already fitted. It only widens when
+      // the content genuinely does not fit at the readability floor, so
+      // nothing is ever silently cut off.
+      pageRanges: `1-${neededPages}`,
     });
     return Buffer.from(pdfUint8);
   } finally {
