@@ -626,12 +626,12 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
               </p>
               {intensity >= 7 && intensity <= 9 && (
                 <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300 leading-relaxed">
-                  <strong className="font-semibold">Fabrication is on at this level.</strong> The AI invents plausible metrics, tools, and bullets to match the job. Review every change in the editor: anything it added is something you must be able to defend in an interview. (Employers, titles, dates, and certifications are never altered, at any level.)
+                  <strong className="font-semibold">Fabrication is on at this level.</strong> The AI invents plausible metrics, tools, and bullets to match the job. Anything it adds is a claim you will have to defend. Interviewers probe specifics, and reference checks catch the rest, so a number you cannot explain is worse than no number at all. Read every change in the editor and delete anything you could not talk about confidently for two minutes. (Employers, titles, dates, and certifications are never altered, at any level.)
                 </div>
               )}
               {intensity === 10 && (
                 <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 leading-relaxed">
-                  <strong className="font-semibold">Full Mirror mode.</strong> Intensity 10 simulates how an ATS screens you and pushes for 90%+ keyword match - mirroring the JD's exact wording <em>and</em> fabricating plausible metrics, tools, and projects to get there. Your machine ATS score goes way up, but every added line is something you must be ready to defend in an interview, and heavy mirroring is visible to human recruiters. Use the review editor to check each change. (Employers, titles, dates, and certifications are never altered, at any level.)
+                  <strong className="font-semibold">Full Mirror mode. Not recommended for most applications.</strong> Intensity 10 pushes for 90%+ keyword match by mirroring the JD's exact wording and fabricating metrics, tools, and projects to get there. Your machine score goes up, but heavy mirroring reads as copied to a human recruiter, and every added line is one you must be ready to defend. Claiming skills you do not actually have is misrepresentation rather than tailoring, and it usually falls apart in the interview or at reference check. Read every change in the editor before you download. (Employers, titles, dates, and certifications are never altered, at any level.)
                 </div>
               )}
             </div>

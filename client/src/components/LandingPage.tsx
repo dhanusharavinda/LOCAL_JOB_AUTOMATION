@@ -1790,7 +1790,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                       </p>
                       {config.TAILORING_INTENSITY >= 7 && config.TAILORING_INTENSITY <= 9 && (
                         <div className="mt-3 px-3 py-2.5 rounded-lg text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300 leading-relaxed">
-                          <strong className="font-semibold">Fabrication is on at this level.</strong> The AI invents plausible metrics, tools, and bullets to match each job. Anything it added is something you must be able to defend in an interview. Employers, titles, dates, and certifications are never altered.
+                          <strong className="font-semibold">Fabrication is on at this level.</strong> The AI invents plausible metrics, tools, and bullets to match each job. Anything it adds is a claim you will have to defend: interviewers probe specifics, and reference checks catch the rest. Read every change and delete anything you could not talk about confidently for two minutes. Employers, titles, dates, and certifications are never altered.
                         </div>
                       )}
                       {config.TAILORING_INTENSITY === 10 && (
