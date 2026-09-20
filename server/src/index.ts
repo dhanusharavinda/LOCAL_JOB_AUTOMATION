@@ -358,8 +358,21 @@ app.get("/", (_req, res) => {
   });
 });
 
+// Boot time and commit of the running build. Without these, /health
+// returning 200 only proves that SOME server is up, not that the deploy
+// you just pushed is the one answering, which has previously meant
+// debugging a fix that was never actually live. Railway injects
+// RAILWAY_GIT_COMMIT_SHA on every build.
+const STARTED_AT = new Date().toISOString();
+const BUILD_SHA = (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "unknown").slice(0, 7);
+
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    commit: BUILD_SHA,
+    startedAt: STARTED_AT,
+    uptimeSeconds: Math.round(process.uptime()),
+  });
 });
 
 // Unauthenticated keep-alive endpoint for external cron services
