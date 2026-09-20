@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Ambient, { BrandMark } from "./Ambient";
 import { initialUrlParams } from "../urlSnapshot";
+import { authRedirect } from "../site";
 
 /**
  * "Set a new password" screen, reached from the password-reset email.
@@ -121,7 +122,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
     setError(null);
     try {
       const { error: err } = await supabase.auth.resetPasswordForEmail(target, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: authRedirect("reset-password"),
       });
       if (err) throw err;
       setSent(true);

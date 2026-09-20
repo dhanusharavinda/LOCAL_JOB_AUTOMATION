@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { authMe } from "../api";
+import { authRedirect } from "../site";
 
 interface Props {
   onClose: () => void;
@@ -58,7 +59,7 @@ export default function AuthModal({
       if (mode === "forgot") {
         if (!email) throw new Error("Enter your email to receive a reset link");
         const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: authRedirect("reset-password"),
         });
         if (err) throw err;
         setNotice(`Password reset link sent to ${email}. Check your inbox.`);
@@ -76,7 +77,7 @@ export default function AuthModal({
           password,
           options: {
             data: { full_name: name.trim() },
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: authRedirect(""),
           },
         });
         if (err) throw err;

@@ -4,6 +4,7 @@ import {
   adminExtendAccess, adminEndAccess, adminSetTailorLimit, adminBlockUser,
 } from "../api";
 import { CREATOR } from "./CreatorPage";
+import { siteUrl } from "../site";
 
 /**
  * Admin panel for the invite-only launch: generate single-use invite
@@ -13,7 +14,8 @@ import { CREATOR } from "./CreatorPage";
  */
 
 function inviteUrl(token: string): string {
-  return `${window.location.origin}/invite/${token}`;
+  // Always the real domain, never the origin the admin happens to be on.
+  return siteUrl(`invite/${token}`);
 }
 
 /** Ready-to-paste LinkedIn DM. Intro + link + follow ask. */

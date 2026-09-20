@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { authMe, AuthUser, checkInvite } from "../api";
 import { getStoredInvite } from "../invite";
+import { authRedirect } from "../site";
 
 interface Props {
   onNavigateToLanding: () => void;
@@ -69,7 +70,7 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
       if (mode === "forgot") {
         if (!email) throw new Error("Enter your email to receive a reset link");
         const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: authRedirect("reset-password"),
         });
         if (err) throw err;
         setNotice(`Password reset link sent to ${email}. Check your inbox.`);
@@ -87,7 +88,7 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
           password,
           options: {
             data: { full_name: name.trim() },
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: authRedirect(""),
           },
         });
         if (err) throw err;
