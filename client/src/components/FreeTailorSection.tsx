@@ -358,7 +358,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
       <div className="max-w-4xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-10">
-          <span className="inline-block font-mono text-xs uppercase tracking-widest text-[#c9a94e] bg-[#c9a94e]/10 border border-[#c9a94e]/20 px-3 py-1 rounded-full mb-4">
+          <span className="inline-block font-mono text-xs uppercase tracking-widest text-[#f97316] bg-[#f97316]/10 border border-[#f97316]/20 px-3 py-1 rounded-full mb-4">
             {launchMode ? "Included in your early access" : "Free Tool"}
           </span>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-3">
@@ -366,7 +366,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
           </h2>
           <p className="text-[var(--text-secondary)] text-base max-w-xl mx-auto leading-relaxed">
             Upload your resume and paste a job description. Our AI rewrites your bullets, optimizes keywords, and generates a PDF ready to submit.
-            {!currentUser && <span className="text-[#c9a94e]"> Free to try - just create an account.</span>}
+            {!currentUser && <span className="text-[#f97316]"> Free to try - just create an account.</span>}
           </p>
           <PrivacyNote compact className="mt-4" />
         </div>
@@ -408,7 +408,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                         setResumePages(null);
                       }}
                       placeholder={"Paste or type your resume text here...\n\nEverything in this box is exactly what the AI tailors from."}
-                      className="flex-1 w-full bg-[var(--bg-base)] border border-[#c9a94e]/30 rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/60 font-mono resize-none leading-relaxed"
+                      className="flex-1 w-full bg-[var(--bg-base)] border border-[#f97316]/30 rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#f97316]/60 font-mono resize-none leading-relaxed"
                       autoFocus
                     />
                     <div className="flex items-center justify-between gap-2 mt-2">
@@ -432,7 +432,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                             setEditingResume(false);
                           }}
                           disabled={resumeText.trim().length < 50}
-                          className="text-[10px] font-semibold text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-4 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="text-[10px] font-semibold text-[#f97316] bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-[#f97316]/30 px-4 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Done
                         </button>
@@ -448,19 +448,19 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     onClick={() => !parsing && fileRef.current?.click()}
                     className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all py-8 md:py-0 h-auto min-h-[200px] md:h-[280px] ${
                       dragOver
-                        ? "border-[#c9a94e] bg-[#c9a94e]/5"
+                        ? "border-[#f97316] bg-[#f97316]/5"
                         : "border-[var(--border-subtle)] hover:border-[var(--text-ghost)] bg-[var(--bg-base)]"
                     }`}
                   >
                     {parsing ? (
                       <>
-                        <div className="w-8 h-8 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin mb-3" />
+                        <div className="w-8 h-8 border-2 border-[#f97316] border-t-transparent rounded-full animate-spin mb-3" />
                         <p className="text-sm text-[var(--text-secondary)]">Extracting text...</p>
                       </>
                     ) : (
                       <>
-                        <div className="w-14 h-14 rounded-2xl bg-[#c9a94e]/10 border border-[#c9a94e]/20 flex items-center justify-center mb-4">
-                          <svg className="w-7 h-7 text-[#c9a94e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <div className="w-14 h-14 rounded-2xl bg-[#f97316]/10 border border-[#f97316]/20 flex items-center justify-center mb-4">
+                          <svg className="w-7 h-7 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                           </svg>
                         </div>
@@ -476,7 +476,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditingResume(true); }}
-                          className="mt-4 text-xs text-[#c9a94e] hover:text-[#d4b85a] underline underline-offset-2 decoration-[rgba(201,169,78,0.4)] transition-colors"
+                          className="mt-4 text-xs text-[#f97316] hover:text-[#fb923c] underline underline-offset-2 decoration-[rgba(249, 115, 22,0.4)] transition-colors"
                         >
                           or paste your resume text instead
                         </button>
@@ -496,7 +496,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setEditingResume(true)}
-                        className="text-[10px] font-semibold text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-3 py-1.5 rounded-md transition-colors"
+                        className="text-[10px] font-semibold text-[#f97316] bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-[#f97316]/30 px-3 py-1.5 rounded-md transition-colors"
                         title="View and edit the extracted resume text - add, remove, or replace anything before tailoring"
                       >
                         Edit text
@@ -551,7 +551,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                   }}
                   placeholder={"Paste the full job description here...\n\nInclude requirements, responsibilities, and preferred qualifications for best results. Max 1000 words."}
                   rows={12}
-                  className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40 font-mono resize-y leading-relaxed h-[220px] md:h-[280px]"
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#f97316]/40 font-mono resize-y leading-relaxed h-[220px] md:h-[280px]"
                 />
               </div>
             </div>
@@ -571,7 +571,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-display text-base font-bold text-[#c9a94e] tabular-nums w-6 text-right">
+                  <span className="font-display text-base font-bold text-[#f97316] tabular-nums w-6 text-right">
                     {intensity}
                   </span>
                   <span className="text-[10px] text-[var(--text-ghost)]">/ 10</span>
@@ -584,22 +584,22 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                 step={1}
                 value={intensity}
                 onChange={(e) => setIntensity(Number(e.target.value))}
-                className="w-full accent-[#c9a94e] cursor-pointer"
+                className="w-full accent-[#f97316] cursor-pointer"
               />
               <div className="flex items-center justify-between mt-1.5">
-                <span className={`text-[10px] ${intensity <= 2 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                <span className={`text-[10px] ${intensity <= 2 ? "text-[#f97316] font-semibold" : "text-[var(--text-ghost)]"}`}>
                   Light
                 </span>
-                <span className={`text-[10px] ${intensity > 2 && intensity <= 4 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                <span className={`text-[10px] ${intensity > 2 && intensity <= 4 ? "text-[#f97316] font-semibold" : "text-[var(--text-ghost)]"}`}>
                   Blend
                 </span>
-                <span className={`text-[10px] ${intensity > 4 && intensity <= 6 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                <span className={`text-[10px] ${intensity > 4 && intensity <= 6 ? "text-[#f97316] font-semibold" : "text-[var(--text-ghost)]"}`}>
                   Rewrite
                 </span>
-                <span className={`text-[10px] ${intensity > 6 && intensity <= 9 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                <span className={`text-[10px] ${intensity > 6 && intensity <= 9 ? "text-[#f97316] font-semibold" : "text-[var(--text-ghost)]"}`}>
                   Aggressive
                 </span>
-                <span className={`text-[10px] ${intensity === 10 ? "text-[#c9a94e] font-semibold" : "text-[var(--text-ghost)]"}`}>
+                <span className={`text-[10px] ${intensity === 10 ? "text-[#f97316] font-semibold" : "text-[var(--text-ghost)]"}`}>
                   Mirror
                 </span>
               </div>
@@ -658,7 +658,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     }}
                     rows={3}
                     placeholder={'e.g. "Mention Databricks and drop GCP. Weave Databricks into the work experience and project bullets where it fits."'}
-                    className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40 font-mono resize-none leading-relaxed"
+                    className="w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#f97316]/40 font-mono resize-none leading-relaxed"
                   />
                   <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--text-ghost)]">
                     <span>
@@ -723,7 +723,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                 <button
                   onClick={handleTailor}
                   disabled={parsing}
-                  className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20 disabled:opacity-50"
+                  className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#f97316] hover:bg-[#fb923c] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#f97316]/20 disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -738,8 +738,8 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
         {/* ── Tailoring Phase ── */}
         {phase === "tailoring" && (
           <div className="bg-[var(--bg-raised)] border border-[var(--border-default)] rounded-2xl p-12 text-center shadow-2xl">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#c9a94e]/10 border border-[#c9a94e]/20 mb-6">
-              <div className="w-8 h-8 border-3 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#f97316]/10 border border-[#f97316]/20 mb-6">
+              <div className="w-8 h-8 border-3 border-[#f97316] border-t-transparent rounded-full animate-spin" />
             </div>
             <h3 className="font-display text-xl font-bold text-[var(--text-primary)] mb-2">
               Tailoring your resume...
@@ -751,7 +751,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="w-2 h-2 rounded-full bg-[#c9a94e] animate-pulse"
+                  className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse"
                   style={{ animationDelay: `${i * 200}ms` }}
                 />
               ))}
@@ -801,7 +801,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                   )}
                   <button
                     onClick={handleDownloadPdf}
-                    className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20"
+                    className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#f97316] hover:bg-[#fb923c] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-[#f97316]/20"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -815,13 +815,13 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
               <div className="px-6 py-4">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="p-3 rounded-xl bg-[var(--bg-surface)]">
-                    <p className="font-display text-2xl font-bold text-[#c9a94e]">
+                    <p className="font-display text-2xl font-bold text-[#f97316]">
                       {result.resumeData?.experience?.length || 0}
                     </p>
                     <p className="font-mono text-[10px] text-[var(--text-ghost)] uppercase tracking-wider">Roles Optimized</p>
                   </div>
                   <div className="p-3 rounded-xl bg-[var(--bg-surface)]">
-                    <p className="font-display text-2xl font-bold text-[#c9a94e]">
+                    <p className="font-display text-2xl font-bold text-[#f97316]">
                       {(result.resumeData?.experience || []).reduce(
                         (acc: number, exp: any) => acc + (exp.bulletPoints?.filter((b: any) => b.improved)?.length || 0),
                         0
@@ -830,7 +830,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     <p className="font-mono text-[10px] text-[var(--text-ghost)] uppercase tracking-wider">Bullets Rewritten</p>
                   </div>
                   <div className="p-3 rounded-xl bg-[var(--bg-surface)]">
-                    <p className="font-display text-2xl font-bold text-[#c9a94e]">
+                    <p className="font-display text-2xl font-bold text-[#f97316]">
                       {Object.values(result.resumeData?.skills || {}).join(", ").split(",").length}
                     </p>
                     <p className="font-mono text-[10px] text-[var(--text-ghost)] uppercase tracking-wider">Skills Matched</p>
@@ -972,7 +972,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
               const showUpgradeCta = !launchMode && plan === "free";
 
               return (
-                <div className="bg-gradient-to-br from-[#c9a94e]/8 to-transparent border border-[#c9a94e]/20 rounded-2xl p-6 text-center">
+                <div className="bg-gradient-to-br from-[#f97316]/8 to-transparent border border-[#f97316]/20 rounded-2xl p-6 text-center">
                   <h4 className="font-display text-lg font-bold text-[var(--text-primary)] mb-2">
                     {headline}
                   </h4>
@@ -983,7 +983,7 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     {showUpgradeCta && (
                       <button
                         onClick={onNavigateToPricing}
-                        className="font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20"
+                        className="font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#f97316] hover:bg-[#fb923c] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#f97316]/20"
                       >
                         View Plans
                       </button>

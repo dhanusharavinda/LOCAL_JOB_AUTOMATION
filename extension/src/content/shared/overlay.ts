@@ -62,10 +62,10 @@ export function mountOverlay(handlers: OverlayHandlers): OverlayApi {
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = `
     <style>${overlayCss()}</style>
-    <div class="panel" role="dialog" aria-label="GO CANDID8 auto-apply">
+    <div class="panel" role="dialog" aria-label="Tailorly AI auto-apply">
       <div class="header">
         <div class="brand-row">
-          <div class="brand">GO <span class="accent">CANDID8</span></div>
+          <div class="brand">GO <span class="accent">TAILORLY</span></div>
           <span class="bank-chip" data-bank style="display:none" title="Answers saved in your profile bank - pre-fill future applications instantly">
             <span class="bank-icon">📚</span>
             <span class="bank-count" data-bank-count>0</span>

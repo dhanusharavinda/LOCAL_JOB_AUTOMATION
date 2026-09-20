@@ -166,7 +166,7 @@ export default function ContactUsButton() {
                 {CONTACT_EMAIL && (
                   <a
                     href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-                      `[${CATEGORY_LABEL[category]}] GO CANDID8 feedback`
+                      `[${CATEGORY_LABEL[category]}] Tailorly AI feedback`
                     )}&body=${encodeURIComponent(message.trim() || "(write your feedback here)")}`}
                     style={{ ...secondaryBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
                   >

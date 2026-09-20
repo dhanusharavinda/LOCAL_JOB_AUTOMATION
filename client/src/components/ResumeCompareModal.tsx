@@ -513,17 +513,17 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
                         {section.bullets.map((bullet, bulletIdx) => (
                           <div key={bulletIdx} className={`rounded-lg border transition-all ${
                             bullet.accepted
-                              ? "bg-[#c9a94e]/5 border-[#c9a94e]/20"
+                              ? "bg-[#f97316]/5 border-[#f97316]/20"
                               : "bg-[#12151c] border-[rgba(255,255,255,0.06)]"
                           }`}>
                             {/* Suggestion header with toggle */}
                             {bullet.improved && (
                               <div className="flex items-center justify-between px-4 py-2 border-b border-[rgba(255,255,255,0.06)]">
-                                <span className="text-[10px] font-mono font-bold text-[#c9a94e] uppercase tracking-wider">Suggestion</span>
+                                <span className="text-[10px] font-mono font-bold text-[#f97316] uppercase tracking-wider">Suggestion</span>
                                 <button
                                   onClick={() => toggleBullet(secIdx, bulletIdx)}
                                   className={`relative inline-flex items-center w-8 h-4 rounded-full transition-colors shrink-0 ${
-                                    bullet.accepted ? "bg-[#c9a94e]" : "bg-[#2e3148]"
+                                    bullet.accepted ? "bg-[#f97316]" : "bg-[#2e3148]"
                                   }`}
                                 >
                                   <span className={`inline-block w-3 h-3 bg-white rounded-full shadow transition-transform ${
@@ -591,7 +591,7 @@ export default function ResumeCompareModal({ job, onClose, onResumeUpdated }: Pr
               <button
                 onClick={handleApply}
                 disabled={applying || acceptedCount === 0}
-                className="font-mono text-xs font-medium px-4 py-2 rounded-lg transition-colors disabled:bg-[#12151c] disabled:text-[#2e3148] bg-[#c9a94e]/15 text-[#c9a94e] border border-[#c9a94e]/30 hover:bg-[#c9a94e]/25"
+                className="font-mono text-xs font-medium px-4 py-2 rounded-lg transition-colors disabled:bg-[#12151c] disabled:text-[#2e3148] bg-[#f97316]/15 text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/25"
               >
                 {applying ? "Generating PDF..." : applied ? "Re-apply" : `Apply ${acceptedCount} & Generate PDF`}
               </button>

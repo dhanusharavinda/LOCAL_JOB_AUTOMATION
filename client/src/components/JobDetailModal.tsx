@@ -254,7 +254,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               })();
               const grade: string | undefined = breakdown?.letter_grade;
               const tone = grade === "A"
-                ? "bg-[#c9a94e]/10 text-[#c9a94e] border-[#c9a94e]/20"
+                ? "bg-[#f97316]/10 text-[#f97316] border-[#f97316]/20"
                 : grade === "B"
                 ? "bg-[#6775a0]/10 text-[#6775a0] border-[#6775a0]/20"
                 : grade === "C"
@@ -262,7 +262,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 : grade === "D" || grade === "F"
                 ? "bg-[#c45252]/10 text-[#c45252] border-[#c45252]/20"
                 : job.match_score != null && job.match_score >= 8
-                  ? "bg-[#c9a94e]/10 text-[#c9a94e] border-[#c9a94e]/20"
+                  ? "bg-[#f97316]/10 text-[#f97316] border-[#f97316]/20"
                   : job.match_score != null && job.match_score >= 6
                   ? "bg-[#6775a0]/10 text-[#6775a0] border-[#6775a0]/20"
                   : "bg-[#c45252]/10 text-[#c45252] border-[#c45252]/20";
@@ -304,7 +304,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               </span>
             )}
             {job.salary && (
-              <span className="inline-flex items-center gap-1.5 font-mono text-xs text-[#c9a94e] bg-[#12151c] px-2.5 py-1 rounded-lg">
+              <span className="inline-flex items-center gap-1.5 font-mono text-xs text-[#f97316] bg-[#12151c] px-2.5 py-1 rounded-lg">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -338,7 +338,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
             <span className={`font-mono text-xs px-2.5 py-1 rounded-lg ${
               job.deadline
                 ? Math.ceil((new Date(job.deadline).getTime() - Date.now()) / 86400000) <= 7
-                  ? "text-[#c9a94e] bg-[#c9a94e]/10"
+                  ? "text-[#f97316] bg-[#f97316]/10"
                   : "text-[#8b8fa3] bg-[#12151c]"
                 : "text-[#555872] bg-[#12151c]"
             }`}>
@@ -417,7 +417,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           };
 
           const GRADE_COLORS: Record<string, string> = {
-            A: "text-[#c9a94e] bg-[#c9a94e]/15 border-[#c9a94e]/30",
+            A: "text-[#f97316] bg-[#f97316]/15 border-[#f97316]/30",
             B: "text-[#5d9968] bg-[#5d9968]/15 border-[#5d9968]/30",
             C: "text-[#6775a0] bg-[#6775a0]/15 border-[#6775a0]/30",
             D: "text-[#8b8fa3] bg-[#8b8fa3]/15 border-[#8b8fa3]/30",
@@ -425,12 +425,12 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
           };
 
           const barColor = (s: number) =>
-            s >= 4 ? "bg-[#c9a94e]" : s >= 3 ? "bg-[#6775a0]" : s >= 2 ? "bg-[#8b8fa3]" : "bg-[#c45252]";
+            s >= 4 ? "bg-[#f97316]" : s >= 3 ? "bg-[#6775a0]" : s >= 2 ? "bg-[#8b8fa3]" : "bg-[#c45252]";
 
           return (
             <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.06)]">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-xs font-semibold text-[#c9a94e] uppercase tracking-wider">Score Breakdown</span>
+                <span className="font-mono text-xs font-semibold text-[#f97316] uppercase tracking-wider">Score Breakdown</span>
                 <div className="flex items-center gap-2">
                   <span className={`font-display text-2xl font-bold px-3 py-1 rounded-lg border ${GRADE_COLORS[bd.letter_grade] || GRADE_COLORS.C}`}>
                     {bd.letter_grade}
@@ -469,11 +469,11 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               Keyword Match Rate
             </span>
             <span className={`font-mono text-sm font-bold ${
-              job.keyword_match_rate >= 0.7 ? "text-[#5d9968]" : "text-[#c9a94e]"
+              job.keyword_match_rate >= 0.7 ? "text-[#5d9968]" : "text-[#f97316]"
             }`}>
               {Math.round(job.keyword_match_rate * 100)}%
               {job.keyword_match_rate < 0.7 && (
-                <span className="text-[10px] font-normal text-[#c9a94e] ml-1.5">review resume</span>
+                <span className="text-[10px] font-normal text-[#f97316] ml-1.5">review resume</span>
               )}
             </span>
           </div>
@@ -791,7 +791,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowCompare(true)}
-                  className="inline-flex items-center gap-1 font-mono text-[11px] font-medium text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 px-2 py-1 rounded-md transition-colors"
+                  className="inline-flex items-center gap-1 font-mono text-[11px] font-medium text-[#f97316] bg-[#f97316]/10 hover:bg-[#f97316]/20 px-2 py-1 rounded-md transition-colors"
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -821,7 +821,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
               onClick={() => setShowPrep(!showPrep)}
               className="flex items-center justify-between w-full text-left"
             >
-              <span className="font-mono text-xs font-semibold text-[#c9a94e] uppercase tracking-wider flex items-center gap-1.5">
+              <span className="font-mono text-xs font-semibold text-[#f97316] uppercase tracking-wider flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
@@ -842,7 +842,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                         setPrepError("Failed to generate - check your OpenAI key");
                       } finally { setPrepLoading(false); }
                     }}
-                    className="text-[10px] text-[#c9a94e]/60 hover:text-[#c9a94e] transition-colors"
+                    className="text-[10px] text-[#f97316]/60 hover:text-[#f97316] transition-colors"
                   >
                     {prepLoading ? "Generating..." : "Generate"}
                   </button>
@@ -860,10 +860,10 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 {/* Key Themes */}
                 {interviewPrep.roleKeyThemes && interviewPrep.roleKeyThemes.length > 0 && (
                   <div>
-                    <p className="font-mono text-[10px] font-bold text-[#c9a94e] uppercase tracking-wider mb-2">Key Themes (what they WILL probe)</p>
+                    <p className="font-mono text-[10px] font-bold text-[#f97316] uppercase tracking-wider mb-2">Key Themes (what they WILL probe)</p>
                     <div className="flex flex-wrap gap-1.5">
                       {interviewPrep.roleKeyThemes.map((t, i) => (
-                        <span key={i} className="font-mono text-xs font-medium px-2.5 py-1 rounded-lg bg-[#c9a94e]/10 text-[#c9a94e] border border-[#c9a94e]/20">{t}</span>
+                        <span key={i} className="font-mono text-xs font-medium px-2.5 py-1 rounded-lg bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20">{t}</span>
                       ))}
                     </div>
                   </div>
@@ -878,7 +878,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                         <div key={i} className="flex items-start gap-2 p-2.5 bg-[#12151c] rounded-xl border border-[rgba(255,255,255,0.06)]">
                           <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
                             t.depth === "deep" ? "text-red-400 bg-red-500/10 border border-red-500/20" :
-                            t.depth === "working" ? "text-[#c9a94e] bg-[#c9a94e]/10 border border-[#c9a94e]/20" :
+                            t.depth === "working" ? "text-[#f97316] bg-[#f97316]/10 border border-[#f97316]/20" :
                             "text-gray-400 bg-gray-500/10 border border-gray-500/20"
                           }`}>{t.depth}</span>
                           <div>
@@ -1008,7 +1008,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 type="date"
                 defaultValue={job.interview_date || ""}
                 onBlur={(e) => handleDateChange("interview_date", e.target.value)}
-                className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-[#c9a94e]/40 focus:ring-1 focus:ring-[#c9a94e]/20 transition-all"
+                className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-[#f97316]/40 focus:ring-1 focus:ring-[#f97316]/20 transition-all"
               />
               {!job.interview_date && (
                 <p className="text-xs text-gray-600 mt-1">Not scheduled</p>
@@ -1020,7 +1020,7 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
                 type="date"
                 defaultValue={job.offer_date || ""}
                 onBlur={(e) => handleDateChange("offer_date", e.target.value)}
-                className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-[#c9a94e]/40 focus:ring-1 focus:ring-[#c9a94e]/20 transition-all"
+                className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-[#f97316]/40 focus:ring-1 focus:ring-[#f97316]/20 transition-all"
               />
               {!job.offer_date && (
                 <p className="text-xs text-gray-600 mt-1"> - </p>
@@ -1036,13 +1036,13 @@ export default function JobDetailModal({ job, onClose, onUpdate, onDelete }: Pro
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Interview prep, contact info, thoughts..."
-            className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-xl p-3.5 font-body text-sm text-gray-200 resize-none h-28 focus:outline-none focus:border-[#c9a94e]/40 focus:ring-1 focus:ring-[#c9a94e]/20 transition-all placeholder:text-gray-700"
+            className="w-full bg-[#12151c] border border-[rgba(255,255,255,0.06)] rounded-xl p-3.5 font-body text-sm text-gray-200 resize-none h-28 focus:outline-none focus:border-[#f97316]/40 focus:ring-1 focus:ring-[#f97316]/20 transition-all placeholder:text-gray-700"
           />
           <div className="flex justify-between items-center mt-3">
             <button
               onClick={handleSaveNotes}
               disabled={saving}
-              className="font-mono text-xs font-medium bg-[#c9a94e]/15 text-[#c9a94e] border border-[#c9a94e]/30 hover:bg-[#c9a94e]/25 px-4 py-2 rounded-lg disabled:opacity-50 transition-colors"
+              className="font-mono text-xs font-medium bg-[#f97316]/15 text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/25 px-4 py-2 rounded-lg disabled:opacity-50 transition-colors"
             >
               {saving ? "Saving..." : "Save Notes"}
             </button>

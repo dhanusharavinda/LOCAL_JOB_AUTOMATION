@@ -960,6 +960,8 @@ export interface AuthUser {
   // The server enforces the same rules; these are display hints.
   access_state?: AccessState;
   access_expires_at?: string | null;
+  // Null means access was never deliberately granted, so there is none.
+  access_granted_at?: string | null;
   features?: LaunchFeatures;
 }
 

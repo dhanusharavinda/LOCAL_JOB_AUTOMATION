@@ -156,7 +156,7 @@ router.get("/export.ics", requireAuth, async (req: Request, res: Response) => {
     const lines = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//GO CANDID8//Career Events//EN",
+      "PRODID:-//Tailorly AI//Career Events//EN",
     ];
 
     function escapeICS(s: string | null | undefined): string {

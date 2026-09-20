@@ -113,8 +113,8 @@ function looksLikeJobApplication(): boolean {
 // page doesn't look like a job application to our heuristic.
 // Idempotent: the listener self-disables after the first hit so a
 // rapid re-injection (popup clicked twice) doesn't double-mount.
-if (typeof chrome !== "undefined" && chrome.runtime?.onMessage && !(window as any).__GO_CANDID8_GENERIC_MANUAL__) {
-  (window as any).__GO_CANDID8_GENERIC_MANUAL__ = true;
+if (typeof chrome !== "undefined" && chrome.runtime?.onMessage && !(window as any).__GO_TAILORLY_GENERIC_MANUAL__) {
+  (window as any).__GO_TAILORLY_GENERIC_MANUAL__ = true;
   chrome.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
     if (msg?.type === "go-candid8/manual-bootstrap") {
       bootstrap(adapter).catch(() => { /* surfaced by overlay */ });

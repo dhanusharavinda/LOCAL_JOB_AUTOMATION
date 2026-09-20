@@ -102,6 +102,7 @@ router.post("/redeem", async (req: Request, res: Response) => {
            SET approval_status   = 'approved',
                approved_at       = NOW(),
                access_expires_at = NOW() + make_interval(days => ${inv.access_days}::int),
+               access_granted_at = NOW(),
                invite_id         = ${inv.id}
          WHERE id = ${user.id}
         RETURNING access_expires_at
@@ -205,7 +206,8 @@ router.post("/users/:userId/extend", async (req: Request, res: Response) => {
     const rows = await sql<{ access_expires_at: Date }[]>`
       UPDATE profiles
          SET access_expires_at = GREATEST(COALESCE(access_expires_at, NOW()), NOW()) + make_interval(days => ${days}::int),
-             approval_status   = 'approved'
+             approval_status   = 'approved',
+             access_granted_at = COALESCE(access_granted_at, NOW())
        WHERE id = ${req.params.userId}
       RETURNING access_expires_at
     `;
@@ -254,7 +256,9 @@ router.post("/users/:userId/block", async (req: Request, res: Response) => {
   const blocked = (req.body || {}).blocked !== false;
   try {
     const rows = await sql<{ approval_status: string }[]>`
-      UPDATE profiles SET approval_status = ${blocked ? "rejected" : "approved"}
+      UPDATE profiles
+         SET approval_status   = ${blocked ? "rejected" : "approved"},
+             access_granted_at = ${blocked ? null : sql`COALESCE(access_granted_at, NOW())`}
        WHERE id = ${req.params.userId}
       RETURNING approval_status
     `;

@@ -754,7 +754,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       case "error": return "text-red-400";
       case "job": return "text-blue-400";
       case "skip": return "text-gray-500";
-      case "complete": return "text-[#c9a94e]";
+      case "complete": return "text-[#f97316]";
       case "banner": return "text-cyan-300";
       default: return "text-gray-400";
     }
@@ -789,12 +789,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
       {/* ── Pipeline Completion Toast ── */}
       {showCompletionToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-[slideDown_0.3s_ease-out]">
-          <div className="flex items-center gap-3 bg-[#12151c] border border-[rgba(201,169,78,0.3)] rounded-xl px-5 py-3 shadow-2xl shadow-[rgba(201,169,78,0.08)]">
-            <div className="w-2 h-2 rounded-full bg-[#c9a94e] animate-pulse shrink-0" />
+          <div className="flex items-center gap-3 bg-[#12151c] border border-[rgba(249, 115, 22,0.3)] rounded-xl px-5 py-3 shadow-2xl shadow-[rgba(249, 115, 22,0.08)]">
+            <div className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse shrink-0" />
             <span className="text-sm text-gray-200 font-medium">Pipeline finished. Your jobs are ready.</span>
             <button
               onClick={() => { setShowCompletionToast(false); onNavigateToDashboard(); }}
-              className="font-mono text-xs font-semibold uppercase tracking-wider text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-3 py-1.5 rounded-lg transition-all shrink-0"
+              className="font-mono text-xs font-semibold uppercase tracking-wider text-[#f97316] bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-[#f97316]/30 px-3 py-1.5 rounded-lg transition-all shrink-0"
             >
               Open Dashboard
             </button>
@@ -817,7 +817,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowAdjustSettingsModal(false)}
           />
-          <div className="relative bg-[#12151c] border border-[rgba(201,169,78,0.25)] rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-[rgba(201,169,78,0.1)]">
+          <div className="relative bg-[#12151c] border border-[rgba(249, 115, 22,0.25)] rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-[rgba(249, 115, 22,0.1)]">
             <button
               onClick={() => setShowAdjustSettingsModal(false)}
               className="absolute top-3 right-3 text-gray-600 hover:text-gray-300 transition-colors"
@@ -828,8 +828,8 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               </svg>
             </button>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-[rgba(201,169,78,0.1)] border border-[rgba(201,169,78,0.25)] flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-[#c9a94e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-10 h-10 rounded-full bg-[rgba(249, 115, 22,0.1)] border border-[rgba(249, 115, 22,0.25)] flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -848,7 +848,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                   setActiveSection("search");
                   setTimeout(() => document.getElementById("ai-tuning")?.scrollIntoView({ behavior: "smooth" }), 100);
                 }}
-                className="flex-1 rounded-xl py-2.5 px-4 font-medium text-sm bg-[rgba(201,169,78,0.12)] border border-[rgba(201,169,78,0.3)] text-[#c9a94e] hover:bg-[rgba(201,169,78,0.2)] transition-all"
+                className="flex-1 rounded-xl py-2.5 px-4 font-medium text-sm bg-[rgba(249, 115, 22,0.12)] border border-[rgba(249, 115, 22,0.3)] text-[#f97316] hover:bg-[rgba(249, 115, 22,0.2)] transition-all"
               >
                 Adjust Settings
               </button>
@@ -885,15 +885,15 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
 
       {/* ── Hero Section ── */}
       <header className="relative overflow-hidden z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(201,169,78,0.04)] to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(249, 115, 22,0.04)] to-transparent pointer-events-none" />
         <div className={`w-full px-8 md:px-16 lg:px-24 pt-8 relative flex flex-col ${(view === "hero" || tourActive) ? "min-h-screen" : ""}`}>
           {/* Nav - edge to edge */}
           <div className="flex items-center justify-between relative">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] flex items-center justify-center">
                 <span className="text-[var(--accent)] text-xl sm:text-2xl">◆</span>
               </div>
-              <span className="font-display text-xl sm:text-2xl text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
+              <span className="font-display text-xl sm:text-2xl text-[var(--text-primary)] tracking-wide">Tailorly AI</span>
             </div>
 
             {/* Desktop nav (md+) - inline items */}
@@ -951,7 +951,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                   </button>
                   <button
                     onClick={() => setAuthModal("signup")}
-                    className="text-base font-semibold px-6 py-2.5 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.18)] transition-all"
+                    className="text-base font-semibold px-6 py-2.5 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)] hover:bg-[rgba(249, 115, 22,0.18)] transition-all"
                   >
                     Get Started
                   </button>
@@ -1109,7 +1109,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             <div className="px-3 pt-2 pb-1.5 text-[10px] font-mono uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Configure</div>
             <button
               onClick={() => setConfigSection("tailor")}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${effectiveConfigSection === "tailor" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.25)]" : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"}`}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${effectiveConfigSection === "tailor" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(249, 115, 22,0.25)]" : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"}`}
             >
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               <span className="flex-1 text-left">Resume Tailor</span>
@@ -1117,7 +1117,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             {currentUser && (
               <button
                 onClick={() => setConfigSection("hunt")}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.25)]" : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"}`}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(249, 115, 22,0.25)]" : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"}`}
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h12" /></svg>
                 <span className="flex-1 text-left">Job Hunt</span>
@@ -1127,7 +1127,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
             {currentUser && (
               <button
                 onClick={onNavigateToDashboard}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[var(--accent-muted)] transition-all"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)] hover:bg-[var(--accent-muted)] transition-all"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10h6m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
                 <span className="flex-1 text-left">Pipeline Board</span>
@@ -1144,12 +1144,12 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
           {!tourActive && (
             <div className="md:hidden flex items-center gap-2 px-4 pt-4 overflow-x-auto">
               <button onClick={() => { setView("hero"); window.scrollTo({ top: 0 }); }} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] text-[var(--text-secondary)]">← Home</button>
-              <button onClick={() => setConfigSection("tailor")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "tailor" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Resume Tailor</button>
+              <button onClick={() => setConfigSection("tailor")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "tailor" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(249, 115, 22,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Resume Tailor</button>
               {currentUser && (
-                <button onClick={() => setConfigSection("hunt")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Job Hunt</button>
+                <button onClick={() => setConfigSection("hunt")} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs border ${effectiveConfigSection === "hunt" ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(249, 115, 22,0.3)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Job Hunt</button>
               )}
               {currentUser && (
-                <button onClick={onNavigateToDashboard} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[rgba(201,169,78,0.2)] text-[var(--accent)]">Pipeline Board →</button>
+                <button onClick={onNavigateToDashboard} className="shrink-0 px-3 py-1.5 rounded-lg text-xs border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)]">Pipeline Board →</button>
               )}
             </div>
           )}
@@ -1501,7 +1501,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                                     }}
                                     className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
                                       selected
-                                        ? "bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)]"
+                                        ? "bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(249, 115, 22,0.3)]"
                                         : "bg-[var(--bg-surface)] text-[var(--text-tertiary)] border border-[var(--border-subtle)] hover:text-[var(--text-secondary)]"
                                     }`}
                                   >
@@ -1564,7 +1564,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                                   <span className="text-[11px] text-[var(--text-ghost)] italic">No role titles extracted - your description should mention at least one role.</span>
                                 )}
                                 {nlParsed.keywords.map((k, i) => (
-                                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)] text-[11px]">
+                                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(249, 115, 22,0.3)] text-[11px]">
                                     {k}
                                     <button
                                       type="button"
@@ -2015,7 +2015,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                           status === "done"
                             ? "bg-emerald-500/15 text-emerald-400"
                             : status === "active"
-                            ? "bg-[var(--accent-muted)] text-[var(--accent)] ring-2 ring-[rgba(201,169,78,0.3)] step-pulse"
+                            ? "bg-[var(--accent-muted)] text-[var(--accent)] ring-2 ring-[rgba(249, 115, 22,0.3)] step-pulse"
                             : "bg-[var(--bg-surface)] text-[var(--text-ghost)]"
                         }`}>
                           {status === "done" ? "✓" : status === "active" ? step.icon : (i + 1)}
@@ -2113,7 +2113,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
                     <div className="flex flex-col sm:flex-row gap-2">
                       <button
                         onClick={onNavigateToDashboard}
-                        className="flex-1 rounded-xl py-3 px-4 font-medium text-sm bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.2)] transition-all flex items-center justify-center gap-2"
+                        className="flex-1 rounded-xl py-3 px-4 font-medium text-sm bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)] hover:bg-[rgba(249, 115, 22,0.2)] transition-all flex items-center justify-center gap-2"
                       >
                         Open Dashboard
                         <span>→</span>
@@ -2134,14 +2134,14 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               const completeLog = logs.find((l) => l.type === "complete");
               const completeMsg = completeLog?.message || "";
               return (
-                <div className="bg-gradient-to-br from-[rgba(201,169,78,0.06)] to-[rgba(201,169,78,0.02)] border border-[rgba(201,169,78,0.15)] rounded-2xl p-6 landing-section-enter">
+                <div className="bg-gradient-to-br from-[rgba(249, 115, 22,0.06)] to-[rgba(249, 115, 22,0.02)] border border-[rgba(249, 115, 22,0.15)] rounded-2xl p-6 landing-section-enter">
                   <h4 className="text-sm font-semibold text-[var(--accent)] mb-2">Jobs are ready!</h4>
                   <p className="text-xs text-[var(--text-secondary)] mb-4">
                     {completeMsg.includes("relevant") ? completeMsg.replace("Pipeline completed successfully - ", "") + "." : "Your scored and tailored jobs are now in the Kanban dashboard."} Drag them through your application workflow.
                   </p>
                   <button
                     onClick={onNavigateToDashboard}
-                    className="w-full rounded-xl py-3 px-4 font-medium text-sm bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.2)] transition-all flex items-center justify-center gap-2"
+                    className="w-full rounded-xl py-3 px-4 font-medium text-sm bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)] hover:bg-[rgba(249, 115, 22,0.2)] transition-all flex items-center justify-center gap-2"
                   >
                     Open Dashboard
                     <span>→</span>
@@ -2193,7 +2193,7 @@ export default function LandingPage({ currentUser, userLimits, onLogout, onNavig
               Already have jobs in the pipeline?{" "}
               <button
                 onClick={onNavigateToDashboard}
-                className="text-[var(--accent)] hover:text-[var(--accent-light)] transition-colors underline underline-offset-2 decoration-[rgba(201,169,78,0.3)]"
+                className="text-[var(--accent)] hover:text-[var(--accent-light)] transition-colors underline underline-offset-2 decoration-[rgba(249, 115, 22,0.3)]"
               >
                 Go to Kanban Dashboard
               </button>

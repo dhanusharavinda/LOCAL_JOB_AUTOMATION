@@ -27,7 +27,7 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <BrandMark />
-            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide truncate">GO CANDID8</span>
+            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide truncate">Tailorly AI</span>
             <span className="hidden sm:inline-block ml-1 text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
               Early access
             </span>
@@ -51,7 +51,7 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
 
       {/* Welcome */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
-        <div className="rounded-2xl border border-[rgba(201,169,78,0.2)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5">
+        <div className="rounded-2xl border border-[rgba(249, 115, 22,0.2)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5">
           <h1 className="font-display text-xl sm:text-2xl text-[var(--text-primary)]">
             Welcome, {firstName}
           </h1>

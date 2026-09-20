@@ -840,10 +840,10 @@ export default function App() {
         {/* Content */}
         <div className="intro-content">
           <div className="intro-logo">
-            <div className="w-14 h-14 rounded-2xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.3)] flex items-center justify-center mb-5">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.3)] flex items-center justify-center mb-5">
               <span className="text-[var(--accent)] text-2xl">◆</span>
             </div>
-            <h1 className="font-display text-3xl text-[var(--text-primary)] mb-2 tracking-wide">GO CANDID8</h1>
+            <h1 className="font-display text-3xl text-[var(--text-primary)] mb-2 tracking-wide">Tailorly AI</h1>
             <p className="text-sm text-[var(--text-tertiary)]">Your job search on autopilot</p>
           </div>
           {/* Spinner */}
@@ -1135,7 +1135,7 @@ export default function App() {
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-52 bg-[var(--bg-surface)] border border-[rgba(255,255,255,0.06)] rounded-lg pl-9 pr-3 py-2 md:py-2.5 font-mono text-sm text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-[#c9a94e]/40 focus:ring-1 focus:ring-[#c9a94e]/20 transition-all"
+            className="w-full md:w-52 bg-[var(--bg-surface)] border border-[rgba(255,255,255,0.06)] rounded-lg pl-9 pr-3 py-2 md:py-2.5 font-mono text-sm text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-[#f97316]/40 focus:ring-1 focus:ring-[#f97316]/20 transition-all"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400">
@@ -1213,7 +1213,7 @@ export default function App() {
           title={hasDeadlines ? "Sort by application deadline (soonest first)" : "No jobs have a deadline yet"}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
             sortByDeadline
-              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+              ? "bg-[#f97316]/12 border-[#f97316]/30 text-[#f97316]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
         >
@@ -1239,7 +1239,7 @@ export default function App() {
           disabled={!hasGrades}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
             sortByGrade && hasGrades
-              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+              ? "bg-[#f97316]/12 border-[#f97316]/30 text-[#f97316]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
           title={!hasGrades
@@ -1269,7 +1269,7 @@ export default function App() {
           disabled={!hasSeniority}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
             sortBySeniority !== "off"
-              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+              ? "bg-[#f97316]/12 border-[#f97316]/30 text-[#f97316]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
           title={
@@ -1302,7 +1302,7 @@ export default function App() {
           onClick={() => { setSortByFreshness((v) => !v); setSortByDeadline(false); setSortByGrade(false); setSortBySeniority("off"); }}
           className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-2 rounded-lg border transition-all shrink-0 ${
             sortByFreshness
-              ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+              ? "bg-[#f97316]/12 border-[#f97316]/30 text-[#f97316]"
               : "bg-transparent border-[rgba(255,255,255,0.06)] text-[#555872] hover:text-[#8b8fa3]"
           }`}
         >
@@ -1318,9 +1318,9 @@ export default function App() {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className={`bg-[var(--bg-surface)] border rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#c9a94e]/40 cursor-pointer ${
+            className={`bg-[var(--bg-surface)] border rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#f97316]/40 cursor-pointer ${
               dateFilter
-                ? "border-[#c9a94e]/30 text-[#c9a94e]"
+                ? "border-[#f97316]/30 text-[#f97316]"
                 : "border-[rgba(255,255,255,0.06)] text-[#8b8fa3]"
             }`}
             title="Filter jobs by activity date"
@@ -1339,7 +1339,7 @@ export default function App() {
           {dateFilter && (
             <button
               onClick={() => setDateFilter(new Date().toISOString().split("T")[0])}
-              className="text-xs font-mono text-[#c9a94e] hover:text-[#d4b85a] font-medium"
+              className="text-xs font-mono text-[#f97316] hover:text-[#fb923c] font-medium"
               title="Reset to today"
             >
               Today
@@ -1351,9 +1351,9 @@ export default function App() {
         <select
           value={locationFilter}
           onChange={(e) => setLocationFilter(e.target.value)}
-          className={`bg-[var(--bg-surface)] border rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#c9a94e]/40 shrink-0 cursor-pointer ${
+          className={`bg-[var(--bg-surface)] border rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#f97316]/40 shrink-0 cursor-pointer ${
             locationFilter
-              ? "border-[#c9a94e]/30 text-[#c9a94e]"
+              ? "border-[#f97316]/30 text-[#f97316]"
               : "border-[rgba(255,255,255,0.06)] text-[#8b8fa3]"
           }`}
           title="Filter by country"
@@ -1370,9 +1370,9 @@ export default function App() {
         <select
           value={workTypeFilter}
           onChange={(e) => setWorkTypeFilter(e.target.value as "" | "remote" | "hybrid" | "onsite")}
-          className={`bg-[var(--bg-surface)] border rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#c9a94e]/40 shrink-0 cursor-pointer ${
+          className={`bg-[var(--bg-surface)] border rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#f97316]/40 shrink-0 cursor-pointer ${
             workTypeFilter
-              ? "border-[#c9a94e]/30 text-[#c9a94e]"
+              ? "border-[#f97316]/30 text-[#f97316]"
               : "border-[rgba(255,255,255,0.06)] text-[#8b8fa3]"
           }`}
           title="Filter by work type"
@@ -1462,7 +1462,7 @@ export default function App() {
                   setSelectedIds(new Set(allFilteredIds));
                 }
               }}
-              className="font-mono text-xs px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#8b8fa3] hover:text-[#c9a94e] transition-all"
+              className="font-mono text-xs px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.06)] text-[#8b8fa3] hover:text-[#f97316] transition-all"
             >
               {filteredJobs.every((j) => selectedIds.has(j.id)) ? "Deselect All" : `Select All (${filteredJobs.length})`}
             </button>

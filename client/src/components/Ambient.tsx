@@ -37,7 +37,7 @@ export default function Ambient({ variant = "default" }: { variant?: "default" |
           maxWidth: 900,
           maxHeight: 900,
           background:
-            "radial-gradient(circle, rgba(201,169,78,0.30) 0%, rgba(201,169,78,0.10) 40%, transparent 70%)",
+            "radial-gradient(circle, rgba(249, 115, 22,0.30) 0%, rgba(249, 115, 22,0.10) 40%, transparent 70%)",
           filter: "blur(28px)",
         }}
       />
@@ -74,7 +74,7 @@ export default function Ambient({ variant = "default" }: { variant?: "default" |
       <div
         className="absolute inset-x-0 top-0 h-[70vh]"
         style={{
-          background: "radial-gradient(ellipse 55% 100% at 50% 0%, rgba(201,169,78,0.10), transparent 70%)",
+          background: "radial-gradient(ellipse 55% 100% at 50% 0%, rgba(249, 115, 22,0.10), transparent 70%)",
         }}
       />
       {/* Film grain */}
@@ -85,7 +85,7 @@ export default function Ambient({ variant = "default" }: { variant?: "default" |
       {/* Top hairline: catches the eye at the very top of the page */}
       <div
         className="absolute inset-x-0 top-0 h-px"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(201,169,78,0.35), transparent)" }}
+        style={{ background: "linear-gradient(90deg, transparent, rgba(249, 115, 22,0.35), transparent)" }}
       />
     </div>
   );
@@ -95,18 +95,18 @@ export default function Ambient({ variant = "default" }: { variant?: "default" |
 export function BrandMark({ size = 36 }: { size?: number }) {
   return (
     <span
-      className="relative inline-flex items-center justify-center rounded-xl border border-[rgba(201,169,78,0.28)] bg-[var(--accent-muted)] shrink-0"
+      className="relative inline-flex items-center justify-center rounded-xl border border-[rgba(249, 115, 22,0.28)] bg-[var(--accent-muted)] shrink-0"
       style={{ width: size, height: size }}
     >
       <span
         className="absolute inset-0 rounded-xl"
-        style={{ boxShadow: "0 0 24px rgba(201,169,78,0.28)" }}
+        style={{ boxShadow: "0 0 24px rgba(249, 115, 22,0.28)" }}
       />
       <svg viewBox="0 0 24 24" width={size * 0.5} height={size * 0.5} className="relative" aria-hidden>
         <defs>
           <linearGradient id="gc8-mark" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#e6cf8a" />
-            <stop offset="100%" stopColor="#c9a94e" />
+            <stop offset="0%" stopColor="#ffc08a" />
+            <stop offset="100%" stopColor="#f97316" />
           </linearGradient>
         </defs>
         <path d="M12 2.6 21.4 12 12 21.4 2.6 12 12 2.6Z" fill="url(#gc8-mark)" />

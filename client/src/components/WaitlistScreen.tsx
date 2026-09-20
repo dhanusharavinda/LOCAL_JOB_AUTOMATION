@@ -86,7 +86,7 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BrandMark />
-            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
+            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">Tailorly AI</span>
           </div>
           <button
             onClick={handleSignOut}
@@ -110,7 +110,7 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
                 <div className={`mx-auto mb-4 w-16 h-16 rounded-2xl border flex items-center justify-center ${
                   expired
                     ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
-                    : "bg-[var(--accent-muted)] border-[rgba(201,169,78,0.3)] text-[var(--accent)]"
+                    : "bg-[var(--accent-muted)] border-[rgba(249, 115, 22,0.3)] text-[var(--accent)]"
                 }`}>
                   {expired ? <ClockIcon size={28} /> : <TicketIcon size={28} />}
                 </div>
@@ -119,8 +119,8 @@ export default function WaitlistScreen({ currentUser, inviteToken, onInviteConsu
                 </h1>
                 <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                   {expired
-                    ? "Thanks for trying GO CANDID8. Message me and I'll turn your access back on, or paste a new invite link below."
-                    : "Your account is ready, but GO CANDID8 is invite-only right now. Open your personal invite link, or paste it below."}
+                    ? "Thanks for trying Tailorly AI. Message me and I'll turn your access back on, or paste a new invite link below."
+                    : "Your account is ready, but Tailorly AI is invite-only right now. Open your personal invite link, or paste it below."}
                 </p>
               </div>
 

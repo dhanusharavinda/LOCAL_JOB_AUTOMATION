@@ -146,10 +146,10 @@ export default function AuthModal({
             </svg>
           </button>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] flex items-center justify-center">
               <span className="text-[var(--accent)] text-base">◆</span>
             </div>
-            <span className="font-display text-base text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
+            <span className="font-display text-base text-[var(--text-primary)] tracking-wide">Tailorly AI</span>
           </div>
           <h2 className="font-display text-xl text-[var(--text-primary)] mb-1">
             {title || defaultTitle}
@@ -254,7 +254,7 @@ export default function AuthModal({
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20 disabled:opacity-50 mt-1"
+              className="w-full flex items-center justify-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#f97316] hover:bg-[#fb923c] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#f97316]/20 disabled:opacity-50 mt-1"
             >
               {loading ? (
                 <>

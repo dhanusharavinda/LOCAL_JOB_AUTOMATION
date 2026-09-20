@@ -58,9 +58,9 @@ function NavItem({
       onClick={onClick}
       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all border ${
         active
-          ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(201,169,78,0.25)]"
+          ? "bg-[var(--accent-muted)] text-[var(--accent)] border-[rgba(249, 115, 22,0.25)]"
           : accent
-            ? "text-[var(--accent)] border-[rgba(201,169,78,0.2)] hover:bg-[var(--accent-muted)]"
+            ? "text-[var(--accent)] border-[rgba(249, 115, 22,0.2)] hover:bg-[var(--accent-muted)]"
             : "text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
       }`}
     >
@@ -134,11 +134,11 @@ export default function Sidebar({
         {/* Brand */}
         <div className="px-4 pt-4 pb-3 flex items-center justify-between">
           <button onClick={onBackToLanding} className="flex items-center gap-2.5 group" title="Back to pipeline / landing">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.3)] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.3)] flex items-center justify-center shrink-0">
               <span className="text-[var(--accent)] text-lg">◆</span>
             </div>
             <div className="text-left">
-              <div className="font-display text-base leading-tight text-[var(--text-primary)] tracking-wide">GO CANDID8</div>
+              <div className="font-display text-base leading-tight text-[var(--text-primary)] tracking-wide">Tailorly AI</div>
               <div className="text-[10px] text-[var(--text-tertiary)] leading-tight">Your job search on autopilot</div>
             </div>
           </button>
@@ -156,7 +156,7 @@ export default function Sidebar({
             onClick={tap(onAddJob)}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 mt-1 rounded-lg text-sm font-medium
               bg-gradient-to-br from-[var(--accent)] to-[#b8982f] text-[#0a0b0e]
-              hover:brightness-110 transition-all shadow-[0_0_0_0_rgba(201,169,78,0.4)] hover:shadow-[0_0_20px_rgba(201,169,78,0.25)]"
+              hover:brightness-110 transition-all shadow-[0_0_0_0_rgba(249, 115, 22,0.4)] hover:shadow-[0_0_20px_rgba(249, 115, 22,0.25)]"
           >
             {ic("M12 4v16m8-8H4")}
             Add Job

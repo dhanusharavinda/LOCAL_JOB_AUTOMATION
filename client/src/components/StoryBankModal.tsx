@@ -192,7 +192,7 @@ export default function StoryBankModal({ onClose }: Props) {
             {tab === "stories" && (
               <button
                 onClick={() => { setShowAdd((v) => !v); setAddErr(null); }}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/10 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-colors"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
               >
                 {showAdd ? "Close" : "+ Add story"}
               </button>
@@ -201,7 +201,7 @@ export default function StoryBankModal({ onClose }: Props) {
               <button
                 onClick={handleGenerateExperience}
                 disabled={generating}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/10 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-colors disabled:opacity-50"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors disabled:opacity-50"
               >
                 {generating ? "Reading your resume..." : "✨ Generate from resume"}
               </button>
@@ -225,7 +225,7 @@ export default function StoryBankModal({ onClose }: Props) {
               onClick={() => setTab(t.id)}
               className={`text-xs font-semibold px-4 py-2 rounded-t-lg border border-b-0 transition-colors ${
                 tab === t.id
-                  ? "bg-[#0f1115] border-gray-800 text-[#c9a94e]"
+                  ? "bg-[#0f1115] border-gray-800 text-[#f97316]"
                   : "bg-transparent border-transparent text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -241,7 +241,7 @@ export default function StoryBankModal({ onClose }: Props) {
               value={form.story_title}
               onChange={(e) => setForm((f) => ({ ...f, story_title: e.target.value }))}
               placeholder="Story title (e.g. Led migration under deadline)"
-              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#f97316]/40"
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {([
@@ -255,7 +255,7 @@ export default function StoryBankModal({ onClose }: Props) {
                   value={form[key]}
                   onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                   placeholder={ph}
-                  className="w-full min-h-[56px] bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40 resize-y"
+                  className="w-full min-h-[56px] bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#f97316]/40 resize-y"
                 />
               ))}
             </div>
@@ -263,13 +263,13 @@ export default function StoryBankModal({ onClose }: Props) {
               value={form.reflection}
               onChange={(e) => setForm((f) => ({ ...f, reflection: e.target.value }))}
               placeholder="Reflection (optional) - what you learned"
-              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#f97316]/40"
             />
             <input
               value={form.tags}
               onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
               placeholder="Tags (optional), comma-separated - e.g. leadership, teamwork"
-              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+              className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#f97316]/40"
             />
             {addErr && <p className="text-xs text-red-400">{addErr}</p>}
             <div className="flex justify-end gap-2 pt-1">
@@ -282,7 +282,7 @@ export default function StoryBankModal({ onClose }: Props) {
               <button
                 onClick={handleAdd}
                 disabled={saving}
-                className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#c9a94e]/15 border border-[#c9a94e]/30 text-[#c9a94e] hover:bg-[#c9a94e]/25 transition-colors disabled:opacity-50"
+                className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/25 transition-colors disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save story"}
               </button>
@@ -297,7 +297,7 @@ export default function StoryBankModal({ onClose }: Props) {
             <button
               onClick={() => setFilter("")}
               className={`font-mono text-[10px] px-2 py-1 rounded-md border transition-all ${
-                !filter ? "text-[#c9a94e] bg-[#c9a94e]/10 border-[#c9a94e]/30" : "text-gray-500 border-gray-800 hover:text-gray-300"
+                !filter ? "text-[#f97316] bg-[#f97316]/10 border-[#f97316]/30" : "text-gray-500 border-gray-800 hover:text-gray-300"
               }`}
             >
               ALL ({stories.length})
@@ -327,7 +327,7 @@ export default function StoryBankModal({ onClose }: Props) {
           )}
           {(expLoading || generating) && (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-6 h-6 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#f97316] border-t-transparent rounded-full animate-spin" />
               {generating && (
                 <p className="text-xs text-gray-500">
                   Reading your resume and drafting a narrative for each role...
@@ -347,7 +347,7 @@ export default function StoryBankModal({ onClose }: Props) {
               </p>
               <button
                 onClick={handleGenerateExperience}
-                className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#c9a94e]/15 border border-[#c9a94e]/30 text-[#c9a94e] hover:bg-[#c9a94e]/25 transition-colors"
+                className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/25 transition-colors"
               >
                 ✨ Generate from resume
               </button>
@@ -412,7 +412,7 @@ export default function StoryBankModal({ onClose }: Props) {
 
                 {open.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-800/40 space-y-2">
-                    <div className="font-mono text-[10px] text-[#c9a94e] uppercase tracking-wider font-bold">
+                    <div className="font-mono text-[10px] text-[#f97316] uppercase tracking-wider font-bold">
                       The AI needs these details from you
                     </div>
                     {open.map((f) => (
@@ -427,7 +427,7 @@ export default function StoryBankModal({ onClose }: Props) {
                             }))
                           }
                           placeholder="Your answer (skip any you don't want to share)"
-                          className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#c9a94e]/40"
+                          className="w-full bg-[#0d0f13] border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#f97316]/40"
                         />
                       </div>
                     ))}
@@ -435,7 +435,7 @@ export default function StoryBankModal({ onClose }: Props) {
                       <button
                         onClick={() => handleRefine(story)}
                         disabled={!hasDraft || refiningId === story.id}
-                        className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#c9a94e]/15 border border-[#c9a94e]/30 text-[#c9a94e] hover:bg-[#c9a94e]/25 transition-colors disabled:opacity-40"
+                        className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/25 transition-colors disabled:opacity-40"
                       >
                         {refiningId === story.id ? "Weaving your answers in..." : "Weave answers into the story"}
                       </button>
@@ -458,7 +458,7 @@ export default function StoryBankModal({ onClose }: Props) {
           )}
           {loading && (
             <div className="flex items-center justify-center py-16">
-              <div className="w-6 h-6 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#f97316] border-t-transparent rounded-full animate-spin" />
             </div>
           )}
           {!loading && filtered.length === 0 && (
@@ -490,7 +490,7 @@ export default function StoryBankModal({ onClose }: Props) {
                 </div>
               </div>
               <div className="space-y-1.5 text-sm">
-                <div><span className="font-mono text-[10px] text-[#c9a94e] uppercase tracking-wider font-bold">S</span> <span className="text-gray-300 ml-1">{story.situation}</span></div>
+                <div><span className="font-mono text-[10px] text-[#f97316] uppercase tracking-wider font-bold">S</span> <span className="text-gray-300 ml-1">{story.situation}</span></div>
                 <div><span className="font-mono text-[10px] text-[#6775a0] uppercase tracking-wider font-bold">T</span> <span className="text-gray-300 ml-1">{story.task}</span></div>
                 <div><span className="font-mono text-[10px] text-[#5d9968] uppercase tracking-wider font-bold">A</span> <span className="text-gray-300 ml-1">{story.action}</span></div>
                 <div><span className="font-mono text-[10px] text-violet-400 uppercase tracking-wider font-bold">R</span> <span className="text-gray-300 ml-1">{story.result}</span></div>

@@ -118,7 +118,7 @@ async function checkLink(jobLink: string): Promise<{ status: "live" | "expired" 
       method: "GET",
       redirect: "manual",
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; GOCANDID8-ExpiryCheck/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; GOTAILORLY-ExpiryCheck/1.0)",
       },
       signal: AbortSignal.timeout(10000),
     });
@@ -140,7 +140,7 @@ async function checkLink(jobLink: string): Promise<{ status: "live" | "expired" 
         method: "GET",
         redirect: "manual",
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; GOCANDID8-ExpiryCheck/1.0)",
+          "User-Agent": "Mozilla/5.0 (compatible; GOTAILORLY-ExpiryCheck/1.0)",
         },
         signal: AbortSignal.timeout(10000),
       });

@@ -125,7 +125,7 @@ function App() {
 
   return (
     <div>
-      <div className="brand">GO <span className="accent">CANDID8</span></div>
+      <div className="brand">GO <span className="accent">TAILORLY</span></div>
       <div className="muted">Auto-fill applications. You always click Submit.</div>
 
       <div className="spacer" />
@@ -171,7 +171,7 @@ function App() {
         <>
           <span className="badge warn">Not signed in</span>
           <div className="spacer" />
-          <button className="btn" onClick={signIn}>Sign in with GO CANDID8</button>
+          <button className="btn" onClick={signIn}>Sign in with Tailorly AI</button>
           <div className="muted" style={{ marginTop: 8 }}>
             Opens the dashboard. After you sign in, you'll be redirected back here automatically.
           </div>

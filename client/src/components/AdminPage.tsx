@@ -131,11 +131,11 @@ export default function AdminPage({
       <header className="shrink-0 px-4 sm:px-6 py-4 sm:py-5 border-b border-[var(--border-subtle)]">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           <button onClick={onNavigateToLanding} className="flex items-center gap-2 sm:gap-3 group shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] flex items-center justify-center">
               <span className="text-[var(--accent)] text-base">◆</span>
             </div>
             <span className="font-display text-base sm:text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">
-              GO CANDID8
+              Tailorly AI
             </span>
             <span className="ml-2 text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#c45252]/10 text-[#c45252] border border-[#c45252]/20">
               Admin
@@ -217,7 +217,7 @@ export default function AdminPage({
             >
               {t}
               {t === "pending" && tabCounts.pending > 0 && tab === t && (
-                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-[#c9a94e]/20 text-[#c9a94e]">
+                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-[#f97316]/20 text-[#f97316]">
                   {tabCounts.pending}
                 </span>
               )}

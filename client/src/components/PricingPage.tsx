@@ -58,7 +58,7 @@ const PLANS: Plan[] = [
     description: "Full automation for active job seekers",
     accent: "var(--accent)",
     accentMuted: "var(--accent-muted)",
-    accentBorder: "rgba(201,169,78,0.3)",
+    accentBorder: "rgba(249, 115, 22,0.3)",
     features: [
       "Everything in Free",
       "50 jobs scraped per day",
@@ -203,11 +203,11 @@ export default function PricingPage({
       <header className="shrink-0 px-4 sm:px-6 py-4 sm:py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 relative">
           <button onClick={onNavigateToLanding} className="flex items-center gap-2 sm:gap-3 group shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] flex items-center justify-center">
               <span className="text-[var(--accent)] text-base">◆</span>
             </div>
             <span className="font-display text-base sm:text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">
-              GO CANDID8
+              Tailorly AI
             </span>
           </button>
 
@@ -259,7 +259,7 @@ export default function PricingPage({
             ) : (
               <button
                 onClick={onNavigateToAuth}
-                className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.18)] transition-all"
+                className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)] hover:bg-[rgba(249, 115, 22,0.18)] transition-all"
               >
                 Sign In
               </button>
@@ -395,9 +395,9 @@ export default function PricingPage({
                 key={plan.id}
                 className={`relative rounded-2xl p-6 sm:p-8 border transition-all ${
                   isCurrent
-                    ? "bg-[var(--bg-raised)] border-[var(--accent)]/50 shadow-[0_0_40px_rgba(201,169,78,0.08)]"
+                    ? "bg-[var(--bg-raised)] border-[var(--accent)]/50 shadow-[0_0_40px_rgba(249, 115, 22,0.08)]"
                     : plan.highlighted
-                    ? "bg-[var(--bg-raised)] border-[rgba(201,169,78,0.25)] shadow-[0_0_40px_rgba(201,169,78,0.06)]"
+                    ? "bg-[var(--bg-raised)] border-[rgba(249, 115, 22,0.25)] shadow-[0_0_40px_rgba(249, 115, 22,0.06)]"
                     : "bg-[var(--bg-raised)] border-[var(--border-subtle)] hover:border-[var(--border-default)]"
                 }`}
               >
@@ -523,7 +523,7 @@ export default function PricingPage({
                   disabled={Boolean(isCurrent) || isSwitching || switching !== null || Boolean(plan.disabled)}
                   className={`w-full rounded-xl py-3 px-4 font-medium text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                     isCurrent
-                      ? "bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.3)] text-[var(--accent)]"
+                      ? "bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.3)] text-[var(--accent)]"
                       : plan.highlighted
                       ? "launch-btn"
                       : "border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"

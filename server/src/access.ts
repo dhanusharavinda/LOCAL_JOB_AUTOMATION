@@ -84,6 +84,7 @@ export function ensureInviteSchema(): Promise<boolean> {
         await sql`ALTER TABLE invite_links ENABLE ROW LEVEL SECURITY`;
         await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMPTZ`;
         await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS invite_id BIGINT`;
+        await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS access_granted_at TIMESTAMPTZ`;
         await sql`RESET lock_timeout`;
         await sql`RESET statement_timeout`;
         return true;
@@ -104,10 +105,17 @@ export function accessStateFor(user: {
   email: string;
   approval_status?: string;
   access_expires_at?: string | Date | null;
+  access_granted_at?: string | Date | null;
 }): AccessState {
   if (isAdminEmail(user.email)) return "admin";
   if (user.approval_status === "rejected") return "rejected";
   if (user.approval_status !== "approved") return "invite_required";
+  // An explicit grant is required. approval_status alone is not enough:
+  // every account that existed before the invite system was back-filled
+  // to 'approved', so trusting it let old accounts in through a password
+  // reset with no invite. Redeeming an invite or an admin approval sets
+  // this; nothing else does.
+  if (!user.access_granted_at) return "invite_required";
   if (user.access_expires_at && new Date(user.access_expires_at).getTime() <= Date.now()) return "expired";
   return "active";
 }
@@ -134,7 +142,7 @@ export function requireLaunchAccess(req: Request, res: Response, next: NextFunct
   if (state === "invite_required" || state === "rejected") {
     res.status(403).json({
       code: "invite_required",
-      error: "GO CANDID8 is invite-only right now. Open your invite link to get access.",
+      error: "Tailorly AI is invite-only right now. Open your invite link to get access.",
     });
     return;
   }

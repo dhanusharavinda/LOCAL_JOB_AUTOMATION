@@ -91,10 +91,10 @@ export default function CandidatesPage({ user, onNavigateToLanding, onNavigateTo
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={onNavigateToLanding} className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] flex items-center justify-center">
                 <span className="text-[var(--accent)] text-base">◆</span>
               </div>
-              <span className="font-display text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">GO CANDID8</span>
+              <span className="font-display text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">Tailorly AI</span>
             </button>
             <span className="text-[var(--text-ghost)] mx-2">/</span>
             <h1 className="font-display text-lg text-[var(--text-primary)]">Candidates</h1>
@@ -261,7 +261,7 @@ export default function CandidatesPage({ user, onNavigateToLanding, onNavigateTo
                       View Jobs
                     </button>
                     <button onClick={() => handleRunPipeline(c.id)} disabled={runningFor === c.id || !c.canRunToday}
-                      className="flex-1 py-2 rounded-lg text-xs font-medium bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] text-[var(--accent)] hover:bg-[rgba(201,169,78,0.18)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex-1 py-2 rounded-lg text-xs font-medium bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] text-[var(--accent)] hover:bg-[rgba(249, 115, 22,0.18)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!c.canRunToday ? c.dailyRunReason : undefined}>
                       {runningFor === c.id ? "Starting..." : !c.canRunToday ? "Ran today" : "Run Pipeline"}
                     </button>

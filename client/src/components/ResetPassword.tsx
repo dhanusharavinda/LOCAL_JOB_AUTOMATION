@@ -141,7 +141,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
       <header className="px-5 sm:px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <BrandMark />
-          <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
+          <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">Tailorly AI</span>
         </div>
       </header>
 

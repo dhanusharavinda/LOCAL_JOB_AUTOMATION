@@ -9,7 +9,7 @@ import { Job, Column, ScoreBreakdown } from "../types";
 const SOURCE_COLORS: Record<string, string> = {
   primary: "text-[#555872]",
   secondary: "text-[#555872]",
-  portal: "text-[#c9a94e]",
+  portal: "text-[#f97316]",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -35,7 +35,7 @@ function parseScoreBreakdown(raw: string | null): ScoreBreakdown | null {
 }
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "text-[#c9a94e] border-[#c9a94e] bg-[#c9a94e]/10",
+  A: "text-[#f97316] border-[#f97316] bg-[#f97316]/10",
   B: "text-[#5d9968] border-[#5d9968] bg-[#5d9968]/10",
   C: "text-[#6775a0] border-[#6775a0] bg-[#6775a0]/10",
   D: "text-[#8b8fa3] border-[#8b8fa3] bg-[#8b8fa3]/10",
@@ -164,7 +164,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
           onClick={handleClick}
           className={`group relative p-4 pl-5 rounded-lg border transition-all duration-200 cursor-pointer card-enter job-card
             ${snapshot.isDragging
-              ? "bg-[#0c0e14] border-[#c9a94e]/40 shadow-lg shadow-[#c9a94e]/5 scale-[1.02] z-50"
+              ? "bg-[#0c0e14] border-[#f97316]/40 shadow-lg shadow-[#f97316]/5 scale-[1.02] z-50"
               : isSelected
               ? "bg-blue-900/20 border-blue-500/50"
               : job.flagged
@@ -177,7 +177,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
           {/* Selection checkbox overlay */}
           {selectionMode && (
             <div className={`absolute top-2.5 right-2.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
-              isSelected ? "bg-[#c9a94e] border-[#c9a94e]" : "border-gray-600 bg-transparent"
+              isSelected ? "bg-[#f97316] border-[#f97316]" : "border-gray-600 bg-transparent"
             }`}>
               {isSelected && (
                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -229,7 +229,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
                 </span>
               )}
               {job.resume_url && job.status === "filtered" && (
-                <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest font-bold text-[#c9a94e] bg-[#c9a94e]/10 px-1.5 py-0.5 rounded">
+                <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest font-bold text-[#f97316] bg-[#f97316]/10 px-1.5 py-0.5 rounded">
                   TOP PICK
                 </span>
               )}
@@ -245,7 +245,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
                 </span>
               )}
               {job.keyword_match_rate != null && job.keyword_match_rate < 0.7 && (
-                <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest font-bold text-[#c9a94e] bg-[#c9a94e]/10 px-1.5 py-0.5 rounded"
+                <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest font-bold text-[#f97316] bg-[#f97316]/10 px-1.5 py-0.5 rounded"
                   title={`Keyword match: ${Math.round(job.keyword_match_rate * 100)}% - review resume`}>
                   LOW KW
                 </span>
@@ -299,7 +299,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
             <svg className="w-2.5 h-2.5 text-[#555872] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className={`font-mono text-[11px] ${deadline.urgent ? "text-[#c9a94e]" : "text-[#555872]"}`}>
+            <span className={`font-mono text-[11px] ${deadline.urgent ? "text-[#f97316]" : "text-[#555872]"}`}>
               {deadline.label}
             </span>
           </div>
@@ -339,7 +339,7 @@ function JobCardInner({ job, index, column, onClick, selectionMode, isSelected, 
               )}
               {job.cover_letter && !selectionMode && (
                 <span
-                  className="inline-flex items-center gap-1 font-mono text-[11px] text-[#c9a94e] whitespace-nowrap"
+                  className="inline-flex items-center gap-1 font-mono text-[11px] text-[#f97316] whitespace-nowrap"
                   title="Cover letter drafted - click card to view"
                 >
                   <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

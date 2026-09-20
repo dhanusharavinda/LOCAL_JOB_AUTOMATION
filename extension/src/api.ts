@@ -15,7 +15,7 @@ import { getStoredToken, refreshSession, clearSession } from "./auth";
 declare const __API_URL__: string | undefined;
 export const API_URL =
   (typeof __API_URL__ !== "undefined" && __API_URL__) ||
-  (globalThis as any)?.__GO_CANDID8_API_URL ||
+  (globalThis as any)?.__GO_TAILORLY_API_URL ||
   "http://localhost:3001";
 
 interface ApiOpts {

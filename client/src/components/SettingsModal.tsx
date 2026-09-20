@@ -491,7 +491,7 @@ export default function SettingsModal({ onClose }: Props) {
                         } catch (err: any) { setError(err.message); }
                         finally { setSaving(false); }
                       }}
-                      className="text-xs font-medium text-[#c9a94e] bg-[#c9a94e]/10 hover:bg-[#c9a94e]/20 border border-[#c9a94e]/30 px-3 py-1.5 rounded-lg transition-colors"
+                      className="text-xs font-medium text-[#f97316] bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-[#f97316]/30 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       Seed Defaults
                     </button>

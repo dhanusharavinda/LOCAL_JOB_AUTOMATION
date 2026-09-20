@@ -53,7 +53,7 @@ export default function JobMatchesModal({ onClose }: Props) {
   const scoreColor = (s: number | null) => {
     if (s == null) return "text-gray-500";
     if (s >= 8) return "text-[#5d9968]";
-    if (s >= 6) return "text-[#c9a94e]";
+    if (s >= 6) return "text-[#f97316]";
     return "text-gray-400";
   };
 
@@ -90,7 +90,7 @@ export default function JobMatchesModal({ onClose }: Props) {
               onClick={() => setMinScore(s)}
               className={`font-mono text-xs px-2.5 py-1 rounded-lg border transition-all ${
                 minScore === s
-                  ? "bg-[#c9a94e]/12 border-[#c9a94e]/30 text-[#c9a94e]"
+                  ? "bg-[#f97316]/12 border-[#f97316]/30 text-[#f97316]"
                   : "bg-transparent border-gray-800/60 text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -106,7 +106,7 @@ export default function JobMatchesModal({ onClose }: Props) {
           )}
           <button
             onClick={() => load()}
-            className="font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-lg border border-gray-800/60 text-gray-500 hover:text-[#c9a94e] transition-all"
+            className="font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-lg border border-gray-800/60 text-gray-500 hover:text-[#f97316] transition-all"
           >
             Refresh
           </button>
@@ -122,7 +122,7 @@ export default function JobMatchesModal({ onClose }: Props) {
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-7 h-7 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-[#f97316] border-t-transparent rounded-full animate-spin" />
               <p className="text-gray-500 text-sm">Finding your matches...</p>
             </div>
           ) : matches.length === 0 ? (
@@ -192,7 +192,7 @@ export default function JobMatchesModal({ onClose }: Props) {
                       href={m.apply_url || m.job_link || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-2 text-[11px] font-mono text-[#c9a94e] hover:text-[#d4b85a] transition-colors"
+                      className="inline-flex items-center gap-1 mt-2 text-[11px] font-mono text-[#f97316] hover:text-[#fb923c] transition-colors"
                     >
                       View role
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -55,8 +55,8 @@ const STATE: EngineState = {
 // "two-click" UX (mount panel → click Fill) into a single click. If
 // bootstrap hasn't finished context-fetching when the message arrives,
 // we queue the fill and bootstrap runs it as soon as ctx is ready.
-if (typeof chrome !== "undefined" && chrome.runtime?.onMessage && !(window as any).__GO_CANDID8_FILL_LISTENER__) {
-  (window as any).__GO_CANDID8_FILL_LISTENER__ = true;
+if (typeof chrome !== "undefined" && chrome.runtime?.onMessage && !(window as any).__GO_TAILORLY_FILL_LISTENER__) {
+  (window as any).__GO_TAILORLY_FILL_LISTENER__ = true;
   chrome.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
     if (msg?.type === "go-candid8/fill-now") {
       if (STATE.overlay && STATE.ctx?.profile && STATE.currentAdapter) {
@@ -96,7 +96,7 @@ export async function bootstrap(adapter: AtsAdapter): Promise<void> {
   STATE.ctx = null;
   STATE.trackedSubmit = false;
   STATE.currentAdapter = adapter;
-  (window as any).__GO_CANDID8_BOOTSTRAPPED__ = adapter.atsName;
+  (window as any).__GO_TAILORLY_BOOTSTRAPPED__ = adapter.atsName;
 
   // Mount the overlay early so the user sees a sign-in CTA even before
   // we've verified the job is in their tracker.

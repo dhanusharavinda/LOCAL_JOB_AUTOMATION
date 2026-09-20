@@ -16,12 +16,12 @@ declare const __SUPABASE_ANON_KEY__: string | undefined;
 
 const SUPABASE_URL =
   (typeof __SUPABASE_URL__ !== "undefined" && __SUPABASE_URL__) ||
-  (globalThis as any)?.__GO_CANDID8_SUPABASE_URL ||
+  (globalThis as any)?.__GO_TAILORLY_SUPABASE_URL ||
   "";
 
 const SUPABASE_ANON_KEY =
   (typeof __SUPABASE_ANON_KEY__ !== "undefined" && __SUPABASE_ANON_KEY__) ||
-  (globalThis as any)?.__GO_CANDID8_SUPABASE_ANON_KEY ||
+  (globalThis as any)?.__GO_TAILORLY_SUPABASE_ANON_KEY ||
   "";
 
 const STORAGE_KEY = "go_candid8_session";

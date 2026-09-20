@@ -27,7 +27,7 @@ export function FeatureBadges({ className = "" }: { className?: string }) {
             ? "border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-300"
             : b.tone === "blue"
               ? "border-[rgba(103,117,160,0.3)] bg-[var(--accent-blue-muted)] text-[#8f9dc8]"
-              : "border-[rgba(201,169,78,0.28)] bg-[var(--accent-muted)] text-[var(--accent)]";
+              : "border-[rgba(249, 115, 22,0.28)] bg-[var(--accent-muted)] text-[var(--accent)]";
         return (
           <span
             key={b.label}
@@ -50,7 +50,7 @@ export function FeatureBadges({ className = "" }: { className?: string }) {
 export function ResultQuote({ className = "" }: { className?: string }) {
   return (
     <figure
-      className={`rounded-2xl border border-[rgba(201,169,78,0.22)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5 ${className}`}
+      className={`rounded-2xl border border-[rgba(249, 115, 22,0.22)] bg-gradient-to-br from-[var(--accent-muted)] to-transparent p-5 ${className}`}
     >
       <blockquote className="font-display text-lg sm:text-xl text-[var(--text-primary)] leading-snug">
         "This is the tool that got me 2 job offers and 3 interviews."

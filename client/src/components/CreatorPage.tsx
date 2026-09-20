@@ -4,7 +4,7 @@ import { FeatureBadges, ResultQuote, HonestyNote, BANNED_WORD_COUNT } from "./Ba
 import RequestAccess from "./RequestAccess";
 
 /**
- * Creator page. Who made GO CANDID8, and where to reach him.
+ * Creator page. Who made Tailorly AI, and where to reach him.
  * Linked from the invite front door and the early-access home, and it
  * doubles as the "how do I get in" page: the invite comes from a DM.
  */
@@ -27,7 +27,7 @@ export default function CreatorPage({ onBack }: Props) {
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <BrandMark />
-            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide truncate">GO CANDID8</span>
+            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide truncate">Tailorly AI</span>
           </div>
           <button
             onClick={onBack}
@@ -42,14 +42,14 @@ export default function CreatorPage({ onBack }: Props) {
         <div className="max-w-3xl mx-auto">
           <div className="bg-[var(--bg-raised)]/80 backdrop-blur-xl border border-[var(--border-default)] rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/40">
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-              <div className="w-20 h-20 shrink-0 rounded-2xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.25)] flex items-center justify-center">
+              <div className="w-20 h-20 shrink-0 rounded-2xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.25)] flex items-center justify-center">
                 <span className="font-display text-3xl text-[var(--accent)]">D</span>
               </div>
               <div className="min-w-0">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-tertiary)] mb-1">Created by</div>
                 <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-primary)]">{CREATOR.name}</h1>
                 <p className="text-sm text-[var(--text-secondary)] mt-1">
-                  I built GO CANDID8 on my own, for people job hunting like me.
+                  I built Tailorly AI on my own, for people job hunting like me.
                 </p>
               </div>
             </div>
@@ -129,7 +129,7 @@ export default function CreatorPage({ onBack }: Props) {
           <div className="mt-5 bg-[var(--bg-raised)]/80 backdrop-blur-xl border border-[var(--border-default)] rounded-3xl p-6">
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Want access?</h2>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              GO CANDID8 is invite-only while I keep an eye on things. Message me on LinkedIn,
+              Tailorly AI is invite-only while I keep an eye on things. Message me on LinkedIn,
               or comment on my launch post, and I'll send you your own link. It's free, and it
               stays free for the people who supported me.
             </p>

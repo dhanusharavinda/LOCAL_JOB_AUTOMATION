@@ -21,7 +21,7 @@ function dmMessage(token: string): string {
   return [
     "Hey! Thanks for commenting.",
     "",
-    "I'm Dhanush, I built GO CANDID8: paste a job description, and it rewrites your resume for that exact job in seconds. You can edit everything before you download the PDF.",
+    "I'm Dhanush, I built Tailorly AI: paste a job description, and it rewrites your resume for that exact job in seconds. You can edit everything before you download the PDF.",
     "",
     "Here's your personal invite link (free to use, and it works once, so it's just for you):",
     inviteUrl(token),
@@ -499,7 +499,7 @@ function LinkRow({
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={() => onCopy(`m${invite.id}`, dmMessage(invite.token!))}
-          className="flex-1 sm:flex-none text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(201,169,78,0.3)] hover:opacity-90 transition-opacity"
+          className="flex-1 sm:flex-none text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--accent-muted)] text-[var(--accent)] border border-[rgba(249, 115, 22,0.3)] hover:opacity-90 transition-opacity"
           title="Copies the full DM: who you are, the link, and your LinkedIn"
         >
           {copied === `m${invite.id}` ? "Copied!" : "Copy DM"}

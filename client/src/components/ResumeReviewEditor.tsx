@@ -49,14 +49,14 @@ function bulletHasAiChange(bp: any): boolean {
 const PERSONAL_INFO_ORDER = ["name", "location", "phone", "email", "linkedin", "github", "portfolio"];
 
 const inputCls =
-  "w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#c9a94e]/40";
+  "w-full bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[#f97316]/40";
 const labelCls =
   "font-mono text-[10px] uppercase tracking-wider text-[var(--text-ghost)] font-semibold block mb-1";
 const sectionTitleCls =
   "font-mono text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold";
 // Dashed "add another row" affordance used by every section.
 const addBtnCls =
-  "text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1.5 rounded-md border border-dashed border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[#c9a94e] hover:border-[#c9a94e]/40 transition-colors";
+  "text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1.5 rounded-md border border-dashed border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors";
 // Small ✕ that removes a row / entry; red on hover so intent is obvious.
 const removeBtnCls =
   "shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-ghost)] hover:text-red-400 hover:bg-red-500/10 transition-colors";
@@ -638,7 +638,7 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
             type="button"
             onClick={() => onConfirm(buildConfirmedData())}
             disabled={rendering}
-            className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#c9a94e] hover:bg-[#d4b45a] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#c9a94e]/20 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider text-[#0c0e14] bg-[#f97316] hover:bg-[#fb923c] px-6 py-3 rounded-xl transition-all shadow-lg shadow-[#f97316]/20 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {rendering ? (
               <>

@@ -76,7 +76,7 @@ export default function CareerCoachModal({ onClose }: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800/60 shrink-0">
           <div>
             <h2 className="text-base font-bold text-gray-50 flex items-center gap-2">
-              <span className="text-[#c9a94e]">◆</span> AI Career Coach
+              <span className="text-[#f97316]">◆</span> AI Career Coach
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               {roadmap?.generated_at
@@ -89,7 +89,7 @@ export default function CareerCoachModal({ onClose }: Props) {
               <button
                 onClick={generate}
                 disabled={generating}
-                className="font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/12 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-all disabled:opacity-50"
+                className="font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg border border-[#f97316]/30 bg-[#f97316]/12 text-[#f97316] hover:bg-[#f97316]/20 transition-all disabled:opacity-50"
               >
                 {generating ? "Building..." : "Regenerate"}
               </button>
@@ -112,7 +112,7 @@ export default function CareerCoachModal({ onClose }: Props) {
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-7 h-7 border-2 border-[#c9a94e] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-[#f97316] border-t-transparent rounded-full animate-spin" />
               <p className="text-gray-500 text-sm">Loading your roadmap...</p>
             </div>
           ) : error && !roadmap ? (
@@ -129,7 +129,7 @@ export default function CareerCoachModal({ onClose }: Props) {
               </div>
               <button
                 onClick={loadRoadmap}
-                className="font-mono text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/12 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-all"
+                className="font-mono text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg border border-[#f97316]/30 bg-[#f97316]/12 text-[#f97316] hover:bg-[#f97316]/20 transition-all"
               >
                 Try again
               </button>
@@ -137,8 +137,8 @@ export default function CareerCoachModal({ onClose }: Props) {
           ) : !roadmap ? (
             // Empty state - no roadmap yet
             <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#c9a94e]/10 border border-[#c9a94e]/25 flex items-center justify-center">
-                <span className="text-[#c9a94e] text-xl">◆</span>
+              <div className="w-12 h-12 rounded-2xl bg-[#f97316]/10 border border-[#f97316]/25 flex items-center justify-center">
+                <span className="text-[#f97316] text-xl">◆</span>
               </div>
               <div>
                 <p className="text-gray-200 text-sm font-medium mb-1">No roadmap yet</p>
@@ -150,7 +150,7 @@ export default function CareerCoachModal({ onClose }: Props) {
               <button
                 onClick={generate}
                 disabled={generating}
-                className="font-mono text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg border border-[#c9a94e]/30 bg-[#c9a94e]/12 text-[#c9a94e] hover:bg-[#c9a94e]/20 transition-all disabled:opacity-50"
+                className="font-mono text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg border border-[#f97316]/30 bg-[#f97316]/12 text-[#f97316] hover:bg-[#f97316]/20 transition-all disabled:opacity-50"
               >
                 {generating ? "Building your roadmap..." : "Build my roadmap"}
               </button>
@@ -161,7 +161,7 @@ export default function CareerCoachModal({ onClose }: Props) {
               {(roadmap.role_target || roadmap.summary) && (
                 <section>
                   {roadmap.role_target && (
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-[#c9a94e] mb-1">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[#f97316] mb-1">
                       Target: {roadmap.role_target}
                     </div>
                   )}
@@ -234,7 +234,7 @@ export default function CareerCoachModal({ onClose }: Props) {
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-sm text-gray-200 font-medium">{l.title}</div>
                           {l.timeframe && (
-                            <span className="shrink-0 text-[10px] font-mono text-[#c9a94e] bg-[#c9a94e]/10 border border-[#c9a94e]/25 px-1.5 py-0.5 rounded">
+                            <span className="shrink-0 text-[10px] font-mono text-[#f97316] bg-[#f97316]/10 border border-[#f97316]/25 px-1.5 py-0.5 rounded">
                               {l.timeframe}
                             </span>
                           )}

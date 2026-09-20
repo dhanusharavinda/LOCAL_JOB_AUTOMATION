@@ -147,10 +147,10 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
       <header className="shrink-0 px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <button onClick={onNavigateToLanding} className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.2)] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.2)] flex items-center justify-center">
               <span className="text-[var(--accent)] text-base">◆</span>
             </div>
-            <span className="font-display text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">GO CANDID8</span>
+            <span className="font-display text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors tracking-wide">Tailorly AI</span>
           </button>
           <nav className="flex items-center gap-6">
             {!launchMode && (
@@ -175,10 +175,10 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
       <div className="flex-1 flex items-center justify-center px-6 pb-20">
         <div className="w-full max-w-md">
           {launchMode && canSignUp === false && (
-            <div className="mb-6 rounded-2xl border border-[rgba(201,169,78,0.25)] bg-[var(--accent-muted)] px-4 py-3.5">
+            <div className="mb-6 rounded-2xl border border-[rgba(249, 115, 22,0.25)] bg-[var(--accent-muted)] px-4 py-3.5">
               <p className="text-sm text-[var(--text-primary)] font-medium mb-1">New accounts need an invite</p>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                GO CANDID8 is invite-only, so accounts can only be created from a personal invite
+                Tailorly AI is invite-only, so accounts can only be created from a personal invite
                 link.{" "}
                 {onNeedInvite && (
                   <button onClick={onNeedInvite} className="text-[var(--accent)] hover:underline font-medium">

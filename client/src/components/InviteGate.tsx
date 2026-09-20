@@ -73,7 +73,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BrandMark />
-            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">GO CANDID8</span>
+            <span className="font-display text-lg text-[var(--text-primary)] tracking-wide">Tailorly AI</span>
           </div>
           <button
             onClick={onSignIn}
@@ -108,12 +108,12 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
 
               {!checking && check?.valid && (
                 <>
-                  <div className="mx-auto mb-4 w-16 h-16 rounded-2xl border border-[rgba(201,169,78,0.3)] bg-[var(--accent-muted)] flex items-center justify-center text-[var(--accent)]" style={{ boxShadow: "0 0 40px rgba(201,169,78,0.18)" }}>
+                  <div className="mx-auto mb-4 w-16 h-16 rounded-2xl border border-[rgba(249, 115, 22,0.3)] bg-[var(--accent-muted)] flex items-center justify-center text-[var(--accent)]" style={{ boxShadow: "0 0 40px rgba(249, 115, 22,0.18)" }}>
                     <TicketIcon size={28} />
                   </div>
                   <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-primary)] mb-2">You're invited</h1>
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-                    You've got <span className="text-[var(--accent)] font-semibold">free access</span> to GO CANDID8.
+                    You've got <span className="text-[var(--accent)] font-semibold">free access</span> to Tailorly AI.
                     Create your account to claim it. This link is just for you and works once.
                   </p>
 
@@ -172,7 +172,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
           {!inviteToken && (
             <>
               <div className="text-center">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.25)] px-3 py-1.5 rounded-full mb-5">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.25)] px-3 py-1.5 rounded-full mb-5">
                   <SparkleIcon size={12} /> Invite-only early access
                 </span>
                 <h1 className="font-display text-3xl sm:text-4xl text-[var(--text-primary)] mb-3 leading-tight">
@@ -195,7 +195,7 @@ export default function InviteGate({ inviteToken, onInviteTokenChange, onSignIn,
                     "Open the link, create your account, and you're in. It's free.",
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3 items-start">
-                      <span className="w-6 h-6 shrink-0 rounded-full bg-[var(--accent-muted)] border border-[rgba(201,169,78,0.25)] text-[var(--accent)] text-xs font-semibold flex items-center justify-center">
+                      <span className="w-6 h-6 shrink-0 rounded-full bg-[var(--accent-muted)] border border-[rgba(249, 115, 22,0.25)] text-[var(--accent)] text-xs font-semibold flex items-center justify-center">
                         {i + 1}
                       </span>
                       <span className="text-sm text-[var(--text-secondary)] pt-0.5">{step}</span>

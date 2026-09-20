@@ -42,6 +42,7 @@ export interface AuthUser {
   onboarded_at: string | null;     // ISO timestamp or null if tour not completed
   approval_status: "pending" | "approved" | "rejected";
   access_expires_at?: string | null; // null = no expiry (admins, legacy testers)
+  access_granted_at?: string | null; // null = never granted access, so no access
 }
 
 // Extend Express Request
@@ -137,7 +138,7 @@ async function selectProfile(userId: string): Promise<AuthUser | null> {
   let rows: AuthUser[];
   try {
     rows = await sql<AuthUser[]>`
-      SELECT id, email, name, plan, onboarded_at, approval_status, access_expires_at
+      SELECT id, email, name, plan, onboarded_at, approval_status, access_expires_at, access_granted_at
         FROM profiles WHERE id = ${userId} LIMIT 1
     `;
   } catch (err: any) {
@@ -204,6 +205,7 @@ async function ensureProfile(
     // created row. Falls under the approval gate by default.
     approval_status: "pending",
     access_expires_at: null,
+    access_granted_at: null,
   };
 }
 

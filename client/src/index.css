@@ -21,9 +21,9 @@
   --text-ghost: #2e3148;
 
   /* Accent - Brass */
-  --accent: #c9a94e;
-  --accent-light: #d4b85c;
-  --accent-muted: rgba(201, 169, 78, 0.12);
+  --accent: #f97316;
+  --accent-light: #fb923c;
+  --accent-muted: rgba(249, 115, 22, 0.12);
 
   /* Secondary - Slate Blue */
   --accent-blue: #6775a0;
@@ -222,15 +222,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .launch-btn {
   background: linear-gradient(135deg, var(--accent) 0%, #b8982f 100%);
   color: #0a0b0e;
-  box-shadow: 0 0 0 0 rgba(201, 169, 78, 0.4);
+  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
 }
 .launch-btn:hover:not(:disabled) {
-  box-shadow: 0 0 24px rgba(201, 169, 78, 0.25), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.25), 0 4px 16px rgba(0, 0, 0, 0.3);
   transform: translateY(-1px);
 }
 .launch-btn:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 0 0 12px rgba(201, 169, 78, 0.2);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
 }
 
 .landing-slider {
@@ -250,11 +250,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(201, 169, 78, 0.3);
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.3);
   transition: box-shadow 200ms ease, transform 200ms ease;
 }
 .landing-slider::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 16px rgba(201, 169, 78, 0.5);
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.5);
   transform: scale(1.15);
 }
 .landing-slider::-moz-range-thumb {
@@ -264,7 +264,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   background: var(--accent);
   cursor: pointer;
   border: none;
-  box-shadow: 0 0 8px rgba(201, 169, 78, 0.3);
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.3);
 }
 
 .landing-section-enter {
@@ -281,8 +281,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 @keyframes stepPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 169, 78, 0.3); }
-  50% { box-shadow: 0 0 0 6px rgba(201, 169, 78, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0); }
 }
 
 @keyframes slideDown {
@@ -301,7 +301,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(201, 169, 78, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(249, 115, 22, 0.08);
   font-family: var(--font-body);
   max-width: 360px;
 }
@@ -351,12 +351,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 .gc8-tour-popover button.driver-popover-next-btn {
   background: var(--accent-muted);
-  border-color: rgba(201, 169, 78, 0.3);
+  border-color: rgba(249, 115, 22, 0.3);
   color: var(--accent);
 }
 .gc8-tour-popover button.driver-popover-next-btn:hover {
-  background: rgba(201, 169, 78, 0.18);
-  border-color: rgba(201, 169, 78, 0.5);
+  background: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.5);
 }
 .gc8-tour-popover button.driver-popover-prev-btn:hover {
   background: var(--bg-surface-hover);
@@ -376,7 +376,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   fill: rgba(6, 7, 10, 0.72) !important;
 }
 .driver-active-element {
-  outline: 2px solid rgba(201, 169, 78, 0.5) !important;
+  outline: 2px solid rgba(249, 115, 22, 0.5) !important;
   outline-offset: 2px;
 }
 

@@ -91,7 +91,7 @@ export function startLandingTour(opts: {
   const steps: DriveStep[] = [
     {
       popover: {
-        title: "Welcome to GO CANDID8 👋",
+        title: "Welcome to Tailorly AI 👋",
         description:
           "Your job search on autopilot. This 60-second tour shows you the core flow, configure your preferences, run the pipeline, and track everything on the Kanban board.",
       },
@@ -121,7 +121,7 @@ export function startLandingTour(opts: {
       popover: {
         title: "Run the pipeline",
         description:
-          "Hit Start and GO CANDID8 scrapes multiple job boards, scores each role against your resume, and tailors resumes for the best matches, all in one click.",
+          "Hit Start and Tailorly AI scrapes multiple job boards, scores each role against your resume, and tailors resumes for the best matches, all in one click.",
         side: "top",
         align: "center",
       },
@@ -219,7 +219,7 @@ export function startDashboardTour() {
       popover: {
         title: "Applied → Interviewing → Offer",
         description:
-          "As you hear back, drag the card through the stages. GO CANDID8 tracks dates and computes your interview / offer / rejection rates.",
+          "As you hear back, drag the card through the stages. Tailorly AI tracks dates and computes your interview / offer / rejection rates.",
         side: "right",
         align: "start",
       },
@@ -229,7 +229,7 @@ export function startDashboardTour() {
       popover: {
         title: "Add jobs manually",
         description:
-          "Found a role the scrapers missed? Paste the URL here and GO CANDID8 will score it against your resume.",
+          "Found a role the scrapers missed? Paste the URL here and Tailorly AI will score it against your resume.",
         side: "bottom",
         align: "end",
       },

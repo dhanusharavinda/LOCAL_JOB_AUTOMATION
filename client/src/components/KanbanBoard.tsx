@@ -116,7 +116,7 @@ export default function KanbanBoard({
                 onClick={() => setMobileStatus(col.id)}
                 className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
                   active
-                    ? "bg-[#c9a94e]/15 border border-[#c9a94e]/40 text-[#c9a94e]"
+                    ? "bg-[#f97316]/15 border border-[#f97316]/40 text-[#f97316]"
                     : "bg-[var(--bg-surface)] border border-[rgba(255,255,255,0.06)] text-[#8b8fa3]"
                 }`}
               >
@@ -213,7 +213,7 @@ export default function KanbanBoard({
                     {...provided.droppableProps}
                     className={`flex-1 px-1.5 py-2 space-y-2 min-h-[120px] rounded-b-xl border border-t-0 transition-all duration-200
                       ${snapshot.isDraggingOver
-                        ? "border-[#c9a94e]/20 bg-[#c9a94e]/5"
+                        ? "border-[#f97316]/20 bg-[#f97316]/5"
                         : "border-[rgba(255,255,255,0.06)] bg-transparent"
                       }
                     `}
@@ -243,7 +243,7 @@ export default function KanbanBoard({
                     {hiddenCount > 0 && (
                       <button
                         onClick={() => showMore(col.id)}
-                        className="w-full mt-1 py-2 rounded-lg font-mono text-[11px] text-[#555872] border border-dashed border-[rgba(255,255,255,0.08)] hover:text-[#c9a94e] hover:border-[#c9a94e]/30 transition-colors"
+                        className="w-full mt-1 py-2 rounded-lg font-mono text-[11px] text-[#555872] border border-dashed border-[rgba(255,255,255,0.08)] hover:text-[#f97316] hover:border-[#f97316]/30 transition-colors"
                       >
                         Show {Math.min(hiddenCount, COLUMN_PAGE_SIZE)} more
                         <span className="text-[#2e3148]"> ({hiddenCount} hidden)</span>

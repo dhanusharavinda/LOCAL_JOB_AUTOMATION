@@ -49,6 +49,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
         is_admin: isAdmin,
         access_state: accessState,
         access_expires_at: user.access_expires_at ?? null,
+        access_granted_at: user.access_granted_at ?? null,
         features: launchFeatures(isAdmin),
       },
       usage,
@@ -239,9 +240,11 @@ router.post("/admin/approve/:userId", requireAuth, async (req: Request, res: Res
   try {
     const rows = await sql<{ id: string; email: string; approval_status: string }[]>`
       UPDATE profiles
-         SET approval_status = ${next},
-             approved_at     = CASE WHEN ${next} = 'approved' THEN NOW() ELSE approved_at END,
-             approved_by     = CASE WHEN ${next} = 'approved' THEN ${req.user!.id}::uuid ELSE approved_by END
+         SET approval_status   = ${next},
+             approved_at       = CASE WHEN ${next} = 'approved' THEN NOW() ELSE approved_at END,
+             approved_by       = CASE WHEN ${next} = 'approved' THEN ${req.user!.id}::uuid ELSE approved_by END,
+             -- Approving grants access; anything else takes it away.
+             access_granted_at = CASE WHEN ${next} = 'approved' THEN COALESCE(access_granted_at, NOW()) ELSE NULL END
        WHERE id = ${userId}
       RETURNING id, email, approval_status
     `;

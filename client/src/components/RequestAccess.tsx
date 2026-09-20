@@ -11,7 +11,7 @@ import { LinkedInIcon } from "./icons";
  */
 
 const TEMPLATE =
-  "Hi Dhanush, I saw GO CANDID8 on your LinkedIn and I'd love to try it. " +
+  "Hi Dhanush, I saw Tailorly AI on your LinkedIn and I'd love to try it. " +
   "Could you send me an invite link? Thanks!";
 
 async function copyText(text: string): Promise<boolean> {

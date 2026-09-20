@@ -50,7 +50,7 @@ export default function ExtensionAuthBridge() {
         const chromeApi = (window as any).chrome;
         if (!chromeApi?.runtime?.sendMessage) {
           setStatus("error");
-          setErrorMsg("This page can't reach the extension. Make sure GO CANDID8 is installed and try again.");
+          setErrorMsg("This page can't reach the extension. Make sure Tailorly AI is installed and try again.");
           return;
         }
         chromeApi.runtime.sendMessage(
@@ -104,7 +104,7 @@ export default function ExtensionAuthBridge() {
   return (
     <div style={wrap}>
       <div style={card}>
-        <div style={brand}>GO <span style={{ color: "#ff5722" }}>CANDID8</span></div>
+        <div style={brand}>GO <span style={{ color: "#ff5722" }}>TAILORLY</span></div>
         <h1 style={h1}>Connect the browser extension</h1>
 
         {status === "waiting" && <p style={muted}>Checking your sign-in…</p>}
