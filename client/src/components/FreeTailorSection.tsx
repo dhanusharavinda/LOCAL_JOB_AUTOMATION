@@ -13,6 +13,13 @@ interface Props {
 
 type Phase = "input" | "tailoring" | "review" | "result";
 
+// Must match INSTRUCTIONS_WORD_CAP / INSTRUCTIONS_CHAR_CAP in
+// server/src/text.ts. Steering is a nudge about which keywords to lean
+// on, which takes a sentence or two; longer input is usually a pasted
+// second job description, and we pay for every token of it.
+const INSTRUCTION_WORD_CAP = 80;
+const INSTRUCTION_CHAR_CAP = 600;
+
 export default function FreeTailorSection({ currentUser, onNavigateToPricing, launchMode = false }: Props) {
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
@@ -24,11 +31,14 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
   const [alsoCoverLetter, setAlsoCoverLetter] = useState(false);
   const [copiedCoverLetter, setCopiedCoverLetter] = useState(false);
   // Optional free-form steering ("emphasise Databricks, drop GCP").
-  // Capped at 500 chars in the UI; the server allows up to 1000 as
-  // a safety margin in case the cap moves later. Collapsed by
-  // default so it doesn't intimidate first-time users.
+  // Capped by WORD count, which is what people actually judge length
+  // by, with a character stop behind it. Both caps match the server
+  // (INSTRUCTIONS_WORD_CAP / INSTRUCTIONS_CHAR_CAP in server/src/text.ts),
+  // so the UI never lets someone type something the API then rejects.
+  // Collapsed by default so it doesn't intimidate first-time users.
   const [userInstructions, setUserInstructions] = useState("");
   const [showInstructions, setShowInstructions] = useState(false);
+  const instructionWords = userInstructions.trim() ? userInstructions.trim().split(/\s+/).length : 0;
   // Post-tailor cover letter generation. Lets a user click "Generate
   // cover letter" on the result panel even if they didn't check the
   // opt-in box before tailoring. We store the generated text here
@@ -653,8 +663,17 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                   <textarea
                     value={userInstructions}
                     onChange={(e) => {
-                      const next = e.target.value.slice(0, 500);
-                      setUserInstructions(next);
+                      // Word cap, because that is how people think about
+                      // how much they are writing. Trailing whitespace is
+                      // preserved while under the cap so typing a space
+                      // between words does not fight the user.
+                      const raw = e.target.value.slice(0, INSTRUCTION_CHAR_CAP);
+                      const words = raw.trim().split(/\s+/).filter(Boolean);
+                      setUserInstructions(
+                        words.length > INSTRUCTION_WORD_CAP
+                          ? words.slice(0, INSTRUCTION_WORD_CAP).join(" ")
+                          : raw,
+                      );
                     }}
                     rows={3}
                     placeholder={'e.g. "Mention Databricks and drop GCP. Weave Databricks into the work experience and project bullets where it fits."'}
@@ -664,8 +683,8 @@ export default function FreeTailorSection({ currentUser, onNavigateToPricing, la
                     <span>
                       Steers keyword choice only. Past job titles, certifications, and dates stay verbatim.
                     </span>
-                    <span className={`font-mono tabular-nums ${userInstructions.length >= 480 ? "text-amber-400" : ""}`}>
-                      {userInstructions.length} / 500
+                    <span className={`font-mono tabular-nums ${instructionWords >= INSTRUCTION_WORD_CAP - 8 ? "text-amber-400" : ""}`}>
+                      {instructionWords} / {INSTRUCTION_WORD_CAP} words
                     </span>
                   </div>
                 </div>

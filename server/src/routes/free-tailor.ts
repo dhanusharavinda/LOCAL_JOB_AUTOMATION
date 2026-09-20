@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { generateLocalPdf, estimateResumePages } from "../pdf";
-import { capWords, JD_WORD_CAP } from "../text";
+import { capWords, countWords, sanitizeForPrompt, JD_WORD_CAP, INSTRUCTIONS_WORD_CAP, INSTRUCTIONS_CHAR_CAP } from "../text";
 import { isAdmin } from "./auth";
 import { ATS_ENGINE_BLOCK } from "../prompts/ats-engine";
 import { bannedWordsBlock, countBannedPhrases } from "../prompts/banned-words";
@@ -204,8 +204,14 @@ router.post("/", async (req: Request, res: Response) => {
   // "emphasise Databricks, drop GCP"). Validated for type + size
   // here; the prompt builder strips control chars and caps length.
   const rawInstructions = typeof userInstructions === "string" ? userInstructions : "";
-  if (rawInstructions.length > 1000) {
-    res.status(400).json({ error: "Custom instructions are too long (max 1000 characters)." });
+  if (countWords(rawInstructions) > INSTRUCTIONS_WORD_CAP) {
+    res.status(400).json({
+      error: `Custom instructions are too long (max ${INSTRUCTIONS_WORD_CAP} words). Keep it to what you want emphasised or dropped.`,
+    });
+    return;
+  }
+  if (rawInstructions.length > INSTRUCTIONS_CHAR_CAP) {
+    res.status(400).json({ error: `Custom instructions are too long (max ${INSTRUCTIONS_CHAR_CAP} characters).` });
     return;
   }
 
@@ -980,11 +986,10 @@ Before finalising: read the resume as a skeptical hiring manager. Every mirrored
   // block prompt-injection attempts that try to override the system
   // contract ("ignore previous", "system:", role markers). The block
   // is only emitted when the user actually typed something.
-  const trimmedInstructions = (userInstructions || "")
-    .replace(/\p{Cc}+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 800);
+  const trimmedInstructions = capWords(
+    sanitizeForPrompt(userInstructions),
+    INSTRUCTIONS_WORD_CAP,
+  ).slice(0, INSTRUCTIONS_CHAR_CAP);
   const userSteeringBlock = trimmedInstructions
     ? `
 
