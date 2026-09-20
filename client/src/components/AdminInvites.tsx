@@ -72,7 +72,10 @@ export default function AdminInvites() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(5);
-  const [days, setDays] = useState(30);
+  // 0 = access that never expires, which is the launch default. The
+  // public promise is that the tool is free, so no countdown runs
+  // unless an invite is deliberately given one.
+  const [days, setDays] = useState(0);
   const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
   const [fresh, setFresh] = useState<AdminInvite[]>([]);
@@ -185,14 +188,16 @@ export default function AdminInvites() {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Access days</label>
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Access days <span className="normal-case tracking-normal text-[var(--text-ghost)]">(0 = never expires)</span>
+              </label>
               <input
                 type="number"
                 inputMode="numeric"
-                min={1}
+                min={0}
                 max={365}
                 value={days}
-                onChange={(e) => setDays(Math.min(365, Math.max(1, parseInt(e.target.value) || 1)))}
+                onChange={(e) => setDays(Math.min(365, Math.max(0, parseInt(e.target.value) || 0)))}
                 className="w-24 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
@@ -493,7 +498,7 @@ function LinkRow({
       <div className="min-w-0 flex-1">
         <div className="font-mono text-xs text-[var(--text-primary)] truncate" title={url}>{url}</div>
         <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
-          {invite.access_days} days access · created {ago(invite.created_at)}{invite.label ? ` · ${invite.label}` : ""}
+          {invite.access_days > 0 ? `${invite.access_days} days access` : "never expires"} · created {ago(invite.created_at)}{invite.label ? ` · ${invite.label}` : ""}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">

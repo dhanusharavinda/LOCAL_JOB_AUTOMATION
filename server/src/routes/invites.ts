@@ -101,7 +101,12 @@ router.post("/redeem", async (req: Request, res: Response) => {
         UPDATE profiles
            SET approval_status   = 'approved',
                approved_at       = NOW(),
-               access_expires_at = NOW() + make_interval(days => ${inv.access_days}::int),
+               -- access_days = 0 means no expiry. NULL is what
+               -- accessStateFor reads as "never expires"; computing
+               -- NOW() + 0 days would instead expire them instantly.
+               access_expires_at = ${inv.access_days > 0
+                 ? sql`NOW() + make_interval(days => ${inv.access_days}::int)`
+                 : sql`NULL`},
                access_granted_at = NOW(),
                invite_id         = ${inv.id}
          WHERE id = ${user.id}
@@ -153,7 +158,13 @@ router.post("/", async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
   if (!(await schemaOr503(res))) return;
   const count = Math.min(50, Math.max(1, parseInt(String((req.body || {}).count ?? 1), 10) || 1));
-  const days = Math.min(365, Math.max(1, parseInt(String((req.body || {}).days ?? 30), 10) || 30));
+  // 0 means access that never expires, and it is the default: the launch
+  // promises the tool is free, with no countdown running behind it. A
+  // positive number still sets a deadline for invites that need one.
+  // Revoking or blocking a user is the control that matters, and both
+  // stay available regardless of expiry.
+  const rawDays = parseInt(String((req.body || {}).days ?? 0), 10);
+  const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(365, rawDays) : 0;
   const rawLabel = typeof req.body?.label === "string" ? req.body.label.trim().slice(0, 120) : "";
   try {
     const values = Array.from({ length: count }, () => ({
