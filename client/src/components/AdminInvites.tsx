@@ -81,6 +81,9 @@ export default function AdminInvites() {
   const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
   const [fresh, setFresh] = useState<AdminInvite[]>([]);
+  const [creatingDm, setCreatingDm] = useState(false);
+  // The link behind the DM just copied, so it can be shown for reference.
+  const [lastDmToken, setLastDmToken] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("unused");
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
@@ -104,6 +107,31 @@ export default function AdminInvites() {
       setTimeout(() => setCopied((c) => (c === key ? null : c)), 1800);
     } else {
       setError("Your browser blocked the clipboard. Select the link and copy it manually.");
+    }
+  }
+
+  /**
+   * Mint ONE brand new invite and copy its DM straight to the clipboard.
+   *
+   * Copying the DM off an existing row means squinting at the list trying
+   * to remember whether that link already went to someone. A link created
+   * at the moment of copying cannot have been sent before, which removes
+   * the question entirely.
+   */
+  async function handleCopyFreshDm() {
+    setCreatingDm(true);
+    setError(null);
+    try {
+      const created = await adminCreateInvites({ count: 1, days, label: label.trim() || undefined });
+      const invite = created[0];
+      if (!invite?.token) throw new Error("No link came back. Try again.");
+      setInvites((prev) => [invite, ...prev]);
+      setLastDmToken(invite.token);
+      await flashCopy("fresh-dm", dmMessage(invite.token));
+    } catch (e: any) {
+      setError(e?.message || "Could not create a link");
+    } finally {
+      setCreatingDm(false);
     }
   }
 
@@ -170,6 +198,26 @@ export default function AdminInvites() {
         <p className="text-xs text-[var(--text-tertiary)] mt-1">
           Each link works once. Whoever opens it gets in straight away, with no approval step for you.
         </p>
+
+        {/* Primary path when replying to a comment: one click gives a link
+            that has never been sent to anyone. */}
+        <div className="mt-4 p-3 sm:p-4 rounded-xl bg-[var(--accent-muted)] border border-[var(--accent)]/30">
+          <button
+            onClick={handleCopyFreshDm}
+            disabled={creatingDm}
+            className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[var(--accent)] text-[#06070a] text-sm font-semibold hover:bg-[var(--accent-light)] transition-colors disabled:opacity-60"
+          >
+            {creatingDm ? "Creating..." : copied === "fresh-dm" ? "Copied, ready to paste" : "Copy DM with a new link"}
+          </button>
+          <p className="text-[11px] text-[var(--text-tertiary)] mt-2 leading-relaxed">
+            Makes a fresh link every time you click, so you never have to wonder whether you already sent it.
+          </p>
+          {lastDmToken && (
+            <p className="text-[11px] font-mono text-[var(--text-secondary)] mt-2 break-all">
+              {inviteUrl(lastDmToken)}
+            </p>
+          )}
+        </div>
 
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-end gap-3">

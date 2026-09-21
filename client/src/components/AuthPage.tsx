@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 import { authMe, AuthUser, checkInvite } from "../api";
 import { getStoredInvite } from "../invite";
 import { authRedirect } from "../site";
+import { friendlyAuthError } from "../authErrors";
 
 interface Props {
   onNavigateToLanding: () => void;
@@ -123,7 +124,7 @@ export default function AuthPage({ onNavigateToLanding, onNavigateToPricing, onA
       onAuth(me.user);
       onNavigateToLanding();
     } catch (err: any) {
-      setError(err?.message || "Authentication failed");
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }

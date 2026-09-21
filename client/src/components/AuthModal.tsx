@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { authMe } from "../api";
 import { authRedirect } from "../site";
+import { friendlyAuthError } from "../authErrors";
 
 interface Props {
   onClose: () => void;
@@ -110,7 +111,7 @@ export default function AuthModal({
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(err?.message || "Authentication failed");
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }

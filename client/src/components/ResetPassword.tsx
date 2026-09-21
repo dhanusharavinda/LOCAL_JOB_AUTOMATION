@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 import Ambient, { BrandMark } from "./Ambient";
 import { initialUrlParams } from "../urlSnapshot";
 import { authRedirect } from "../site";
+import { friendlyAuthError } from "../authErrors";
 
 /**
  * "Set a new password" screen, reached from the password-reset email.
@@ -108,7 +109,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
       if (err) throw err;
       setDone(true);
     } catch (err: any) {
-      setError(err?.message || "Could not set the new password.");
+      setError(friendlyAuthError(err));
     } finally {
       setSaving(false);
     }
@@ -127,7 +128,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
       if (err) throw err;
       setSent(true);
     } catch (err: any) {
-      setError(err?.message || "Could not send the email. Try again in a minute.");
+      setError(friendlyAuthError(err));
     } finally {
       setSending(false);
     }
