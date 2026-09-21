@@ -1022,7 +1022,10 @@ export interface AdminInvite {
   approval_status?: "pending" | "approved" | "rejected" | null;
   tailor_limit?: number | null;   // null = the default daily allowance
   tailors_today?: number;
-  tailors_total?: number;
+  tailors_total?: number;      // lifetime resumes tailored
+  covers_today?: number;
+  covers_total?: number;       // lifetime cover letters
+  last_used_at?: string | null;
 }
 
 async function adminJson<T>(url: string, init?: RequestInit): Promise<T> {

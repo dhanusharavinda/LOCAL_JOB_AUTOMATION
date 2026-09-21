@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { sql } from "../db";
-import { ensureInviteSchema, isAdminEmail, accessStateFor } from "../access";
+import { ensureInviteSchema, isAdminEmail, accessStateFor, UNLIMITED_LIMIT } from "../access";
 
 /**
  * Invite links for the invite-only launch.
@@ -134,7 +134,17 @@ router.get("/", async (req: Request, res: Response) => {
                WHERE f.user_id = p.id::text AND f.kind = 'tailor'
                  AND f.created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS tailors_today,
              (SELECT COUNT(*)::int FROM free_tailor_log f
-               WHERE f.user_id = p.id::text) AS tailors_total
+               WHERE f.user_id = p.id::text AND f.kind = 'cover_letter'
+                 AND f.created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS covers_today,
+             -- Lifetime counts, split by kind. These used to be one
+             -- combined total, which read as "resumes tailored" but
+             -- silently included cover letters.
+             (SELECT COUNT(*)::int FROM free_tailor_log f
+               WHERE f.user_id = p.id::text AND f.kind = 'tailor') AS tailors_total,
+             (SELECT COUNT(*)::int FROM free_tailor_log f
+               WHERE f.user_id = p.id::text AND f.kind = 'cover_letter') AS covers_total,
+             (SELECT MAX(f.created_at) FROM free_tailor_log f
+               WHERE f.user_id = p.id::text) AS last_used_at
         FROM invite_links i
         LEFT JOIN profiles p ON p.id = i.redeemed_by
        ORDER BY i.created_at DESC
@@ -237,9 +247,13 @@ router.post("/users/:userId/limit", async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
   if (!(await schemaOr503(res))) return;
   const raw = (req.body || {}).limit;
+  // UNLIMITED_LIMIT is the sentinel the admin panel sends for "no cap".
+  // It is a big finite number rather than Infinity because the column is
+  // an integer and the client renders the value; anything at or above it
+  // is unreachable by a human and displays as "Unlimited".
   const limit = raw === null || raw === "" || raw === undefined
     ? null
-    : Math.min(500, Math.max(0, parseInt(String(raw), 10) || 0));
+    : Math.min(UNLIMITED_LIMIT, Math.max(0, parseInt(String(raw), 10) || 0));
   try {
     const rows = await sql<{ tailor_limit: number | null }[]>`
       UPDATE profiles SET tailor_limit = ${limit}

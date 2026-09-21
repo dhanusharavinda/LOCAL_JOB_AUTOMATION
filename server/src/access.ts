@@ -160,3 +160,13 @@ export function requireLaunchAccess(req: Request, res: Response, next: NextFunct
     error: "This feature is coming soon. Early access currently includes the Resume Tailor.",
   });
 }
+
+/**
+ * The value stored in profiles.tailor_limit that means "no daily cap".
+ *
+ * A finite number rather than Infinity because the column is an integer
+ * and the client renders it. 9999 runs per day is unreachable for a
+ * person, and it matches the admin's own quota, so the two read the same
+ * way in the UI.
+ */
+export const UNLIMITED_LIMIT = 9999;

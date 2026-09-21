@@ -34,6 +34,25 @@ function dmMessage(token: string): string {
   ].join("\n");
 }
 
+// Must match UNLIMITED_LIMIT in server/src/access.ts.
+const UNLIMITED_LIMIT = 9999;
+
+/** One-tap daily allowances. null puts the person back on the default. */
+const LIMIT_PRESETS: { label: string; value: number | null; hint: string }[] = [
+  { label: "Default", value: null, hint: "Whatever the site default is (currently 5 a day)" },
+  { label: "10", value: 10, hint: "10 resumes and 10 cover letters a day" },
+  { label: "25", value: 25, hint: "25 resumes and 25 cover letters a day" },
+  { label: "50", value: 50, hint: "50 resumes and 50 cover letters a day" },
+  { label: "Unlimited", value: UNLIMITED_LIMIT, hint: "No practical daily cap" },
+];
+
+/** How a stored limit reads in the UI. */
+function limitLabel(limit: number | null | undefined): string {
+  if (limit === null || limit === undefined) return "5";
+  if (limit >= UNLIMITED_LIMIT) return "∞";
+  return String(limit);
+}
+
 function ago(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d}d ago`;
@@ -166,6 +185,11 @@ export default function AdminInvites() {
     unused: invites.filter((i) => !i.redeemed_at && !i.revoked_at).length,
     used: invites.filter((i) => !!i.redeemed_at).length,
     active: invites.filter((i) => i.redeemed_at && i.approval_status !== "rejected" && (daysLeft(i.access_expires_at) ?? 1) > 0).length,
+    // What the tool has actually done, which is the number worth
+    // watching once people are in.
+    resumes: invites.reduce((n, i) => n + (i.tailors_total ?? 0), 0),
+    covers: invites.reduce((n, i) => n + (i.covers_total ?? 0), 0),
+    today: invites.reduce((n, i) => n + (i.tailors_today ?? 0), 0),
   }), [invites]);
 
   const visible = invites.filter((i) => {
@@ -184,6 +208,9 @@ export default function AdminInvites() {
           { label: "Unused links", value: stats.unused, cls: "text-[var(--accent)]" },
           { label: "People joined", value: stats.used, cls: "text-emerald-400" },
           { label: "Active now", value: stats.active, cls: "text-sky-400" },
+          { label: "Resumes tailored", value: stats.resumes, cls: "text-[var(--accent)]" },
+          { label: "Cover letters", value: stats.covers, cls: "text-[var(--text-primary)]" },
+          { label: "Tailored today", value: stats.today, cls: "text-sky-400" },
         ].map((s) => (
           <div key={s.label} className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-3 sm:p-4">
             <div className={`font-display text-xl sm:text-2xl tabular-nums ${s.cls}`}>{s.value}</div>
@@ -432,8 +459,24 @@ function JoinedRow({
           <div className="text-xs text-[var(--text-tertiary)] mt-1">
             Joined {ago(i.redeemed_at!)}
             {i.label ? ` · ${i.label}` : ""}
-            {typeof i.tailors_today === "number" ? ` · ${i.tailors_today} today` : ""}
-            {typeof i.tailors_total === "number" ? ` · ${i.tailors_total} total` : ""}
+            {i.last_used_at ? ` · last used ${ago(i.last_used_at)}` : " · never used it"}
+          </div>
+          {/* Lifetime usage, split by kind. The combined number used to
+              be labelled "total", which read as resumes but quietly
+              counted cover letters too. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+            <span className="text-xs text-[var(--text-secondary)]">
+              <span className="font-mono font-semibold text-[var(--accent)] tabular-nums">{i.tailors_total ?? 0}</span>
+              {" "}resume{(i.tailors_total ?? 0) === 1 ? "" : "s"} tailored
+            </span>
+            <span className="text-xs text-[var(--text-secondary)]">
+              <span className="font-mono font-semibold text-[var(--text-primary)] tabular-nums">{i.covers_total ?? 0}</span>
+              {" "}cover letter{(i.covers_total ?? 0) === 1 ? "" : "s"}
+            </span>
+            <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
+              today {i.tailors_today ?? 0}/{limitLabel(i.tailor_limit)}
+              {typeof i.covers_today === "number" && i.covers_today > 0 ? ` · ${i.covers_today} cl` : ""}
+            </span>
           </div>
         </div>
         <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${statusPill.cls}`}>
@@ -443,18 +486,44 @@ function JoinedRow({
 
       {userId && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {/* Daily allowance */}
-          <div className="flex items-center gap-1.5">
+          {/* Daily allowance: one tap for the common values, typing for
+              anything else. Unlimited is a real option rather than a
+              number the admin has to know to enter. */}
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] text-[var(--text-tertiary)]">Daily limit</span>
+            <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)]">
+              {LIMIT_PRESETS.map((preset) => {
+                const active = (i.tailor_limit ?? null) === preset.value;
+                return (
+                  <button
+                    key={preset.label}
+                    disabled={isBusy}
+                    onClick={() => withBusy(key, async () => {
+                      const r = await adminSetTailorLimit(userId, preset.value);
+                      patchUser(userId, { tailor_limit: r.tailor_limit });
+                      setLimitDraft(r.tailor_limit === null ? "" : String(r.tailor_limit));
+                    })}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50 ${
+                      active
+                        ? "bg-[var(--accent)] text-[#06070a]"
+                        : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                    }`}
+                    title={preset.hint}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="number"
               inputMode="numeric"
               min={0}
-              max={500}
+              max={UNLIMITED_LIMIT}
               value={limitDraft}
-              placeholder="5"
+              placeholder="custom"
               onChange={(e) => setLimitDraft(e.target.value)}
-              className="w-16 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-2 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
+              className="w-20 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-2 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
             />
             <button
               disabled={isBusy}
@@ -464,7 +533,7 @@ function JoinedRow({
                 patchUser(userId, { tailor_limit: r.tailor_limit });
               })}
               className="text-xs font-medium px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
-              title="Resumes and cover letters per day. Leave empty for the default."
+              title="Resumes and cover letters per day. Empty means the default."
             >
               Save
             </button>
