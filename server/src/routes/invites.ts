@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { sql } from "../db";
 import { ensureInviteSchema, isAdminEmail, accessStateFor, UNLIMITED_LIMIT } from "../access";
+import { EST_TAILOR_USD, EST_COVER_USD } from "../usage-cost";
 
 /**
  * Invite links for the invite-only launch.
@@ -126,7 +127,88 @@ router.get("/", async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
   if (!(await schemaOr503(res))) return;
   try {
-    const rows = await sql<any[]>`
+    let rows: any[];
+    try {
+      rows = await listInvitesWithCost();
+    } catch (err: any) {
+      // 42703 = the cost columns are not on this database yet (migration
+      // 0014 has not run and no tailor has triggered the on-demand add).
+      // The admin panel must not go blank over an accounting column, so
+      // fall back to the same list without spend and add the columns in
+      // the background.
+      if (err?.code !== "42703") throw err;
+      console.warn("[GET /api/invites] cost columns missing; serving without spend");
+      void ensureUsageCostColumns();
+      rows = await listInvitesWithoutCost();
+    }
+    // Only unused, live links need their token (for copying).
+    res.json({
+      invites: rows.map((r) => ({
+        ...r,
+        token: !r.redeemed_at && !r.revoked_at ? r.token : null,
+      })),
+    });
+  } catch (err: any) {
+    console.error("[GET /api/invites]", err?.message || err);
+    res.status(500).json({ error: "Could not load invites." });
+  }
+});
+
+/** Adds the per-run cost columns if a deploy got ahead of the migration. */
+let usageCostSchema: Promise<void> | null = null;
+function ensureUsageCostColumns(): Promise<void> {
+  if (!usageCostSchema) {
+    usageCostSchema = (async () => {
+      try {
+        await sql`SET lock_timeout = '4s'`;
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER`;
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS completion_tokens INTEGER`;
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(10,6)`;
+        await sql`RESET lock_timeout`;
+      } catch (err: any) {
+        console.error("[invites] could not add cost columns:", err?.message || err);
+        try { await sql`RESET lock_timeout`; } catch { /* connection may be gone */ }
+        usageCostSchema = null;
+      }
+    })();
+  }
+  return usageCostSchema;
+}
+
+/** The same list minus anything that reads the cost columns. */
+async function listInvitesWithoutCost(): Promise<any[]> {
+  return sql<any[]>`
+    SELECT i.id, i.token, i.label, i.access_days, i.created_at, i.redeemed_at, i.revoked_at,
+           p.id AS redeemed_user_id, p.email AS redeemed_email, p.name AS redeemed_name,
+           p.access_expires_at, p.approval_status, p.tailor_limit,
+           (SELECT COUNT(*)::int FROM free_tailor_log f
+             WHERE f.user_id = p.id::text AND f.kind = 'tailor'
+               AND f.created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS tailors_today,
+           (SELECT COUNT(*)::int FROM free_tailor_log f
+             WHERE f.user_id = p.id::text AND f.kind = 'cover_letter'
+               AND f.created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')) AS covers_today,
+           (SELECT COUNT(*)::int FROM free_tailor_log f
+             WHERE f.user_id = p.id::text AND f.kind = 'tailor') AS tailors_total,
+           (SELECT COUNT(*)::int FROM free_tailor_log f
+             WHERE f.user_id = p.id::text AND f.kind = 'cover_letter') AS covers_total,
+           (SELECT MAX(f.created_at) FROM free_tailor_log f
+             WHERE f.user_id = p.id::text) AS last_used_at,
+           (SELECT COALESCE(SUM(CASE WHEN f.kind = 'cover_letter'
+                                     THEN ${EST_COVER_USD}::numeric
+                                     ELSE ${EST_TAILOR_USD}::numeric END), 0)::float8
+              FROM free_tailor_log f
+             WHERE f.user_id = p.id::text) AS cost_usd,
+           0 AS costed_runs,
+           0 AS tokens_total
+      FROM invite_links i
+      LEFT JOIN profiles p ON p.id = i.redeemed_by
+     ORDER BY i.created_at DESC
+     LIMIT 500
+  `;
+}
+
+async function listInvitesWithCost(): Promise<any[]> {
+  return sql<any[]>`
       SELECT i.id, i.token, i.label, i.access_days, i.created_at, i.redeemed_at, i.revoked_at,
              p.id AS redeemed_user_id, p.email AS redeemed_email, p.name AS redeemed_name,
              p.access_expires_at, p.approval_status, p.tailor_limit,
@@ -144,24 +226,30 @@ router.get("/", async (req: Request, res: Response) => {
              (SELECT COUNT(*)::int FROM free_tailor_log f
                WHERE f.user_id = p.id::text AND f.kind = 'cover_letter') AS covers_total,
              (SELECT MAX(f.created_at) FROM free_tailor_log f
-               WHERE f.user_id = p.id::text) AS last_used_at
+               WHERE f.user_id = p.id::text) AS last_used_at,
+             -- Spend. Runs carry the API's own token counts once they
+             -- have them; older rows have none, so they fall back to the
+             -- measured per-kind average. exact_runs vs total lets the
+             -- UI say how much of the figure is real.
+             (SELECT COALESCE(SUM(
+                        COALESCE(f.cost_usd,
+                                 CASE WHEN f.kind = 'cover_letter'
+                                      THEN ${EST_COVER_USD}::numeric
+                                      ELSE ${EST_TAILOR_USD}::numeric END)
+                      ), 0)::float8
+                FROM free_tailor_log f
+               WHERE f.user_id = p.id::text) AS cost_usd,
+             (SELECT COUNT(*)::int FROM free_tailor_log f
+               WHERE f.user_id = p.id::text AND f.cost_usd IS NOT NULL) AS costed_runs,
+             (SELECT COALESCE(SUM(f.prompt_tokens + f.completion_tokens), 0)::int
+                FROM free_tailor_log f
+               WHERE f.user_id = p.id::text) AS tokens_total
         FROM invite_links i
         LEFT JOIN profiles p ON p.id = i.redeemed_by
        ORDER BY i.created_at DESC
        LIMIT 500
-    `;
-    // Only unused, live links need their token (for copying).
-    res.json({
-      invites: rows.map((r) => ({
-        ...r,
-        token: !r.redeemed_at && !r.revoked_at ? r.token : null,
-      })),
-    });
-  } catch (err: any) {
-    console.error("[GET /api/invites]", err?.message || err);
-    res.status(500).json({ error: "Could not load invites." });
-  }
-});
+  `;
+}
 
 // ─── POST /api/invites (admin) ──────────────────────────────────────
 router.post("/", async (req: Request, res: Response) => {

@@ -1026,6 +1026,9 @@ export interface AdminInvite {
   covers_today?: number;
   covers_total?: number;       // lifetime cover letters
   last_used_at?: string | null;
+  cost_usd?: number;        // OpenAI spend: recorded where known, estimated otherwise
+  costed_runs?: number;     // how many runs carry real token counts
+  tokens_total?: number;    // recorded tokens (0 until runs start logging them)
 }
 
 async function adminJson<T>(url: string, init?: RequestInit): Promise<T> {

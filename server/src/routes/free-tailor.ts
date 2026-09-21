@@ -8,6 +8,7 @@ import { isAdmin } from "./auth";
 import { ATS_ENGINE_BLOCK } from "../prompts/ats-engine";
 import { bannedWordsBlock, countBannedPhrases } from "../prompts/banned-words";
 import { normalizeResumeData } from "../resume-shape";
+import { recordUsage } from "../usage-cost";
 
 // Admins get an effectively unlimited daily count for the free-tailor
 // hook. We don't say "Infinity" because the client renders the number,
@@ -60,6 +61,10 @@ function ensureQuotaSchema(): Promise<boolean> {
         await sql`SET lock_timeout = '4s'`;
         await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'tailor'`;
         await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tailor_limit INTEGER`;
+        // Per-run cost columns (migration 0014 is the canonical copy).
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER`;
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS completion_tokens INTEGER`;
+        await sql`ALTER TABLE free_tailor_log ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(10,6)`;
         await sql`RESET lock_timeout`;
         return true;
       } catch (err: any) {
@@ -258,6 +263,14 @@ router.post("/", async (req: Request, res: Response) => {
   // their iteration usage polluting the free_tailor_log table the
   // /status endpoint counts against (which would also surface a wrong
   // "remaining" number to other tools reading that table).
+  // The usage row is reserved before the OpenAI call, so its id lives at
+  // handler scope and the real token counts are written back onto it once
+  // the work has succeeded. Admin runs reserve nothing, so the id stays
+  // null and recordUsage no-ops.
+  let reservedLogId: number | null = null;
+  let promptTokens = 0;
+  let completionTokens = 0;
+
   let used: number;
   if (userIsAdmin) {
     used = 0;
@@ -283,7 +296,10 @@ router.post("/", async (req: Request, res: Response) => {
         if (current >= quota) return current;
         // Reserve the slot inside the same transaction so a second concurrent
         // request that re-reads after we commit sees the updated count.
-        await tx`INSERT INTO free_tailor_log (user_id, kind) VALUES (${userId}, 'tailor')`;
+        const ins = await tx<{ id: number }[]>`
+          INSERT INTO free_tailor_log (user_id, kind) VALUES (${userId}, 'tailor') RETURNING id
+        `;
+        reservedLogId = ins[0]?.id ?? null;
         return current;
       }) as number;
     } catch (err: any) {
@@ -351,6 +367,9 @@ router.post("/", async (req: Request, res: Response) => {
       // cap is generous; unused headroom costs nothing.
       max_tokens: 8000,
     });
+
+    promptTokens += completion.usage?.prompt_tokens || 0;
+    completionTokens += completion.usage?.completion_tokens || 0;
 
     if (completion.choices[0].finish_reason === "length") {
       console.error("[free-tailor] output hit the token cap; resume too long for one pass");
@@ -443,7 +462,10 @@ router.post("/", async (req: Request, res: Response) => {
     if (lost.length > 0) {
       console.warn("[free-tailor] sections missing from output:", lost.join(", "));
       try {
-        const recovered = await recoverSections(openai, resume, lost);
+        const recovered = await recoverSections(openai, resume, lost, (p, c) => {
+          promptTokens += p;
+          completionTokens += c;
+        });
         for (const key of lost) {
           const rows = (recovered as any)[key];
           if (Array.isArray(rows) && rows.length > 0) (inner as any)[key] = rows;
@@ -553,6 +575,8 @@ Return the JSON now.`;
           temperature: 0.7,
           max_tokens: 600,
         });
+        promptTokens += clCompletion.usage?.prompt_tokens || 0;
+        completionTokens += clCompletion.usage?.completion_tokens || 0;
         const clParsed = JSON.parse(clCompletion.choices[0]?.message?.content || "{}");
         coverLetter = typeof clParsed.coverLetter === "string" && clParsed.coverLetter.trim().length > 0
           ? clParsed.coverLetter.trim()
@@ -567,6 +591,10 @@ Return the JSON now.`;
         console.warn("[free-tailor] cover letter generation failed", err?.message || err);
       }
     }
+
+    // Cost accounting, after the work succeeded. Fire and forget: a
+    // bookkeeping failure must not turn a finished resume into an error.
+    void recordUsage(reservedLogId, TAILOR_CHAT_MODEL, promptTokens, completionTokens);
 
     res.json({
       pdfBase64: pdfBuffer.toString("base64"),
@@ -645,6 +673,8 @@ router.post("/cover-letter", async (req: Request, res: Response) => {
   const clUserId = req.user!.id;
   const clIsAdmin = isAdmin(req.user!.email);
   const clQuota = await limitFor(clUserId, req.user!.email);
+  // Same pattern as the tailor route: reserve first, cost it afterwards.
+  let clLogId: number | null = null;
   if (!clIsAdmin) {
     let clUsed = 0;
     try {
@@ -658,7 +688,10 @@ router.post("/cover-letter", async (req: Request, res: Response) => {
         `;
         const current = parseInt(rows[0]?.count || "0", 10);
         if (current >= clQuota) return current;
-        await tx`INSERT INTO free_tailor_log (user_id, kind) VALUES (${clUserId}, 'cover_letter')`;
+        const ins = await tx<{ id: number }[]>`
+          INSERT INTO free_tailor_log (user_id, kind) VALUES (${clUserId}, 'cover_letter') RETURNING id
+        `;
+        clLogId = ins[0]?.id ?? null;
         return current;
       }) as number;
     } catch (err: any) {
@@ -731,6 +764,13 @@ Return the JSON now.`;
       return;
     }
 
+    void recordUsage(
+      clLogId,
+      TAILOR_CHAT_MODEL,
+      completion.usage?.prompt_tokens || 0,
+      completion.usage?.completion_tokens || 0,
+    );
+
     res.json({ coverLetter });
   } catch (err: any) {
     console.error("[POST /api/free-tailor/cover-letter]", err?.message || err);
@@ -786,7 +826,12 @@ export function missingSections(resumeText: string, out: any): Array<"experience
  * Bullets come back as originals (improved: null), so the review editor
  * shows them as the user's own text, ready to accept or edit.
  */
-export async function recoverSections(openai: OpenAI, resumeText: string, sections: string[]): Promise<any> {
+export async function recoverSections(
+  openai: OpenAI,
+  resumeText: string,
+  sections: string[],
+  onUsage?: (promptTokens: number, completionTokens: number) => void,
+): Promise<any> {
   const shapes: Record<string, string> = {
     experience: '"experience": [{ "title": string, "company": string, "date": string, "location": string|null, "bulletPoints": [{ "original": string, "improved": null, "accepted": false }] }]',
     certifications: '"certifications": [{ "name": string, "issuer": string|null, "date": string|null }]',
@@ -811,6 +856,7 @@ export async function recoverSections(openai: OpenAI, resumeText: string, sectio
     temperature: 0,
     max_tokens: 3000,
   });
+  onUsage?.(completion.usage?.prompt_tokens || 0, completion.usage?.completion_tokens || 0);
   try {
     return JSON.parse(completion.choices[0]?.message?.content || "{}");
   } catch {

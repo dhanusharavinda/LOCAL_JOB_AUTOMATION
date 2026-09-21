@@ -46,6 +46,19 @@ const LIMIT_PRESETS: { label: string; value: number | null; hint: string }[] = [
   { label: "Unlimited", value: UNLIMITED_LIMIT, hint: "No practical daily cap" },
 ];
 
+/**
+ * Spend reads in cents until it is worth showing in dollars: a user who
+ * has cost $0.018 should not render as "$0.02" next to someone at
+ * "$0.00", because at these amounts the rounding hides the comparison.
+ */
+function money(usd: number | undefined): string {
+  const v = usd ?? 0;
+  if (v === 0) return "$0";
+  if (v < 0.01) return "<1c";
+  if (v < 1) return `${Math.round(v * 100)}c`;
+  return `$${v.toFixed(2)}`;
+}
+
 /** How a stored limit reads in the UI. */
 function limitLabel(limit: number | null | undefined): string {
   if (limit === null || limit === undefined) return "5";
@@ -190,6 +203,8 @@ export default function AdminInvites() {
     resumes: invites.reduce((n, i) => n + (i.tailors_total ?? 0), 0),
     covers: invites.reduce((n, i) => n + (i.covers_total ?? 0), 0),
     today: invites.reduce((n, i) => n + (i.tailors_today ?? 0), 0),
+    spend: invites.reduce((n, i) => n + (i.cost_usd ?? 0), 0),
+    costedRuns: invites.reduce((n, i) => n + (i.costed_runs ?? 0), 0),
   }), [invites]);
 
   const visible = invites.filter((i) => {
@@ -211,6 +226,11 @@ export default function AdminInvites() {
           { label: "Resumes tailored", value: stats.resumes, cls: "text-[var(--accent)]" },
           { label: "Cover letters", value: stats.covers, cls: "text-[var(--text-primary)]" },
           { label: "Tailored today", value: stats.today, cls: "text-sky-400" },
+          {
+            label: stats.costedRuns > 0 ? "OpenAI spend" : "OpenAI spend (est)",
+            value: money(stats.spend),
+            cls: "text-emerald-400",
+          },
         ].map((s) => (
           <div key={s.label} className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-3 sm:p-4">
             <div className={`font-display text-xl sm:text-2xl tabular-nums ${s.cls}`}>{s.value}</div>
@@ -476,6 +496,16 @@ function JoinedRow({
             <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
               today {i.tailors_today ?? 0}/{limitLabel(i.tailor_limit)}
               {typeof i.covers_today === "number" && i.covers_today > 0 ? ` · ${i.covers_today} cl` : ""}
+            </span>
+            <span
+              className="text-[11px] font-mono text-[var(--text-tertiary)]"
+              title={
+                (i.costed_runs ?? 0) > 0
+                  ? `${i.costed_runs} run(s) measured from the API's own token counts${i.tokens_total ? `, ${i.tokens_total.toLocaleString()} tokens` : ""}. Older runs use a measured average.`
+                  : "Estimated from a measured per-run average. Exact token costs are recorded from now on."
+              }
+            >
+              {money(i.cost_usd)} cost{(i.costed_runs ?? 0) > 0 ? "" : " (est)"}
             </span>
           </div>
         </div>
