@@ -59,10 +59,30 @@ const PORT = process.env.PORT || 3001;
 // URL and auto-admit preview siblings. Non-browser clients (curl, the
 // pipeline subprocess, health checks) send no Origin and are let
 // through - auth middleware still gates them.
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+// The product's own domains, always admitted regardless of env config.
+//
+// These used to rely entirely on CLIENT_URL, which made the live site's
+// write requests fail the moment the custom domain went up: the client
+// calls relative /api/* paths that Vercel proxies here, and Vercel
+// forwards the browser's Origin header with them. Browsers send Origin
+// on same-origin POST/PUT/DELETE but not on GET, so reads worked and
+// every write returned "CORS: origin ... not allowed". Hard-coding the
+// canonical origins means a missing or stale env var can no longer take
+// the site's own writes down.
+const CANONICAL_ORIGINS = [
+  "https://tailorlyai.pro",
+  "https://www.tailorlyai.pro",
+];
+
+const allowedOrigins = Array.from(
+  new Set([
+    ...(process.env.CLIENT_URL || "http://localhost:5173")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
+    ...CANONICAL_ORIGINS,
+  ]),
+);
 
 // Extract the Vercel project prefixes from CLIENT_URL. Matches
 // `<prefix>.vercel.app` so `<prefix>-git-<anything>.vercel.app` and
@@ -126,6 +146,12 @@ app.use(
       if (allowedOrigins.includes(origin)) return cb(null, true);
       if (isAllowedVercelPreview(origin)) return cb(null, true);
       if (isAllowedExtensionOrigin(origin)) return cb(null, true);
+      // Log it: a rejected origin surfaces to the user as an opaque 500,
+      // and without this line there is nothing to tell you WHICH origin
+      // was refused or what the server considers valid.
+      console.warn(
+        `[cors] rejected origin ${origin}; allowed: ${allowedOrigins.join(", ")}`,
+      );
       return cb(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
