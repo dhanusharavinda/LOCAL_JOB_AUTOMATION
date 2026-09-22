@@ -1162,6 +1162,8 @@ export interface AdminUserRow {
   manual_tailors_today: number;
   manual_tailors_total: number;
   last_active_date: string | null; // ISO date (YYYY-MM-DD) or null if never
+  // Per-user daily allowance override. null = the site default.
+  tailor_limit?: number | null;
 }
 
 export async function adminListUsers(status?: "pending" | "approved" | "rejected"): Promise<AdminUserRow[]> {

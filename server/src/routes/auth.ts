@@ -174,7 +174,7 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
     const rows = status
       ? await sql`
           SELECT
-            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at,
+            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at, p.tailor_limit,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.jobs_scraped      ELSE 0 END), 0)::int AS jobs_scraped_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.resumes_tailored  ELSE 0 END), 0)::int AS resumes_tailored_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.pipeline_runs     ELSE 0 END), 0)::int AS pipeline_runs_today,
@@ -194,7 +194,7 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
         `
       : await sql`
           SELECT
-            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at,
+            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at, p.tailor_limit,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.jobs_scraped      ELSE 0 END), 0)::int AS jobs_scraped_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.resumes_tailored  ELSE 0 END), 0)::int AS resumes_tailored_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.pipeline_runs     ELSE 0 END), 0)::int AS pipeline_runs_today,

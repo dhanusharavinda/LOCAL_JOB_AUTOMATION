@@ -1,6 +1,96 @@
 import { useCallback, useEffect, useState } from "react";
-import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval } from "../api";
+import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval, adminSetTailorLimit } from "../api";
 import AdminInvites from "./AdminInvites";
+
+// Daily allowance bounds. The admin can type anything in this range;
+// Unlimited is a separate button because 9999 is a number you would
+// otherwise have to know to enter.
+const LIMIT_MIN = 5;
+const LIMIT_MAX = 999;
+const UNLIMITED_LIMIT = 9999;   // must match server/src/access.ts
+
+/**
+ * Per-user daily allowance: how many resumes and cover letters they can
+ * make per day. Lives on every user row, not just the ones who came
+ * through an invite link, because someone can exist as a profile without
+ * an invite row and still need their limit raised.
+ */
+function LimitControl({
+  user,
+  onSaved,
+}: {
+  user: AdminUserRow;
+  onSaved: (userId: string, limit: number | null) => void;
+}) {
+  const current = user.tailor_limit ?? null;
+  const [draft, setDraft] = useState(current === null || current >= UNLIMITED_LIMIT ? "" : String(current));
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function save(limit: number | null) {
+    setBusy(true);
+    try {
+      const r = await adminSetTailorLimit(user.id, limit);
+      onSaved(user.id, r.tailor_limit);
+      setDraft(r.tailor_limit === null || r.tailor_limit >= UNLIMITED_LIMIT ? "" : String(r.tailor_limit));
+      setDone(true);
+      setTimeout(() => setDone(false), 1600);
+    } catch {
+      /* the list refresh will show the real value */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const label =
+    current === null ? "default (5)" : current >= UNLIMITED_LIMIT ? "unlimited" : `${current}/day`;
+
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-ghost)]">
+        Daily limit
+      </span>
+      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+        now: {label}
+      </span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={LIMIT_MIN}
+        max={LIMIT_MAX}
+        value={draft}
+        placeholder={`${LIMIT_MIN}-${LIMIT_MAX}`}
+        onChange={(e) => setDraft(e.target.value)}
+        className="w-20 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-2 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
+      />
+      <button
+        disabled={busy || draft.trim() === ""}
+        onClick={() => {
+          const n = parseInt(draft, 10);
+          if (!Number.isFinite(n)) return;
+          save(Math.min(LIMIT_MAX, Math.max(LIMIT_MIN, n)));
+        }}
+        className="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-[var(--accent)] text-[#06070a] hover:bg-[var(--accent-light)] transition-colors disabled:opacity-40"
+      >
+        {done ? "Saved" : "Set"}
+      </button>
+      <button
+        disabled={busy}
+        onClick={() => save(UNLIMITED_LIMIT)}
+        className="text-[11px] font-medium px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40"
+      >
+        Unlimited
+      </button>
+      <button
+        disabled={busy}
+        onClick={() => save(null)}
+        className="text-[11px] font-medium px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40"
+      >
+        Default
+      </button>
+    </div>
+  );
+}
 
 // Small monospace pill for a single usage counter. Keeps the admin row
 // scannable - zero values render greyed out so non-zero activity visually
@@ -72,6 +162,10 @@ export default function AdminPage({
   // independently - approving tester A doesn't freeze the whole table.
   const [actingOn, setActingOn] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
+  // Every user regardless of tab. The tabbed list above is filtered
+  // server-side, so totals taken from it would silently mean "total in
+  // this tab" and move whenever a tab is clicked.
+  const [allUsers, setAllUsers] = useState<AdminUserRow[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -87,6 +181,16 @@ export default function AdminPage({
     load();
   }, [load]);
 
+  const loadTotals = useCallback(() => {
+    adminListUsers()
+      .then((rows) => setAllUsers(rows))
+      .catch(() => { /* the tabbed list already surfaces load errors */ });
+  }, []);
+
+  useEffect(() => {
+    loadTotals();
+  }, [loadTotals]);
+
   async function handleSetStatus(userId: string, next: "approved" | "rejected" | "pending") {
     setActingOn((prev) => ({ ...prev, [userId]: true }));
     try {
@@ -101,6 +205,7 @@ export default function AdminPage({
         }
         return prev.filter((u) => u.id !== userId);
       });
+      loadTotals();
     } catch (err: any) {
       setError(err?.message || "Failed to update user");
     } finally {
@@ -123,6 +228,19 @@ export default function AdminPage({
 
   const tabCounts = {
     pending: users.filter((u) => tab === "all" ? u.approval_status === "pending" : tab === "pending").length,
+  };
+
+  // All-time figures, not just today.
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const weekAgo = Date.now() - 7 * 86400000;
+  const totals = {
+    joined: allUsers.length,
+    approved: allUsers.filter((u) => u.approval_status === "approved").length,
+    pending: allUsers.filter((u) => u.approval_status === "pending").length,
+    joinedToday: allUsers.filter((u) => new Date(u.created_at).getTime() >= startOfToday.getTime()).length,
+    joinedWeek: allUsers.filter((u) => new Date(u.created_at).getTime() >= weekAgo).length,
+    tailorsTotal: allUsers.reduce((n, u) => n + (u.manual_tailors_total || 0), 0),
+    tailorsToday: allUsers.reduce((n, u) => n + (u.manual_tailors_today || 0), 0),
   };
 
   return (
@@ -201,6 +319,30 @@ export default function AdminPage({
       )}
 
       {section === "users" && (<>
+
+      {/* All-time totals. Deliberately not derived from the tabbed list
+          below, which only ever holds one status at a time. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+          {[
+            { label: "Total joined", value: totals.joined, cls: "text-[var(--accent)]", hint: "Everyone who has ever signed up" },
+            { label: "Approved", value: totals.approved, cls: "text-emerald-400", hint: "Have access right now" },
+            { label: "Pending", value: totals.pending, cls: "text-amber-400", hint: "Signed up but not granted access" },
+            { label: "Joined this week", value: totals.joinedWeek, cls: "text-sky-400", hint: "Last 7 days" },
+            { label: "Joined today", value: totals.joinedToday, cls: "text-sky-400", hint: "Since midnight" },
+            { label: "Resumes all time", value: totals.tailorsTotal, cls: "text-[var(--text-primary)]", hint: `${totals.tailorsToday} tailored today` },
+          ].map((s) => (
+            <div
+              key={s.label}
+              title={s.hint}
+              className="bg-[var(--bg-raised)] border border-[var(--border-subtle)] rounded-2xl p-3 sm:p-4"
+            >
+              <div className={`font-display text-xl sm:text-2xl tabular-nums ${s.cls}`}>{s.value}</div>
+              <div className="text-[11px] sm:text-xs text-[var(--text-tertiary)] mt-1 leading-tight">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Tabs + search */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-4 flex flex-wrap items-center gap-3">
@@ -399,6 +541,15 @@ export default function AdminPage({
                         Last active: {lastActiveText}
                       </span>
                     </div>
+
+                    <LimitControl
+                      user={u}
+                      onSaved={(userId, limit) =>
+                        setUsers((prev) =>
+                          prev.map((row) => (row.id === userId ? { ...row, tailor_limit: limit } : row)),
+                        )
+                      }
+                    />
                   </div>
                 );
               })}
