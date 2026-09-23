@@ -1423,11 +1423,26 @@ export async function interviewTurn(input: {
   answer: string;
   followUpDepth: number;
 }): Promise<InterviewTurnResponse> {
-  const res = await fetch("/api/interview/turn", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+  // Bounded. The server already caps its own OpenAI call, but a stalled
+  // connection would otherwise leave the candidate watching "Considering
+  // your answer" with no way out, and the caller treats a failure here
+  // as "move to the next question" rather than as a dead end.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25_000);
+  let res: Response;
+  try {
+    res = await fetch("/api/interview/turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: ctrl.signal,
+    });
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error("The interviewer took too long to respond.");
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     // Carry the real cause up. This error is now logged and surfaced when
     // a follow-up gets skipped, and "Decide step failed" told nobody
@@ -1456,13 +1471,24 @@ export async function interviewScore(input: {
 }
 
 export async function interviewTtsBlob(text: string, sessionId?: number): Promise<Blob> {
-  const res = await fetch("/api/interview/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // sessionId lets the server bill the spoken characters to this
-    // session so the admin panel can show what it cost.
-    body: JSON.stringify({ text, sessionId }),
-  });
+  // Bounded: the caller awaits this before it starts listening, so an
+  // unbounded fetch here stalls the whole question. Failing fast just
+  // means the question is read on screen instead of spoken.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000);
+  let res: Response;
+  try {
+    res = await fetch("/api/interview/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // sessionId lets the server bill the spoken characters to this
+      // session so the admin panel can show what it cost.
+      body: JSON.stringify({ text, sessionId }),
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error("TTS failed");
   return res.blob();
 }

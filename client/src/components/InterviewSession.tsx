@@ -364,7 +364,12 @@ export default function InterviewSession({
       audio.src = url;
       await new Promise<void>((resolve) => {
         let settled = false;
-        const finish = () => { if (!settled) { settled = true; resolve(); } };
+        const finish = () => { if (!settled) { settled = true; clearTimeout(guard); resolve(); } };
+        // A stalled stream can leave `onended` unfired forever, which
+        // would freeze the question before listening ever starts. No
+        // spoken question runs past two minutes, so this only fires
+        // when something has gone wrong.
+        const guard = setTimeout(finish, 120_000);
         audio.onended = finish;
         audio.onerror = finish;
         audio.play().then(() => {
@@ -680,8 +685,15 @@ export default function InterviewSession({
       if (speech) {
         speech.stop();
         try {
-          const heard = (await speech.done).trim();
-          if (heard.length > 0) answer = heard;
+          // Hard bound. This runs in the middle of answering a question,
+          // so nothing here may block the turn: if the engine does not
+          // report back in time we drop it and let Whisper do the work,
+          // which is exactly what happens on a network that blocks it.
+          const heard = await Promise.race([
+            speech.done,
+            new Promise<string>((r) => setTimeout(() => r(""), 2500)),
+          ]);
+          if (heard && heard.trim().length > 0) answer = heard.trim();
         } catch (err: any) {
           // Expected on corp networks, where Chrome cannot reach
           // Google's speech endpoint. Whisper picks it up below.

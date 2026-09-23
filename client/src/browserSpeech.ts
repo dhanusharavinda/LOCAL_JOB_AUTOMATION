@@ -107,8 +107,31 @@ export function startBrowserSpeech(onInterim?: (text: string) => void): BrowserS
     return null;   // already running, or blocked outright
   }
 
+  /**
+   * Settle no matter what.
+   *
+   * The engine is supposed to fire `onend` after `stop()`, but it does
+   * not always: a recogniser that failed to start cleanly, or one the
+   * browser has torn down, can go silent and never call back. The
+   * caller awaits this promise in the middle of answering a question,
+   * so a promise that never settles freezes the interview and makes
+   * every button look broken. Never trust it to finish on its own.
+   */
+  const settleSoon = (ms: number) => {
+    setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { rec.abort(); } catch { /* already gone */ }
+      resolve(finalText.trim());
+    }, ms);
+  };
+
   return {
-    stop: () => { try { rec.stop(); } catch { /* already stopped */ } },
+    stop: () => {
+      try { rec.stop(); } catch { /* already stopped */ }
+      // Give it a moment to deliver the last words, then give up.
+      settleSoon(1200);
+    },
     abort: () => {
       settled = true;
       try { rec.abort(); } catch { /* already stopped */ }
