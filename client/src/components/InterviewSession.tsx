@@ -70,6 +70,11 @@ export default function InterviewSession({
   const [pickedJobId, setPickedJobId] = useState<number | null>(initialJobId ?? null);
   const [manualJd, setManualJd] = useState("");
   const [manualResume, setManualResume] = useState("");
+  // Resume upload, same as the tailor: nobody wants to paste raw text.
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const [parsingResume, setParsingResume] = useState(false);
+  const [resumeDragOver, setResumeDragOver] = useState(false);
+  const resumeFileRef = useRef<HTMLInputElement | null>(null);
   const [fineTune, setFineTune] = useState("");
 
   // ── Mic check ──────────────────────────────────────────────────────────
@@ -819,6 +824,45 @@ export default function InterviewSession({
     onClose();
   }
 
+
+  /** Parse a dropped or chosen resume into text. Mirrors the tailor. */
+  async function parseResumeFile(file: File) {
+    setError("");
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (ext !== "pdf" && ext !== "docx") {
+      setError("Upload a PDF or DOCX resume.");
+      return;
+    }
+    setParsingResume(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(ext === "pdf" ? "/api/parse-pdf" : "/api/parse-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64 }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Could not read that file.");
+      }
+      const data = await res.json();
+      if (!data.text || data.text.trim().length < 30) {
+        throw new Error("Could not pull enough text out of that file. Try a different format.");
+      }
+      setManualResume(data.text);
+      setResumeFileName(file.name);
+    } catch (err: any) {
+      setError(err?.message || "Could not read that file.");
+    } finally {
+      setParsingResume(false);
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget) phase === "review" || phase === "launcher" || phase === "error" ? onClose() : null; }}>
@@ -827,8 +871,8 @@ export default function InterviewSession({
           ...panel,
           // During the live voice loop, the panel becomes dark so the
           // reactive orb's gradient fills the whole modal seamlessly.
-          background: phase === "running" || phase === "scoring" ? "#06070d" : "#fff",
-          color: phase === "running" || phase === "scoring" ? "#fff" : "#1a1a1a",
+          background: "#06070a",
+          color: "#e8eaed",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -841,7 +885,7 @@ export default function InterviewSession({
             display: phase === "running" ? "none" : "flex",
             background: phase === "scoring" ? "transparent" : undefined,
             borderBottomColor: phase === "scoring" ? "rgba(255,255,255,0.08)" : undefined,
-            color: phase === "scoring" ? "#fff" : undefined,
+            color: "#e8eaed",
           }}
         >
           <div>
@@ -857,7 +901,7 @@ export default function InterviewSession({
             onClick={() => phase === "running" ? abandon() : onClose()}
             style={{
               ...closeBtn,
-              color: phase === "scoring" ? "rgba(255,255,255,0.7)" : "#666",
+              color: "#8b8fa3",
             }}
             aria-label="Close"
           >
@@ -928,12 +972,96 @@ export default function InterviewSession({
                     <textarea value={manualJd} onChange={(e) => setManualJd(e.target.value)} style={textarea} placeholder="Paste the JD here..." />
                   </label>
                   <label style={lblWrap}>
-                    <div style={fieldName}>Resume text (optional - uses your stored resume if blank)</div>
-                    <textarea value={manualResume} onChange={(e) => setManualResume(e.target.value)} style={textarea} placeholder="Paste resume text here, or leave blank..." />
+                    <div style={fieldName}>Your resume (optional - uses your stored resume if blank)</div>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
+                      onDragLeave={() => setResumeDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setResumeDragOver(false);
+                        const f = e.dataTransfer.files?.[0];
+                        if (f) parseResumeFile(f);
+                      }}
+                      onClick={() => resumeFileRef.current?.click()}
+                      style={{
+                        border: `1px dashed ${resumeDragOver ? "#f97316" : "rgba(255,255,255,0.18)"}`,
+                        background: resumeDragOver ? "rgba(249,115,22,0.10)" : "#0c0e14",
+                        borderRadius: 10,
+                        padding: "18px 14px",
+                        textAlign: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        ref={resumeFileRef}
+                        type="file"
+                        accept=".pdf,.docx"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) parseResumeFile(f);
+                          if (resumeFileRef.current) resumeFileRef.current.value = "";
+                        }}
+                      />
+                      {parsingResume ? (
+                        <div style={{ fontSize: 13, color: "#8b8fa3" }}>Reading your resume...</div>
+                      ) : resumeFileName ? (
+                        <div>
+                          <div style={{ fontSize: 13, color: "#5cc46a", fontWeight: 600 }}>{resumeFileName}</div>
+                          <div style={{ fontSize: 11, color: "#8b8fa3", marginTop: 3 }}>
+                            Loaded. Click to replace.
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 13, color: "#e8eaed" }}>Drop your resume here, or click to choose</div>
+                          <div style={{ fontSize: 11, color: "#8b8fa3", marginTop: 3 }}>PDF or DOCX</div>
+                        </div>
+                      )}
+                    </div>
+                    {manualResume && !resumeFileName && (
+                      <textarea
+                        value={manualResume}
+                        onChange={(e) => setManualResume(e.target.value)}
+                        style={{ ...textarea, marginTop: 8 }}
+                        placeholder="Or paste resume text here..."
+                      />
+                    )}
+                    {!manualResume && (
+                      <button
+                        type="button"
+                        onClick={() => setManualResume(" ")}
+                        style={{ background: "none", border: 0, color: "#8b8fa3", fontSize: 11, cursor: "pointer", marginTop: 6, padding: 0, textAlign: "left" }}
+                      >
+                        or paste the text instead
+                      </button>
+                    )}
                   </label>
                 </>
               )}
             </Section>
+
+            <div style={{
+              marginBottom: 14,
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "rgba(249,115,22,0.10)",
+              border: "1px solid rgba(249,115,22,0.30)",
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#f97316", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 5 }}>
+                One practice interview a week
+              </div>
+              <div style={{ fontSize: 12.5, color: "#e8eaed", lineHeight: 1.55 }}>
+                This is free, and you get one round a week, so treat it like the real thing:
+                somewhere quiet, headphones on, about 10 minutes. Five questions with follow-ups,
+                then a written score.
+              </div>
+              <div style={{ fontSize: 11.5, color: "#8b8fa3", marginTop: 6, lineHeight: 1.5 }}>
+                It only counts once you have answered a couple of questions, so backing out early
+                costs you nothing. If a reply is slow, wait rather than closing: your answers are
+                saved as you go.
+              </div>
+            </div>
 
             <Section title="Fine-tune (optional)" help="One sentence telling the interviewer what to focus on, e.g. 'I'm rusty on system design questions; lean into those'.">
               <textarea value={fineTune} onChange={(e) => setFineTune(e.target.value)} style={textarea} placeholder="What should the interviewer focus on?" />
@@ -959,20 +1087,20 @@ export default function InterviewSession({
           <div style={body}>
             {autoSkipLauncher && initialJobTitle && (
               <div style={autoPickBox}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#2e7d32", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#5cc46a", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
                   Auto-picked
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#e8eaed" }}>
                   {initialJobTitle}{initialCompanyName ? ` at ${initialCompanyName}` : ""}
                 </div>
-                <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "#8b8fa3", marginTop: 4 }}>
                   Using this job's description and your uploaded resume.
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11, color: "#666" }}>Mode:</span>
+                  <span style={{ fontSize: 11, color: "#8b8fa3" }}>Mode:</span>
                   <SmallToggle label="Behavioral" active={mode === "behavioral"} onClick={() => setMode("behavioral")} />
                   <SmallToggle label="Technical" active={mode === "technical"} onClick={() => setMode("technical")} />
-                  <span style={{ fontSize: 11, color: "#666", marginLeft: 8 }}>Difficulty:</span>
+                  <span style={{ fontSize: 11, color: "#8b8fa3", marginLeft: 8 }}>Difficulty:</span>
                   <SmallToggle label="Easy" active={difficulty === "easy"} onClick={() => setDifficulty("easy")} />
                   <SmallToggle label="Medium" active={difficulty === "medium"} onClick={() => setDifficulty("medium")} />
                   <SmallToggle label="Hard" active={difficulty === "hard"} onClick={() => setDifficulty("hard")} />
@@ -984,7 +1112,7 @@ export default function InterviewSession({
             <div style={meterWrap}>
               <div style={{ ...meterBar, width: `${micLevel}%`, background: micLevel > 30 ? "#2e7d32" : micLevel > 10 ? "#ff9800" : "#c62828" }} />
             </div>
-            <div style={{ marginTop: 12, padding: 10, background: "#fafafa", borderRadius: 8, fontFamily: "monospace", fontSize: 12, color: "#666" }}>
+            <div style={{ marginTop: 12, padding: 10, background: "#12151c", borderRadius: 8, fontFamily: "monospace", fontSize: 12, color: "#8b8fa3" }}>
               {micLevel > 30
                 ? "Mic looks great - go for it."
                 : micLevel > 10
@@ -1007,7 +1135,7 @@ export default function InterviewSession({
         {/* Phase: starting */}
         {phase === "starting" && (
           <div style={{ ...body, textAlign: "center", padding: 32 }}>
-            <div style={{ fontSize: 14, color: "#666" }}>Generating questions tailored to your role...</div>
+            <div style={{ fontSize: 14, color: "#8b8fa3" }}>Generating questions tailored to your role...</div>
           </div>
         )}
 
@@ -1071,9 +1199,10 @@ export default function InterviewSession({
                         You said: "{lastHeard.length > 180 ? lastHeard.slice(0, 180) + "..." : lastHeard}"
                       </div>
                     )}
-                    {sub === "deciding" && decidingElapsedSec >= 15 && (
+                    {sub === "deciding" && decidingElapsedSec >= 12 && (
                       <div style={{ marginTop: 8, fontSize: 12, color: "#ffd1c2" }}>
-                        Taking longer than usual. The interview will resume automatically. If it's been over 30 seconds, close and start a new round.
+                        Still thinking. Your answer is saved, so please keep this window open.
+                        It picks up on its own.
                       </div>
                     )}
                   </div>
@@ -1111,7 +1240,7 @@ export default function InterviewSession({
         {/* Phase: scoring */}
         {phase === "scoring" && (
           <div style={{ ...body, textAlign: "center", padding: 32 }}>
-            <div style={{ fontSize: 14, color: "#666" }}>Scoring your responses...</div>
+            <div style={{ fontSize: 14, color: "#8b8fa3" }}>Scoring your responses...</div>
           </div>
         )}
 
@@ -1135,7 +1264,7 @@ export default function InterviewSession({
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {Object.entries(rubric.dimensions || {}).map(([k, v]) => (
                   <div key={k} style={dimCell}>
-                    <div style={{ fontSize: 11, color: "#666", textTransform: "capitalize" }}>{k.replace(/_/g, " ")}</div>
+                    <div style={{ fontSize: 11, color: "#8b8fa3", textTransform: "capitalize" }}>{k.replace(/_/g, " ")}</div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: scoreColor(Number(v)) }}>{v}</div>
                   </div>
                 ))}
@@ -1163,7 +1292,7 @@ export default function InterviewSession({
 
             {(rubric.stories_used && rubric.stories_used.length > 0) && (
               <Section title="Stories you used">
-                <div style={{ fontSize: 12, color: "#666" }}>{rubric.stories_used.join(", ")}</div>
+                <div style={{ fontSize: 12, color: "#8b8fa3" }}>{rubric.stories_used.join(", ")}</div>
               </Section>
             )}
 
@@ -1176,15 +1305,15 @@ export default function InterviewSession({
                         <div style={{ fontSize: 12, fontWeight: 600 }}>Q{q.q_idx + 1}</div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor(q.score) }}>{q.score}</div>
                       </div>
-                      <div style={{ fontSize: 12, color: "#444" }}>{questions[q.q_idx]?.question || ""}</div>
-                      {q.pull_quote && <div style={{ fontSize: 11, color: "#666", marginTop: 4, fontStyle: "italic" }}>"{q.pull_quote}"</div>}
+                      <div style={{ fontSize: 12, color: "#8b8fa3" }}>{questions[q.q_idx]?.question || ""}</div>
+                      {q.pull_quote && <div style={{ fontSize: 11, color: "#8b8fa3", marginTop: 4, fontStyle: "italic" }}>"{q.pull_quote}"</div>}
                       {q.gaps?.length > 0 && (
-                        <div style={{ fontSize: 11, color: "#c62828", marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: "#ef6b6b", marginTop: 4 }}>
                           Gaps: {q.gaps.join("; ")}
                         </div>
                       )}
                       {q.model_answer && (
-                        <div style={{ fontSize: 11, color: "#2e7d32", marginTop: 6, padding: "6px 8px", background: "#f1faf3", borderRadius: 6, border: "1px solid #cfe9d5" }}>
+                        <div style={{ fontSize: 11, color: "#5cc46a", marginTop: 6, padding: "6px 8px", background: "rgba(46,125,50,0.14)", borderRadius: 6, border: "1px solid rgba(46,125,50,0.35)" }}>
                           <span style={{ fontWeight: 700 }}>Stronger answer: </span>{q.model_answer}
                         </div>
                       )}
@@ -1224,7 +1353,7 @@ function Section({ title, help, children }: { title: string; help?: string; chil
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-      {help && <div style={{ fontSize: 11, color: "#666", marginBottom: 8 }}>{help}</div>}
+      {help && <div style={{ fontSize: 11, color: "#8b8fa3", marginBottom: 8 }}>{help}</div>}
       {children}
     </div>
   );
@@ -1234,12 +1363,12 @@ function ChoiceCard({ label, desc, active, onClick }: { label: string; desc: str
   return (
     <button onClick={onClick} style={{
       flex: 1, padding: 12, borderRadius: 10,
-      border: active ? "2px solid #ff5722" : "1px solid #ddd",
-      background: active ? "#fff5f1" : "#fff",
+      border: active ? "2px solid #ff5722" : "1px solid rgba(255,255,255,0.12)",
+      background: active ? "rgba(249,115,22,0.12)" : "#0c0e14",
       cursor: "pointer", textAlign: "left",
     }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 11, color: "#666" }}>{desc}</div>
+      <div style={{ fontSize: 11, color: "#8b8fa3" }}>{desc}</div>
     </button>
   );
 }
@@ -1248,7 +1377,7 @@ function SmallToggle({ label, active, onClick }: { label: string; active: boolea
   return (
     <button onClick={onClick} style={{
       padding: "6px 12px", borderRadius: 16, border: 0, fontSize: 12, fontWeight: 600,
-      background: active ? "#1a1a1a" : "#f1f1f1", color: active ? "#fff" : "#444", cursor: "pointer",
+      background: active ? "#f97316" : "#12151c", color: active ? "#06070a" : "#8b8fa3", cursor: "pointer",
     }}>{label}</button>
   );
 }
@@ -1256,14 +1385,14 @@ function SmallToggle({ label, active, onClick }: { label: string; active: boolea
 function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div style={dimCell}>
-      <div style={{ fontSize: 11, color: "#666" }}>{label}</div>
+      <div style={{ fontSize: 11, color: "#8b8fa3" }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 700 }}>{value}</div>
     </div>
   );
 }
 
 function readinessColor(n: number | null): string {
-  if (n == null) return "#666";
+  if (n == null) return "#8b8fa3";
   if (n >= 80) return "#2e7d32";
   if (n >= 60) return "#ff9800";
   return "#c62828";
@@ -1280,39 +1409,39 @@ const overlay: React.CSSProperties = {
   display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
 };
 const panel: React.CSSProperties = {
-  background: "#fff", borderRadius: 14, width: "min(720px, 100%)",
+  background: "#0c0e14", borderRadius: 14, width: "min(720px, 100%)",
   maxHeight: "92vh", display: "flex", flexDirection: "column",
   boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
 };
 const header: React.CSSProperties = {
-  padding: "16px 20px", borderBottom: "1px solid #eee",
+  padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)",
   display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12,
 };
 const body: React.CSSProperties = { padding: 20, overflowY: "auto" };
 const brand: React.CSSProperties = { fontSize: 18, fontWeight: 700 };
-const muted: React.CSSProperties = { color: "#666", fontSize: 12, marginTop: 2 };
+const muted: React.CSSProperties = { color: "#8b8fa3", fontSize: 12, marginTop: 2 };
 const betaBadge: React.CSSProperties = {
   fontSize: 9, fontWeight: 800, letterSpacing: "0.08em",
   padding: "2px 6px", borderRadius: 4,
   background: "rgba(255, 152, 0, 0.15)", color: "#e6982a",
   border: "1px solid rgba(255, 152, 0, 0.35)",
 };
-const closeBtn: React.CSSProperties = { background: "transparent", border: 0, fontSize: 20, cursor: "pointer", color: "#666", lineHeight: 1 };
-const fieldName: React.CSSProperties = { fontSize: 12, color: "#444", marginBottom: 4, fontWeight: 600 };
+const closeBtn: React.CSSProperties = { background: "transparent", border: 0, fontSize: 20, cursor: "pointer", color: "#8b8fa3", lineHeight: 1 };
+const fieldName: React.CSSProperties = { fontSize: 12, color: "#8b8fa3", marginBottom: 4, fontWeight: 600 };
 const lblWrap: React.CSSProperties = { display: "block", marginBottom: 8 };
-const input: React.CSSProperties = { width: "100%", padding: "8px 10px", font: "inherit", border: "1px solid #d4d4d4", borderRadius: 8, background: "#fff", boxSizing: "border-box" };
+const input: React.CSSProperties = { width: "100%", padding: "8px 10px", font: "inherit", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 8, background: "#0c0e14", boxSizing: "border-box" };
 const textarea: React.CSSProperties = { ...input, minHeight: 80, resize: "vertical", fontFamily: "inherit" };
-const primaryBtn: React.CSSProperties = { padding: "10px 18px", border: 0, borderRadius: 8, background: "#1a1a1a", color: "#fff", fontWeight: 600, cursor: "pointer" };
-const secondaryBtn: React.CSSProperties = { padding: "10px 14px", border: "1px solid #ddd", borderRadius: 8, background: "#fff", color: "#444", fontWeight: 600, cursor: "pointer", fontSize: 12 };
-const errorBox: React.CSSProperties = { background: "#ffebee", color: "#c62828", padding: 10, borderRadius: 8, fontSize: 12, marginTop: 12 };
-const meterWrap: React.CSSProperties = { width: "100%", height: 12, background: "#f1f1f1", borderRadius: 6, overflow: "hidden", marginTop: 8 };
+const primaryBtn: React.CSSProperties = { padding: "10px 18px", border: 0, borderRadius: 8, background: "#f97316", color: "#06070a", fontWeight: 600, cursor: "pointer" };
+const secondaryBtn: React.CSSProperties = { padding: "10px 14px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, background: "#0c0e14", color: "#8b8fa3", fontWeight: 600, cursor: "pointer", fontSize: 12 };
+const errorBox: React.CSSProperties = { background: "rgba(198,40,40,0.16)", color: "#ef6b6b", padding: 10, borderRadius: 8, fontSize: 12, marginTop: 12 };
+const meterWrap: React.CSSProperties = { width: "100%", height: 12, background: "#12151c", borderRadius: 6, overflow: "hidden", marginTop: 8 };
 const autoPickBox: React.CSSProperties = {
   padding: "12px 14px", borderRadius: 10, marginBottom: 14,
-  background: "#f1faf3", border: "1px solid #cfe9d5",
+  background: "rgba(46,125,50,0.14)", border: "1px solid rgba(46,125,50,0.35)",
 };
 const meterBar: React.CSSProperties = { height: "100%", transition: "width 60ms linear, background 200ms" };
-const dimCell: React.CSSProperties = { padding: "8px 10px", border: "1px solid #eee", borderRadius: 8, background: "#fafafa" };
-const qCard: React.CSSProperties = { padding: 10, border: "1px solid #eee", borderRadius: 8, background: "#fff" };
+const dimCell: React.CSSProperties = { padding: "8px 10px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "#12151c" };
+const qCard: React.CSSProperties = { padding: 10, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "#0c0e14" };
 
 // ── Running-phase styles (Siri-style dark reactive interface) ──────────
 const runningWrap: React.CSSProperties = {

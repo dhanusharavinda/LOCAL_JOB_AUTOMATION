@@ -15,6 +15,7 @@ const BADGES = [
   { icon: DocumentIcon, label: "LaTeX-style PDF", tone: "blue" as const },
   { icon: SparkleIcon, label: "Tuned for ATS scoring", tone: "blue" as const },
   { icon: ShieldIcon, label: "Nothing stored", tone: "green" as const },
+  { icon: SparkleIcon, label: "Free AI mock interview, weekly", tone: "accent" as const },
 ];
 
 export function FeatureBadges({ className = "" }: { className?: string }) {

@@ -49,11 +49,19 @@ const interviewLimiter = rateLimit({
 });
 router.use(interviewLimiter);
 
-function getOpenAI(): OpenAI | null {
+/**
+ * The SDK defaults to a 10-MINUTE timeout with 2 retries, which in a
+ * live voice interview means a single slow call can leave someone
+ * staring at "Considering your answer" for over half a minute while it
+ * silently retries. In a conversation, a fast wrong turn beats a
+ * perfect one that arrives after the candidate has given up and closed
+ * the window, so requests are bounded and retried once.
+ */
+function getOpenAI(timeoutMs = 20_000): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
   const baseURL = process.env.OPENAI_BASE_URL || undefined;
-  return new OpenAI({ apiKey, baseURL, maxRetries: 2 });
+  return new OpenAI({ apiKey, baseURL, maxRetries: 1, timeout: timeoutMs });
 }
 
 // ── Tunable constants (env-configurable) ──────────────────────────────
@@ -144,8 +152,44 @@ async function weeklyQuotaFor(userId: string, email?: string): Promise<number> {
   }
 }
 
-/** Sessions started since Monday 00:00 UTC. */
+/**
+ * Sessions that COUNT against the weekly allowance.
+ *
+ * Deliberately not "sessions started". With one session a week, losing
+ * it to a slow first question, a closed tab or a dead battery is the
+ * difference between a useful gift and an infuriating one. A session
+ * only counts once the candidate has actually answered something, so
+ * opening the interviewer and backing out costs nothing.
+ *
+ * jsonb_array_length(transcript) > 0 is the test: the transcript gains
+ * an entry per answered turn, so it is non-empty exactly when the
+ * person got value out of the session.
+ */
 async function countSessionsThisWeek(userId: string): Promise<number> {
+  const rows = await sql<{ count: string }[]>`
+    SELECT COUNT(*) AS count FROM interview_sessions
+     WHERE user_id = ${userId}
+       AND started_at >= date_trunc('week', NOW() AT TIME ZONE 'UTC')
+       AND (
+         status = 'completed'
+         OR jsonb_array_length(COALESCE(transcript, '[]'::jsonb)) >= 2
+       )
+  `;
+  return parseInt(rows[0]?.count || "0", 10);
+}
+
+/**
+ * Starts this week, answered or not.
+ *
+ * Because the allowance only counts sessions someone actually used,
+ * abandoning at question one is free, and without a second bound that
+ * would be an unlimited supply of generated questions and spoken audio.
+ * This caps the retries rather than the value: enough to recover from a
+ * bad start, not enough to farm the feature.
+ */
+const WEEKLY_STARTS_CAP = envInt("INTERVIEW_WEEKLY_STARTS_CAP", 4);
+
+async function countStartsThisWeek(userId: string): Promise<number> {
   const rows = await sql<{ count: string }[]>`
     SELECT COUNT(*) AS count FROM interview_sessions
      WHERE user_id = ${userId}
@@ -319,6 +363,20 @@ router.post("/start", async (req: Request, res: Response) => {
   // Weekly allowance.
   const quota = await weeklyQuotaFor(userId, req.user!.email);
   const used = await countSessionsThisWeek(userId);
+
+  // Retry bound. Separate from the allowance so a session abandoned at
+  // question one stays free without becoming an endless supply.
+  if (!isAdmin(req.user!.email)) {
+    const starts = await countStartsThisWeek(userId);
+    if (starts >= WEEKLY_STARTS_CAP && used < quota) {
+      res.status(429).json({
+        error: "You have opened the interviewer several times this week without finishing a round. Give it one proper go, or come back Monday.",
+        plan, used, quota, resets_at: nextWeeklyReset(),
+      });
+      return;
+    }
+  }
+
   if (used >= quota) {
     res.status(429).json({
       error: quota === 1
@@ -471,7 +529,9 @@ router.post("/turn", async (req: Request, res: Response) => {
       return;
     }
 
-    const openai = getOpenAI();
+    // 10s: this call decides "follow up or move on", so a slow answer
+    // is worse than a plain one. Past the deadline we just move on.
+    const openai = getOpenAI(10_000);
     if (!openai) { res.status(500).json({ error: "AI not configured" }); return; }
 
     const sys =
@@ -513,8 +573,11 @@ router.post("/turn", async (req: Request, res: Response) => {
 
     res.json({ action, followUpQuestion, ack });
   } catch (err: any) {
+    // Never strand someone mid-interview over the follow-up decision.
+    // Moving to the next question is a fine outcome and keeps the
+    // conversation alive, which matters more when the round is weekly.
     console.error("[POST /api/interview/turn]", err?.message || err);
-    res.status(500).json({ error: "Decide step failed" });
+    res.json({ action: "next", degraded: true });
   }
 });
 
