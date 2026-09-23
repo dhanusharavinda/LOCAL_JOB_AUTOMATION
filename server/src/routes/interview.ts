@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { sql } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { downloadResumeText } from "../storage";
+import { isAdmin } from "./auth";
 
 /**
  * Interview practice routes.
@@ -73,17 +74,95 @@ const CHAT_MODEL = envStr("OPENAI_MODEL", "gpt-4o-mini");
 const TTS_MODEL  = envStr("OPENAI_TTS_MODEL", "tts-1");
 const TTS_VOICE  = envStr("OPENAI_TTS_VOICE", "alloy");
 
-const QUESTIONS_PER_SESSION = envInt("INTERVIEW_QUESTIONS_PER_SESSION", 10);
+// Five, not ten. Halves the per-session cost and makes a better free
+// round: a 20-minute grind is worse practice than a focused one.
+const QUESTIONS_PER_SESSION = envInt("INTERVIEW_QUESTIONS_PER_SESSION", 5);
 const FOLLOWUP_CAP          = envInt("INTERVIEW_FOLLOWUP_CAP", 2);
 const SESSION_MAX_MS        = envInt("INTERVIEW_MAX_MS", 20 * 60_000);
 
-// Daily quotas. Free tier gets 2 sessions/day, pro gets 10. Counted
-// across the user_id; the day boundary is 00:00 UTC like the rest of
-// the app's quotas.
-const DAILY_QUOTA = {
-  free: envInt("INTERVIEW_DAILY_FREE", 2),
-  pro:  envInt("INTERVIEW_DAILY_PRO", 10),
-} as const;
+// ── Allowance ────────────────────────────────────────────────────────
+// A session costs roughly 100x a tailored resume, and almost all of it
+// is speech billed per minute of audio, so this is a WEEKLY allowance
+// rather than a daily one. Weeks start Monday 00:00 UTC (date_trunc's
+// 'week'), so everyone's allowance refills on the same tick.
+const WEEKLY_QUOTA = envInt("INTERVIEW_WEEKLY_FREE", 1);
+const ADMIN_QUOTA = 9999;
+
+/**
+ * Hard ceiling on transcribed audio per session.
+ *
+ * Cost scales with MINUTES OF MICROPHONE, not with questions answered,
+ * so the expensive failure is someone walking away with the mic open
+ * rather than someone answering thoroughly. 12 minutes is generous for
+ * five questions and caps a runaway session at about 7c of speech.
+ */
+const SESSION_STT_SECONDS_CAP = envInt("INTERVIEW_STT_SECONDS_CAP", 12 * 60);
+
+/** Prices for reporting what a session cost. Mirrors usage-cost.ts. */
+const WHISPER_USD_PER_MIN = 0.006;
+const TTS_USD_PER_CHAR = 15.0 / 1e6;
+
+/**
+ * Columns for the weekly allowance and the audio budget. Created on
+ * demand (migration 0015 is the canonical copy) so a deploy that got
+ * ahead of the migration still enforces both.
+ */
+let interviewSchema: Promise<boolean> | null = null;
+function ensureInterviewSchema(): Promise<boolean> {
+  if (!interviewSchema) {
+    interviewSchema = (async () => {
+      try {
+        await sql`SET lock_timeout = '4s'`;
+        await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS interview_limit INTEGER`;
+        await sql`ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS stt_seconds INTEGER NOT NULL DEFAULT 0`;
+        await sql`ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(10,6) NOT NULL DEFAULT 0`;
+        await sql`RESET lock_timeout`;
+        return true;
+      } catch (err: any) {
+        console.error("[interview] ensureInterviewSchema failed:", err?.message || err);
+        try { await sql`RESET lock_timeout`; } catch { /* connection may be gone */ }
+        interviewSchema = null;
+        return false;
+      }
+    })();
+  }
+  return interviewSchema;
+}
+
+/** Weekly allowance for one user: admin -> per-user override -> default. */
+async function weeklyQuotaFor(userId: string, email?: string): Promise<number> {
+  if (isAdmin(email)) return ADMIN_QUOTA;
+  try {
+    const rows = await sql<{ interview_limit: number | null }[]>`
+      SELECT interview_limit FROM profiles WHERE id = ${userId} LIMIT 1
+    `;
+    const override = rows[0]?.interview_limit;
+    return typeof override === "number" && override >= 0 ? override : WEEKLY_QUOTA;
+  } catch (err: any) {
+    if (err?.code === "42703") void ensureInterviewSchema();
+    return WEEKLY_QUOTA;
+  }
+}
+
+/** Sessions started since Monday 00:00 UTC. */
+async function countSessionsThisWeek(userId: string): Promise<number> {
+  const rows = await sql<{ count: string }[]>`
+    SELECT COUNT(*) AS count FROM interview_sessions
+     WHERE user_id = ${userId}
+       AND started_at >= date_trunc('week', NOW() AT TIME ZONE 'UTC')
+  `;
+  return parseInt(rows[0]?.count || "0", 10);
+}
+
+/** When the allowance refills: next Monday 00:00 UTC. */
+function nextWeeklyReset(): string {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // getUTCDay: 0=Sunday. Days until the coming Monday.
+  const daysUntilMonday = (8 - (d.getUTCDay() || 7)) % 7 || 7;
+  d.setUTCDate(d.getUTCDate() + daysUntilMonday);
+  return d.toISOString();
+}
 
 /**
  * Detect "I don't know / can't recall / let's skip" answers so the
@@ -116,15 +195,6 @@ function isGiveUpAnswer(ans: string): boolean {
     /^my\smind('?s|\sis)\sblank\b/,
   ];
   return patterns.some((p) => p.test(cleaned));
-}
-
-async function countSessionsToday(userId: string): Promise<number> {
-  const rows = await sql<{ count: string }[]>`
-    SELECT COUNT(*) AS count FROM interview_sessions
-     WHERE user_id = ${userId}
-       AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
-  `;
-  return parseInt(rows[0]?.count || "0", 10);
 }
 
 // ── Question generation ────────────────────────────────────────────────
@@ -246,12 +316,15 @@ router.post("/start", async (req: Request, res: Response) => {
   const difficulty: Difficulty =
     rawDifficulty === "easy" || rawDifficulty === "hard" ? rawDifficulty : "medium";
 
-  // Quota check
-  const used = await countSessionsToday(userId);
-  if (used >= DAILY_QUOTA[plan]) {
+  // Weekly allowance.
+  const quota = await weeklyQuotaFor(userId, req.user!.email);
+  const used = await countSessionsThisWeek(userId);
+  if (used >= quota) {
     res.status(429).json({
-      error: `Daily quota reached (${DAILY_QUOTA[plan]} sessions/day on ${plan}). Try again tomorrow.`,
-      plan, used, quota: DAILY_QUOTA[plan],
+      error: quota === 1
+        ? "You have used this week's practice interview. It refills on Monday."
+        : `You have used all ${quota} practice interviews this week. They refill on Monday.`,
+      plan, used, quota, resets_at: nextWeeklyReset(),
     });
     return;
   }
@@ -591,6 +664,20 @@ router.post("/tts", async (req: Request, res: Response) => {
       response_format: "mp3",
     });
     const buf = Buffer.from(await speech.arrayBuffer());
+
+    // Voice-out is the second half of the session's cost.
+    const ttsSessionId = parseInt(String((req.body || {}).sessionId || ""), 10);
+    if (Number.isFinite(ttsSessionId)) {
+      const ttsCost = text.length * TTS_USD_PER_CHAR;
+      sql`
+        UPDATE interview_sessions
+           SET cost_usd = COALESCE(cost_usd, 0) + ${ttsCost.toFixed(6)}
+         WHERE id = ${ttsSessionId} AND user_id = ${req.user!.id}
+      `.catch((err: any) => {
+        if (err?.code !== "42703") console.warn("[interview] could not bill tts:", err?.message || err);
+      });
+    }
+
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-cache");
     res.send(buf);
@@ -625,6 +712,43 @@ router.post("/stt", sttUpload.single("audio"), async (req: Request, res: Respons
   }
   const openai = getOpenAI();
   if (!openai) { res.status(500).json({ error: "AI not configured" }); return; }
+
+  // Audio budget. Whisper bills per minute, so a session left running
+  // with an open mic is the expensive failure, not a thorough answer.
+  // The client reports the clip length; a missing or lying value falls
+  // back to a size-based estimate so the budget cannot be bypassed by
+  // omitting the field.
+  const sessionId = parseInt(String((req.body || {}).sessionId || ""), 10);
+  const reported = Number((req.body || {}).seconds);
+  // Opus in a webm container runs about 4KB/s at the bitrate browsers
+  // pick, which is the floor used when the client says nothing.
+  const estimated = file.buffer.length / 4000;
+  const clipSeconds = Math.max(
+    1,
+    Math.round(Number.isFinite(reported) && reported > 0 ? Math.min(reported, estimated * 2) : estimated),
+  );
+
+  if (Number.isFinite(sessionId)) {
+    try {
+      const rows = await sql<{ stt_seconds: number }[]>`
+        SELECT stt_seconds FROM interview_sessions
+         WHERE id = ${sessionId} AND user_id = ${req.user!.id} LIMIT 1
+      `;
+      const spent = rows[0]?.stt_seconds ?? 0;
+      if (spent + clipSeconds > SESSION_STT_SECONDS_CAP) {
+        res.status(429).json({
+          error: "This session has used its voice budget. Type your answer instead, or start a new session.",
+          code: "stt_budget_spent",
+        });
+        return;
+      }
+    } catch (err: any) {
+      // Column missing: add it in the background and let this clip
+      // through rather than blocking someone mid-interview.
+      if (err?.code === "42703") void ensureInterviewSchema();
+      else console.warn("[interview] stt budget check failed:", err?.message || err);
+    }
+  }
   try {
     // OpenAI's SDK accepts a File-like object; toFile wraps the buffer
     // with the right name + mime so the multipart upload to OpenAI
@@ -646,7 +770,21 @@ router.post("/stt", sttUpload.single("audio"), async (req: Request, res: Respons
       response_format: "json",
     });
     const text = String((transcription as any).text || "").trim();
-    res.json({ text });
+
+    // Bill the clip against the session's budget and running cost.
+    if (Number.isFinite(sessionId)) {
+      const clipCost = (clipSeconds / 60) * WHISPER_USD_PER_MIN;
+      sql`
+        UPDATE interview_sessions
+           SET stt_seconds = COALESCE(stt_seconds, 0) + ${clipSeconds},
+               cost_usd    = COALESCE(cost_usd, 0) + ${clipCost.toFixed(6)}
+         WHERE id = ${sessionId} AND user_id = ${req.user!.id}
+      `.catch((err: any) => {
+        if (err?.code !== "42703") console.warn("[interview] could not bill stt:", err?.message || err);
+      });
+    }
+
+    res.json({ text, seconds: clipSeconds });
   } catch (err: any) {
     console.error("[POST /api/interview/stt]", err?.message || err);
     res.status(500).json({ error: "Transcription failed" });
@@ -720,8 +858,16 @@ router.patch("/sessions/:id", async (req: Request, res: Response) => {
 router.get("/quota", async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const plan = req.user!.plan === "pro" || req.user!.plan === "enterprise" ? "pro" : "free";
-  const used = await countSessionsToday(userId);
-  res.json({ used, quota: DAILY_QUOTA[plan], remaining: Math.max(0, DAILY_QUOTA[plan] - used), plan });
+  const quota = await weeklyQuotaFor(userId, req.user!.email);
+  const used = await countSessionsThisWeek(userId);
+  res.json({
+    used,
+    quota,
+    remaining: Math.max(0, quota - used),
+    plan,
+    period: "week",
+    resets_at: nextWeeklyReset(),
+  });
 });
 
 export default router;

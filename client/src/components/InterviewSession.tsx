@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { startBrowserSpeech, BrowserSpeechHandle } from "../browserSpeech";
 import {
   interviewStart, interviewTurn, interviewScore, interviewTtsBlob, interviewAbandon, interviewStt,
   type InterviewQuestion, type InterviewRubric, type InterviewMetrics, type InterviewDifficulty,
@@ -155,6 +156,9 @@ export default function InterviewSession({
   // indicator until every track is .stop()ed.
   const recordStreamRef = useRef<MediaStream | null>(null);
   const recordMediaRef = useRef<MediaRecorder | null>(null);
+  // The browser's free speech engine, running alongside the recorder.
+  // Whichever produces text first wins; the recording is the fallback.
+  const browserSpeechRef = useRef<BrowserSpeechHandle | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
   const vadCtxRef = useRef<AudioContext | null>(null);
   const vadRafRef = useRef<number>(0);
@@ -349,7 +353,7 @@ export default function InterviewSession({
     // is replacing it.
     if (ttsUrlRef.current) { URL.revokeObjectURL(ttsUrlRef.current); ttsUrlRef.current = null; }
     try {
-      const blob = await interviewTtsBlob(text);
+      const blob = await interviewTtsBlob(text, sessionId ?? undefined);
       const url = URL.createObjectURL(blob);
       ttsUrlRef.current = url;
       audio.src = url;
@@ -457,6 +461,15 @@ export default function InterviewSession({
       return;
     }
     recordMediaRef.current = recorder;
+
+    // Start the free engine in parallel. It shares the mic permission
+    // already granted, costs nothing, and gives live interim text. If
+    // it is missing or fails, the recording above still goes to Whisper.
+    try {
+      browserSpeechRef.current = startBrowserSpeech((text) => setInterim(text));
+    } catch {
+      browserSpeechRef.current = null;
+    }
 
     recorder.ondataavailable = (ev) => {
       if (ev.data && ev.data.size > 0) recordChunksRef.current.push(ev.data);
@@ -652,9 +665,31 @@ export default function InterviewSession({
       recordStreamRef.current = null;
       // Whisper hates clips under ~0.1s ("audio too short"). Skip the
       // round-trip when the user clearly didn't say anything.
-      if (blob && blob.size > 2000) {
+      // The browser's own engine, if it managed to hear anything, is
+      // free. Whisper costs $0.006/min and is most of what a session
+      // costs, so it is the fallback rather than the default. The audio
+      // was recorded either way, so falling back needs nothing from the
+      // user.
+      const speech = browserSpeechRef.current;
+      browserSpeechRef.current = null;
+      if (speech) {
+        speech.stop();
         try {
-          answer = (await interviewStt(blob)).trim();
+          const heard = (await speech.done).trim();
+          if (heard.length > 0) answer = heard;
+        } catch (err: any) {
+          // Expected on corp networks, where Chrome cannot reach
+          // Google's speech endpoint. Whisper picks it up below.
+          console.info("Browser speech unavailable, using Whisper:", err?.message || err);
+        }
+      }
+
+      if (!answer && blob && blob.size > 2000) {
+        try {
+          answer = (await interviewStt(blob, 25_000, {
+            sessionId: sessionId ?? undefined,
+            seconds: (t_end - t_start) / 1000,
+          })).trim();
         } catch (err: any) {
           // Surface the actual error so a hung /stt is visible. The
           // user sees the warning + the typed-answer fallback box.
@@ -662,7 +697,7 @@ export default function InterviewSession({
           console.warn("Whisper transcription failed:", err?.message || err);
           setListenWarning(err?.message || "Couldn't transcribe your answer. Type it below and click I'm done.");
         }
-      } else if (!blob || blob.size === 0) {
+      } else if (!answer && (!blob || blob.size === 0)) {
         console.warn("MediaRecorder produced no audio - recording may have failed silently.");
       }
     }

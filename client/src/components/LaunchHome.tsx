@@ -1,4 +1,6 @@
-import { AuthUser } from "../api";
+import { useEffect, useState } from "react";
+import { AuthUser, interviewQuota, InterviewQuota } from "../api";
+import InterviewSession from "./InterviewSession";
 import FreeTailorSection from "./FreeTailorSection";
 import { ComingSoonGrid } from "./ComingSoon";
 import { CREATOR } from "./CreatorPage";
@@ -19,6 +21,18 @@ interface Props {
  */
 export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Props) {
   const firstName = (currentUser.name || "").split(" ")[0] || "there";
+  const [quota, setQuota] = useState<InterviewQuota | null>(null);
+  const [showInterview, setShowInterview] = useState(false);
+
+  // Refreshed when the interviewer closes so the remaining count is
+  // right straight after a session rather than on the next page load.
+  const loadQuota = () => { interviewQuota().then(setQuota).catch(() => setQuota(null)); };
+  useEffect(loadQuota, []);
+
+  const left = quota ? Math.max(0, quota.remaining) : null;
+  const resetsOn = quota?.resets_at
+    ? new Date(quota.resets_at).toLocaleDateString(undefined, { weekday: "long" })
+    : "Monday";
 
   return (
     <div className="min-h-screen">
@@ -65,6 +79,50 @@ export default function LaunchHome({ currentUser, onLogout, onOpenCreator }: Pro
 
       {/* The product */}
       <FreeTailorSection currentUser={currentUser} onNavigateToPricing={() => {}} launchMode />
+
+      {/* Practice interview: one a week, because a session costs about a
+          hundred times what a tailored resume does. */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-12">
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-raised)] p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-display text-xl sm:text-2xl text-[var(--text-primary)]">
+                  Practice interview
+                </h2>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--accent-muted)] text-[var(--accent)] border border-[var(--accent)]/25">
+                  New
+                </span>
+              </div>
+              <p className="text-sm text-[var(--text-secondary)] mt-2 max-w-xl leading-relaxed">
+                A voice interviewer that asks five questions written for the exact job,
+                follows up when an answer is thin, and scores you at the end. Speak your
+                answers or type them.
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-3">
+                {left === null
+                  ? "One session a week, free."
+                  : left > 0
+                  ? `${left} session${left === 1 ? "" : "s"} left this week. Refills ${resetsOn}.`
+                  : `You have used this week's session. It refills ${resetsOn}.`}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowInterview(true)}
+              disabled={left === 0}
+              className="px-5 py-3 rounded-xl bg-[var(--accent)] text-[#06070a] text-sm font-semibold hover:bg-[var(--accent-light)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              {left === 0 ? `Back ${resetsOn}` : "Start interview"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {showInterview && (
+        <InterviewSession
+          onClose={() => { setShowInterview(false); loadQuota(); }}
+        />
+      )}
 
       {/* On the way */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-24">

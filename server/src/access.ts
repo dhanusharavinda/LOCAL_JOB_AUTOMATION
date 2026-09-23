@@ -25,6 +25,7 @@ const LAUNCH_API_PREFIXES = [
   "/api/pdf/generate",  // review-editor PDF re-render
   "/api/parse-pdf",     // resume upload parsing
   "/api/parse-docx",
+  "/api/interview",     // AI interviewer, one session a week (see interview.ts)
 ];
 
 // Reachable while signed in but WITHOUT access yet: that's how access
@@ -44,7 +45,9 @@ export function launchFeatures(isAdmin: boolean) {
     tailor: true,
     pipeline: isAdmin,
     autoApply: isAdmin,
-    interview: isAdmin,
+    // One practice interview a week for everyone, enforced in
+    // interview.ts (weekly quota + a per-session voice budget).
+    interview: true,
     dashboard: isAdmin,
     storyBank: isAdmin,
     careerCoach: isAdmin,

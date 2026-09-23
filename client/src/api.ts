@@ -1164,6 +1164,8 @@ export interface AdminUserRow {
   last_active_date: string | null; // ISO date (YYYY-MM-DD) or null if never
   // Per-user daily allowance override. null = the site default.
   tailor_limit?: number | null;
+  // Practice interviews per WEEK. null = the site default (1).
+  interview_limit?: number | null;
 }
 
 export async function adminListUsers(status?: "pending" | "approved" | "rejected"): Promise<AdminUserRow[]> {
@@ -1453,11 +1455,13 @@ export async function interviewScore(input: {
   return res.json();
 }
 
-export async function interviewTtsBlob(text: string): Promise<Blob> {
+export async function interviewTtsBlob(text: string, sessionId?: number): Promise<Blob> {
   const res = await fetch("/api/interview/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    // sessionId lets the server bill the spoken characters to this
+    // session so the admin panel can show what it cost.
+    body: JSON.stringify({ text, sessionId }),
   });
   if (!res.ok) throw new Error("TTS failed");
   return res.blob();
@@ -1476,7 +1480,11 @@ export async function interviewTtsBlob(text: string): Promise<Blob> {
  * fail loudly so the UI can show the typed-answer fallback than to
  * leave the user staring at "Transcribing..." forever.
  */
-export async function interviewStt(blob: Blob, timeoutMs = 25_000): Promise<string> {
+export async function interviewStt(
+  blob: Blob,
+  timeoutMs = 25_000,
+  opts?: { sessionId?: number; seconds?: number },
+): Promise<string> {
   const fd = new FormData();
   // Filename here is for our own logs; OpenAI cares about the mimetype.
   // .webm is Chrome's default MediaRecorder output.
@@ -1485,6 +1493,11 @@ export async function interviewStt(blob: Blob, timeoutMs = 25_000): Promise<stri
             : blob.type.includes("wav") ? "wav"
             : "webm";
   fd.append("audio", blob, `answer.${ext}`);
+  // The server charges this clip against the session's voice budget.
+  // Reporting the real length keeps that budget accurate; the server
+  // estimates from the file size if it is missing or implausible.
+  if (opts?.sessionId != null) fd.append("sessionId", String(opts.sessionId));
+  if (opts?.seconds != null) fd.append("seconds", String(Math.round(opts.seconds)));
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -1656,4 +1669,34 @@ export async function submitFeedback(input: {
     const err = await res.json().catch(() => ({ error: "Could not send feedback" }));
     throw new Error(err.error || "Could not send feedback");
   }
+}
+
+export interface InterviewQuota {
+  used: number;
+  quota: number;
+  remaining: number;
+  plan: string;
+  period?: string;
+  resets_at?: string;
+}
+
+/** Practice interviews left this week. */
+export async function interviewQuota(): Promise<InterviewQuota> {
+  const res = await fetch("/api/interview/quota");
+  if (!res.ok) throw new Error("Could not load your interview allowance");
+  return res.json();
+}
+
+/** Practice interviews per week for one user. null clears the override. */
+export async function adminSetInterviewLimit(userId: string, limit: number | null): Promise<{ interview_limit: number | null }> {
+  const res = await fetch(`/api/invites/users/${userId}/interview-limit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null as any);
+    throw new Error(body?.error || "Could not update the interview limit");
+  }
+  return res.json();
 }

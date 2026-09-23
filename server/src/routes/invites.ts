@@ -328,6 +328,34 @@ router.post("/users/:userId/extend", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/invites/users/:userId/interview-limit (admin) ────────
+// Practice interviews per WEEK. null clears the override. The
+// interviewer is the expensive feature, so this is deliberately a
+// separate dial from the resume allowance.
+router.post("/users/:userId/interview-limit", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const raw = (req.body || {}).limit;
+  const limit = raw === null || raw === "" || raw === undefined
+    ? null
+    : Math.min(UNLIMITED_LIMIT, Math.max(0, parseInt(String(raw), 10) || 0));
+  try {
+    const rows = await sql<{ interview_limit: number | null }[]>`
+      UPDATE profiles SET interview_limit = ${limit}
+       WHERE id = ${req.params.userId}
+      RETURNING interview_limit
+    `;
+    if (rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+    res.json({ ok: true, interview_limit: rows[0].interview_limit });
+  } catch (err: any) {
+    if (err?.code === "42703") {
+      res.status(503).json({ error: "Interview limits are not set up yet. Try again in a moment." });
+      return;
+    }
+    console.error("[POST /api/invites/users/:userId/interview-limit]", err?.message || err);
+    res.status(500).json({ error: "Could not update the interview limit." });
+  }
+});
+
 // ─── POST /api/invites/users/:userId/limit (admin) ──────────────────
 // Sets that person's daily allowance for resumes and cover letters.
 // null clears the override and puts them back on the default.

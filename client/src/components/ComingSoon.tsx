@@ -15,11 +15,6 @@ export const COMING_SOON_FEATURES = [
     icon: "M13 10V3L4 14h7v7l9-11h-7z",
   },
   {
-    title: "AI Interview Practice",
-    body: "A voice interviewer that asks questions written for the exact job, follows up like a real person, and scores your answers.",
-    icon: "M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z",
-  },
-  {
     title: "Application Tracker",
     body: "A board that keeps every application, deadline, and follow-up in one place.",
     icon: "M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2",

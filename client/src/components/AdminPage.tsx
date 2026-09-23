@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval, adminSetTailorLimit } from "../api";
+import { AuthUser, AdminUserRow, adminListUsers, adminSetApproval, adminSetTailorLimit, adminSetInterviewLimit } from "../api";
 import AdminInvites from "./AdminInvites";
 
 // Daily allowance bounds. The admin can type anything in this range;
@@ -88,6 +88,75 @@ function LimitControl({
       >
         Default
       </button>
+    </div>
+  );
+}
+
+/**
+ * Practice interviews per WEEK. A separate dial from the resume
+ * allowance because a session costs roughly 100x a tailored resume,
+ * so handing someone extra interviews is a different decision from
+ * handing them extra resumes.
+ */
+function InterviewLimitControl({
+  user,
+  onSaved,
+}: {
+  user: AdminUserRow;
+  onSaved: (userId: string, limit: number | null) => void;
+}) {
+  const current = user.interview_limit ?? null;
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function save(limit: number | null) {
+    setBusy(true);
+    try {
+      const r = await adminSetInterviewLimit(user.id, limit);
+      onSaved(user.id, r.interview_limit);
+      setDone(true);
+      setTimeout(() => setDone(false), 1600);
+    } catch {
+      /* the next refresh shows the real value */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const label = current === null ? "default (1/week)" : `${current}/week`;
+  const options: { text: string; value: number | null }[] = [
+    { text: "1", value: 1 },
+    { text: "2", value: 2 },
+    { text: "5", value: 5 },
+    { text: "Off", value: 0 },
+    { text: "Default", value: null },
+  ];
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-ghost)]">
+        Interviews
+      </span>
+      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+        now: {done ? "saved" : label}
+      </span>
+      <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)]">
+        {options.map((o) => (
+          <button
+            key={o.text}
+            disabled={busy}
+            onClick={() => save(o.value)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-40 ${
+              current === o.value
+                ? "bg-[var(--accent)] text-[#06070a]"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+            }`}
+            title={o.value === 0 ? "No practice interviews for this person" : undefined}
+          >
+            {o.text}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -547,6 +616,15 @@ export default function AdminPage({
                       onSaved={(userId, limit) =>
                         setUsers((prev) =>
                           prev.map((row) => (row.id === userId ? { ...row, tailor_limit: limit } : row)),
+                        )
+                      }
+                    />
+
+                    <InterviewLimitControl
+                      user={u}
+                      onSaved={(userId, limit) =>
+                        setUsers((prev) =>
+                          prev.map((row) => (row.id === userId ? { ...row, interview_limit: limit } : row)),
                         )
                       }
                     />
