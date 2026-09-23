@@ -162,9 +162,39 @@ function requireAdmin(req: Request, res: Response): boolean {
 // List all profiles with approval status. Optional `?status=pending`
 // filter to only see the waitlist. Ordered newest-first so the owner
 // can triage signups in the order they arrived.
+/**
+ * Adds profiles.interview_limit if this database predates migration 0015.
+ *
+ * The admin list reads the column through `to_jsonb(p) ->> ...` so a
+ * missing column yields NULL rather than failing the whole query, which
+ * is what took the Users tab down. This closes the gap properly so the
+ * interview control appears on the next load.
+ */
+let interviewLimitColumn: Promise<void> | null = null;
+function ensureInterviewLimitColumn(): void {
+  if (interviewLimitColumn) return;
+  interviewLimitColumn = (async () => {
+    try {
+      await sql`SET lock_timeout = '4s'`;
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS interview_limit INTEGER`;
+      await sql`RESET lock_timeout`;
+    } catch (err: any) {
+      console.error("[admin/users] could not add interview_limit:", err?.message || err);
+      try { await sql`RESET lock_timeout`; } catch { /* connection may be gone */ }
+      interviewLimitColumn = null;
+    }
+  })();
+}
+
 router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
   const status = typeof req.query.status === "string" ? req.query.status : null;
+
+  // Self-heal the column migration 0015 adds, without waiting on the
+  // DDL: an awaited ALTER in a request path is what once queued every
+  // profiles read behind an exclusive lock.
+  ensureInterviewLimitColumn();
+
   try {
     // Aggregate usage per user in one query. The LEFT JOIN + GROUP BY
     // folds every usage_tracking row into a single counter per profile,
@@ -174,7 +204,8 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
     const rows = status
       ? await sql`
           SELECT
-            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at, p.tailor_limit, p.interview_limit,
+            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at, p.tailor_limit,
+            (to_jsonb(p) ->> 'interview_limit')::int AS interview_limit,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.jobs_scraped      ELSE 0 END), 0)::int AS jobs_scraped_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.resumes_tailored  ELSE 0 END), 0)::int AS resumes_tailored_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.pipeline_runs     ELSE 0 END), 0)::int AS pipeline_runs_today,
@@ -194,7 +225,8 @@ router.get("/admin/users", requireAuth, async (req: Request, res: Response) => {
         `
       : await sql`
           SELECT
-            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at, p.tailor_limit, p.interview_limit,
+            p.id, p.email, p.name, p.plan, p.approval_status, p.approved_at, p.created_at, p.tailor_limit,
+            (to_jsonb(p) ->> 'interview_limit')::int AS interview_limit,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.jobs_scraped      ELSE 0 END), 0)::int AS jobs_scraped_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.resumes_tailored  ELSE 0 END), 0)::int AS resumes_tailored_today,
             COALESCE(SUM(CASE WHEN ut.period = CURRENT_DATE THEN ut.pipeline_runs     ELSE 0 END), 0)::int AS pipeline_runs_today,
