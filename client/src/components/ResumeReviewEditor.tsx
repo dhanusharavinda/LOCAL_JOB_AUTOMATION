@@ -256,8 +256,16 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
       .filter((c: any) => (c?.name || "").trim());
     const awards = (data?.awards || [])
       .filter((a: any) => (a?.title || "").trim());
+    // Free-form sections (publications, volunteering, languages...).
+    // Drop empty rows, then drop a section left with nothing in it.
+    const additionalSections = (data?.additionalSections || [])
+      .map((sec: any) => ({
+        ...sec,
+        items: (sec?.items || []).filter((it: any) => (it?.name || "").trim() || (it?.detail || "").trim()),
+      }))
+      .filter((sec: any) => (sec?.title || "").trim() && sec.items.length > 0);
 
-    return { ...data, skills, experience, projects, education, certifications, awards };
+    return { ...data, skills, experience, projects, education, certifications, awards, additionalSections };
   }
 
   return (
@@ -614,6 +622,94 @@ export default function ResumeReviewEditor({ initialData, rendering, error, onCo
                 + Add award
               </button>
             </div>
+          </div>
+        </section>
+
+        {/* ── Anything else on your resume ──
+            Publications, volunteering, languages, patents. The AI puts
+            whatever it found here; you can add a section it missed, or
+            one the resume never had. */}
+        <section>
+          <h4 className={sectionTitleCls}>Other sections</h4>
+          <p className="text-[11px] text-[var(--text-tertiary)] mt-1">
+            Publications, volunteering, outreach, languages, patents, anything else. These print
+            in the order shown, after your awards.
+          </p>
+          <div className="space-y-3 mt-2">
+            {(data?.additionalSections || []).map((sec: any, si: number) => (
+              <div key={`as${si}`} className="rounded-xl border border-[var(--border-subtle)] p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    value={sec?.title ?? ""}
+                    onChange={(e) => mutate((d) => { d.additionalSections[si].title = e.target.value; })}
+                    className={`${inputCls} font-semibold uppercase tracking-wide`}
+                    placeholder="Section heading, e.g. PUBLICATIONS"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => mutate((d) => { d.additionalSections.splice(si, 1); })}
+                    className="shrink-0 text-[11px] px-2 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-red)] transition-colors"
+                    title="Remove this whole section"
+                  >
+                    Remove section
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {(sec?.items || []).map((it: any, ii: number) => (
+                    <div key={`as${si}i${ii}`} className="grid grid-cols-[2fr_2fr_1fr_auto] gap-2 items-start">
+                      <input
+                        value={it?.name ?? ""}
+                        onChange={(e) => mutate((d) => { d.additionalSections[si].items[ii].name = e.target.value; })}
+                        className={inputCls}
+                        placeholder="Title"
+                      />
+                      <input
+                        value={it?.detail ?? ""}
+                        onChange={(e) => mutate((d) => { d.additionalSections[si].items[ii].detail = e.target.value; })}
+                        className={inputCls}
+                        placeholder="Venue, role, or detail"
+                      />
+                      <input
+                        value={it?.date ?? ""}
+                        onChange={(e) => mutate((d) => { d.additionalSections[si].items[ii].date = e.target.value; })}
+                        className={inputCls}
+                        placeholder="Date"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => mutate((d) => { d.additionalSections[si].items.splice(ii, 1); })}
+                        className={removeBtnCls}
+                        title="Remove this entry"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => mutate((d) => {
+                      d.additionalSections[si].items = d.additionalSections[si].items || [];
+                      d.additionalSections[si].items.push({ name: "", detail: "", date: "" });
+                    })}
+                    className={addBtnCls}
+                  >
+                    + Add entry
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => mutate((d) => {
+                d.additionalSections = d.additionalSections || [];
+                d.additionalSections.push({ title: "", items: [{ name: "", detail: "", date: "" }] });
+              })}
+              className={addBtnCls}
+            >
+              + Add a section
+            </button>
           </div>
         </section>
       </fieldset>

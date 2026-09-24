@@ -193,6 +193,65 @@ function normaliseAwards(list: any[]): any[] {
 }
 
 /**
+ * Free-form sections: publications, volunteering, languages, patents,
+ * anything the fixed fields cannot hold.
+ *
+ * Also rescues the case where the model invents its own top-level key
+ * ("publications": [...]) instead of using additionalSections. Losing a
+ * publication list because the model chose a different key would be the
+ * same silent deletion the fixed sections used to suffer.
+ */
+const KNOWN_KEYS = new Set([
+  "personalinfo", "summary", "objective", "skills", "education", "experience",
+  "projects", "certifications", "awards", "additionalsections", "resumedata",
+]);
+
+function normaliseItems(list: any[]): any[] {
+  return list
+    .map((it: any) => {
+      if (typeof it === "string") {
+        const text = it.trim();
+        return text ? { name: text, detail: null, date: null } : null;
+      }
+      if (!it || typeof it !== "object") return null;
+      const name = pick(it, ["name", "title", "headline", "label", "text", "value"]);
+      const detail = pick(it, ["detail", "description", "venue", "publisher", "journal", "organization", "organisation", "role", "proficiency", "level", "summary"]);
+      const date = pick(it, ["date", "year", "dates", "period"]);
+      if (!name && !detail) return null;
+      return { ...it, name: name || detail, detail: name ? detail || null : null, date: date || null };
+    })
+    .filter(Boolean);
+}
+
+function normaliseAdditionalSections(data: any): any[] {
+  const out: any[] = [];
+
+  for (const sec of pickArray(data, ["additionalSections", "additional_sections", "otherSections", "other_sections", "extraSections"])) {
+    if (!sec || typeof sec !== "object") continue;
+    const title = pick(sec, ["title", "heading", "name", "section"]);
+    const items = normaliseItems(pickArray(sec, ["items", "entries", "list", "values", "rows"]));
+    if (title && items.length > 0) out.push({ title, items });
+  }
+
+  // A model that answered with its own key instead of the schema's.
+  for (const [key, value] of Object.entries(data)) {
+    if (KNOWN_KEYS.has(key.toLowerCase())) continue;
+    if (!Array.isArray(value) || value.length === 0) continue;
+    const items = normaliseItems(value);
+    if (items.length === 0) continue;
+    const title = key
+      .replace(/[_-]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .trim()
+      .toUpperCase();
+    if (out.some((s) => s.title.toUpperCase() === title)) continue;
+    out.push({ title, items });
+  }
+
+  return out;
+}
+
+/**
  * Returns a copy of the resume data with every section in the canonical
  * shape. Safe to call more than once and on already-correct data.
  */
@@ -208,7 +267,10 @@ export function normalizeResumeData(input: any): any {
   data.certifications = normaliseCertifications(
     pickArray(data, ["certifications", "certification", "certificates", "certs", "licenses", "licences", "credentials"]),
   );
-  data.awards = normaliseAwards(pickArray(data, ["awards", "honors", "honours", "achievements", "accomplishments"]));
+  data.awards = normaliseAwards(pickArray(data, ["awards", "honors", "honours", "accomplishments"]));
+  // Must run BEFORE the alias cleanup below, which deletes the stray
+  // top-level keys this reads from.
+  data.additionalSections = normaliseAdditionalSections(data);
 
   // Drop the aliases so nothing downstream reads a stale duplicate.
   for (const alias of [
@@ -217,6 +279,7 @@ export function normalizeResumeData(input: any): any {
     "educationHistory", "academics", "qualifications",
     "certification", "certificates", "certs", "licenses", "licences", "credentials",
     "honors", "honours", "accomplishments",
+    "additional_sections", "otherSections", "other_sections", "extraSections",
   ]) {
     if (alias in data) delete data[alias];
   }

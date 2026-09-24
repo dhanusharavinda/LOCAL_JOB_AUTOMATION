@@ -135,6 +135,7 @@ function buildResumeHtml(raw: any): string {
   const projects = data.projects || [];
   const certifications = data.certifications || [];
   const awards = data.awards || [];
+  const additionalSections = data.additionalSections || [];
 
   // Contact line - plain text, pipe separated, no icons, all links clickable.
   // Every part is wrapped in a .contact-item span with `white-space: nowrap`
@@ -259,6 +260,24 @@ function buildResumeHtml(raw: any): string {
       certsHtml += `</div>`;
     }
     certsHtml += `</div>`;
+  }
+
+  // Anything the fixed sections cannot hold: publications, volunteering,
+  // languages, patents. These used to be dropped on the floor, which on
+  // an academic or early-career resume deletes the best content on it.
+  let extraHtml = "";
+  for (const sec of additionalSections) {
+    const items = Array.isArray(sec?.items) ? sec.items : [];
+    const rows = items.filter((it: any) => hasVal(it?.name) || hasVal(it?.detail));
+    if (!hasVal(sec?.title) || rows.length === 0) continue;
+    extraHtml += `<div class="section"><div class="section-title">${esc(String(sec.title).toUpperCase())}</div>`;
+    for (const it of rows) {
+      extraHtml += `<div class="cert-entry">`;
+      extraHtml += `<div class="bold">${esc(it.name || it.detail)}${hasVal(it.date) ? ` - ${esc(it.date)}` : ""}</div>`;
+      if (hasVal(it.name) && hasVal(it.detail)) extraHtml += `<div class="italic">${esc(it.detail)}</div>`;
+      extraHtml += `</div>`;
+    }
+    extraHtml += `</div>`;
   }
 
   // Awards
@@ -421,6 +440,7 @@ function buildResumeHtml(raw: any): string {
   ${projectsHtml}
   ${certsHtml}
   ${awardsHtml}
+  ${extraHtml}
 </body>
 </html>`;
 }

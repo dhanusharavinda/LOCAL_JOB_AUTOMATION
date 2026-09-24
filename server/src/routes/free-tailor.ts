@@ -1091,6 +1091,15 @@ ${intensityRules}${userSteeringBlock}
 5. SKILLS - include EVERY skill the resume lists, grouped into the same categories (or your best inference of categories if the resume is flat).
 
 6. CERTIFICATIONS / AWARDS - include EVERY entry from these sections if they exist.
+6b. EVERYTHING ELSE - the resume may carry sections that none of the fields above describe:
+   publications, research, patents, volunteering, outreach, community work, leadership,
+   languages, conferences, talks, memberships, extracurriculars, hobbies, references.
+   These are often the strongest thing on a junior or academic resume, and dropping them
+   is the single worst failure you can make here. Put EVERY such section into
+   additionalSections, keeping the resume's own heading and the entries VERBATIM:
+   titles, venues, co-authors, organisations and dates are facts and are never
+   reworded, merged or invented. You may reorder items within a section to put the
+   JD-relevant ones first. If the resume has no such sections, return an empty array.
 
 7. SUMMARY - preserve hard facts verbatim:
    The original summary may contain factual statements that ATS systems and recruiters MUST see exactly as the candidate wrote them. Examples:
@@ -1163,11 +1172,27 @@ Sound human. Vary sentence length. Be specific about tools and outcomes.
     ],
     "awards": [
       { "title": "string", "issuer": "string or null", "date": "string or null" }
+    ],
+    "additionalSections": [
+      {
+        "title": "string (the resume's own heading, e.g. PUBLICATIONS, VOLUNTEERING, LANGUAGES, PATENTS, LEADERSHIP, CONFERENCES)",
+        "items": [
+          {
+            "name": "string (the headline: paper title, organisation, language, patent name)",
+            "detail": "string or null (venue, role, proficiency, co-authors, one-line description)",
+            "date": "string or null (copy verbatim)"
+          }
+        ]
+      }
     ]
   }
 }
 
 === FINAL CHECKS BEFORE RETURNING ===
+0. Read the resume's section HEADINGS one by one. For each heading, is its content
+   somewhere in your output, either in a named field or in additionalSections? Any
+   heading you cannot point to is content you have deleted from someone's resume. Go
+   back and add it.
 1. Count entries in education. Does it match the number of degrees in the resume? If not, add the missing ones.
 2. Count entries in experience. Does it match the number of roles? If not, add the missing ones.
 3. For every experience entry, is "location" populated if the resume shows one? If not, fix it.
