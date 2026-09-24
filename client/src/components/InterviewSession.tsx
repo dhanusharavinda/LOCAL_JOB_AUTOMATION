@@ -99,6 +99,20 @@ export default function InterviewSession({
 
   // ── Session state ─────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<number | null>(null);
+  // Refs mirror the state for code that runs inside async chains.
+  //
+  // The first question is asked from a setTimeout in beginSession, so
+  // every function it chains into (listening, the silence detector,
+  // finishUserTurn, and the "I'm done" button wired up in that same
+  // listening call) runs in the closure from the render BEFORE
+  // setSessionId / setQuestions landed: sessionId null, questions [].
+  // finishUserTurn's `if (!sessionId) return` then exited silently right
+  // after transcription and the screen sat on "Considering your answer"
+  // forever. Reading through refs makes the chain see current values no
+  // matter which render created it.
+  const sessionIdRef = useRef<number | null>(null);
+  const questionsRef = useRef<InterviewQuestion[]>([]);
+  const followUpDepthRef = useRef<number>(0);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [qIdx, setQIdx] = useState(0);
   const [followUpDepth, setFollowUpDepth] = useState(0);
@@ -328,6 +342,9 @@ export default function InterviewSession({
         mode,
         difficulty,
       });
+      sessionIdRef.current = resp.sessionId;
+      questionsRef.current = resp.questions;
+      followUpDepthRef.current = 0;
       setSessionId(resp.sessionId);
       setQuestions(resp.questions);
       setQIdx(0);
@@ -358,7 +375,7 @@ export default function InterviewSession({
     // is replacing it.
     if (ttsUrlRef.current) { URL.revokeObjectURL(ttsUrlRef.current); ttsUrlRef.current = null; }
     try {
-      const blob = await interviewTtsBlob(text, sessionId ?? undefined);
+      const blob = await interviewTtsBlob(text, sessionIdRef.current ?? undefined);
       const url = URL.createObjectURL(blob);
       ttsUrlRef.current = url;
       audio.src = url;
@@ -704,7 +721,7 @@ export default function InterviewSession({
       if (!answer && blob && blob.size > 2000) {
         try {
           answer = (await interviewStt(blob, 25_000, {
-            sessionId: sessionId ?? undefined,
+            sessionId: sessionIdRef.current ?? undefined,
             seconds: (t_end - t_start) / 1000,
           })).trim();
         } catch (err: any) {
@@ -725,13 +742,24 @@ export default function InterviewSession({
     // in the deciding state under the status label.
     if (answer) setLastHeard(answer);
 
-    if (!sessionId) { setDecidingPhase(null); return; }
+    const sid = sessionIdRef.current;
+    const qs = questionsRef.current;
+    if (!sid || qs.length === 0) {
+      // Was a silent `return` that left the orb on "Considering your
+      // answer" with no way out. If it ever happens again it must be
+      // visible, not a frozen screen.
+      console.error("[interview] turn finished with no session in scope", { sid, questions: qs.length });
+      setDecidingPhase(null);
+      setError("The session lost track of itself. Please start a new round; this one does not count against your week.");
+      setPhase("error");
+      return;
+    }
 
     // Fast path: if this was the last question, skip the /turn decide
     // call entirely. There's no follow-up vs next decision to make - 
     // we're heading to scoring no matter what /turn would say. Saves
     // a 2-5s OpenAI round-trip on the most painful step of the loop.
-    const isLastQuestion = qIdxFor + 1 >= questions.length;
+    const isLastQuestion = qIdxFor + 1 >= qs.length;
     if (isLastQuestion) {
       setDecidingPhase("scoring");
       await finishAndScore();
@@ -745,7 +773,7 @@ export default function InterviewSession({
       // the user. After 12s of no response we just move on - better
       // a missed follow-up than a frozen modal.
       const decision = await raceWithTimeout(
-        interviewTurn({ sessionId, qIdx: qIdxFor, answer, followUpDepth }),
+        interviewTurn({ sessionId: sid, qIdx: qIdxFor, answer, followUpDepth: followUpDepthRef.current }),
         12_000,
         { action: "next" as const, followUpQuestion: undefined, ack: undefined },
         (reason, err) => {
@@ -765,6 +793,7 @@ export default function InterviewSession({
       const ack = (decision.ack || "").trim();
       const withAck = (q: string) => (ack ? `${ack} ${q}` : q);
       if (decision.action === "follow_up" && decision.followUpQuestion) {
+        followUpDepthRef.current += 1;
         setFollowUpDepth((d) => d + 1);
         setDecidingPhase("next_question");
         await askQuestion(withAck(decision.followUpQuestion), qIdxFor);
@@ -773,16 +802,17 @@ export default function InterviewSession({
       }
       // Move to next question.
       const nextIdx = qIdxFor + 1;
-      if (nextIdx >= questions.length) {
+      if (nextIdx >= qs.length) {
         setDecidingPhase("scoring");
         await finishAndScore();
         setDecidingPhase(null);
         return;
       }
       setQIdx(nextIdx);
+      followUpDepthRef.current = 0;
       setFollowUpDepth(0);
       setDecidingPhase("next_question");
-      await askQuestion(withAck(questions[nextIdx].question), nextIdx);
+      await askQuestion(withAck(qs[nextIdx].question), nextIdx);
       setDecidingPhase(null);
     } catch (err: any) {
       setDecidingPhase(null);
@@ -792,7 +822,8 @@ export default function InterviewSession({
   }
 
   async function finishAndScore() {
-    if (!sessionId) {
+    const sid = sessionIdRef.current;
+    if (!sid) {
       setError("Session was lost before scoring could run. Please start a new practice round.");
       setPhase("error");
       return;
@@ -814,7 +845,7 @@ export default function InterviewSession({
     }
 
     try {
-      const res = await interviewScore({ sessionId, transcript: finalTranscript });
+      const res = await interviewScore({ sessionId: sid, transcript: finalTranscript });
       setReadiness(res.readiness_score);
       setRubric(res.rubric);
       setMetrics(res.metrics);
@@ -831,7 +862,8 @@ export default function InterviewSession({
   }
 
   async function abandon() {
-    if (sessionId) { try { await interviewAbandon(sessionId); } catch { /* noop */ } }
+    const sidToAbandon = sessionIdRef.current;
+    if (sidToAbandon) { try { await interviewAbandon(sidToAbandon); } catch { /* noop */ } }
     stopAllAudio();
     onClose();
   }
