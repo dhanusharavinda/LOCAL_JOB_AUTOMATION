@@ -182,6 +182,14 @@ export default function InterviewSession({
   const vadCtxRef = useRef<AudioContext | null>(null);
   const vadRafRef = useRef<number>(0);
   const vadHasSpokenRef = useRef<boolean>(false);
+  // Why the turn ended. A turn the 90s failsafe ended with no voice ever
+  // detected is silence, and silence must not be paid for: Whisper bills
+  // per minute and a 90s clip of room noise is $0.009 of nothing.
+  const finishReasonRef = useRef<"manual" | "vad" | "timeout">("manual");
+  // Consecutive turns that timed out with no voice. Two in a row means
+  // nobody is there, and the session ends rather than reading five
+  // questions to an empty room.
+  const idleTurnsRef = useRef<number>(0);
   // Resolves with the recorded Blob once the recorder has flushed.
   const recordStopResolverRef = useRef<((blob: Blob | null) => void) | null>(null);
 
@@ -345,6 +353,7 @@ export default function InterviewSession({
       sessionIdRef.current = resp.sessionId;
       questionsRef.current = resp.questions;
       followUpDepthRef.current = 0;
+      idleTurnsRef.current = 0;
       setSessionId(resp.sessionId);
       setQuestions(resp.questions);
       setQIdx(0);
@@ -525,7 +534,10 @@ export default function InterviewSession({
     // question. Cleared by stopRecog().
     if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = window.setTimeout(() => {
-      if (recordMediaRef.current?.state === "recording") finishUserTurn(qIdxFor);
+      if (recordMediaRef.current?.state === "recording") {
+        finishReasonRef.current = "timeout";
+        finishUserTurn(qIdxFor);
+      }
     }, 90_000);
 
     // Web Audio analyser drives the VAD. We share the stream with
@@ -583,6 +595,7 @@ export default function InterviewSession({
         // Started silence after speech. Auto-finish if it persists.
         if (silenceStart === 0) silenceStart = now;
         if (now - silenceStart > adaptiveSilenceMsRef.current) {
+          finishReasonRef.current = "vad";
           finishUserTurn(qIdxFor);
           return;
         }
@@ -594,6 +607,7 @@ export default function InterviewSession({
 
   function clickDone() {
     if (sub === "speaking" || sub === "deciding") return;
+    finishReasonRef.current = "manual";
     finishUserTurn(qIdx);
   }
 
@@ -680,6 +694,10 @@ export default function InterviewSession({
     // user typed in the fallback box (mic blocked etc.), prefer that.
     const typed = typedAnswer.trim();
     let answer = "";
+    // The failsafe fired and the VAD never heard a voice: there is
+    // nothing to transcribe. A manual "I'm done" is always transcribed,
+    // because a quiet speaker under the VAD threshold still meant it.
+    const silentTimeout = finishReasonRef.current === "timeout" && !vadHasSpokenRef.current;
     if (typed) {
       answer = typed;
       stopRecog(); // we don't need the audio
@@ -699,7 +717,8 @@ export default function InterviewSession({
       // user.
       const speech = browserSpeechRef.current;
       browserSpeechRef.current = null;
-      if (speech) {
+      if (speech && silentTimeout) speech.abort();
+      if (speech && !silentTimeout) {
         speech.stop();
         try {
           // Hard bound. This runs in the middle of answering a question,
@@ -718,7 +737,7 @@ export default function InterviewSession({
         }
       }
 
-      if (!answer && blob && blob.size > 2000) {
+      if (!answer && !silentTimeout && blob && blob.size > 2000) {
         try {
           answer = (await interviewStt(blob, 25_000, {
             sessionId: sessionIdRef.current ?? undefined,
@@ -737,6 +756,21 @@ export default function InterviewSession({
     }
 
     pushTranscript({ qIdx: qIdxFor, role: "user", text: answer, t_start, t_end });
+
+    // Nobody there? Stop, rather than spend five questions of TTS and
+    // transcription on an empty room. The transcript is only persisted
+    // at scoring, so a session ended here stays at zero turns and does
+    // not count against the week.
+    idleTurnsRef.current = !answer && silentTimeout ? idleTurnsRef.current + 1 : 0;
+    if (idleTurnsRef.current >= 2) {
+      stopRecog();
+      const sidIdle = sessionIdRef.current;
+      if (sidIdle) { void interviewAbandon(sidIdle).catch(() => { /* noop */ }); }
+      setDecidingPhase(null);
+      setError("We ended this round because nothing was heard for two questions in a row. It does not count against your week, so start again when you are ready.");
+      setPhase("error");
+      return;
+    }
     setTypedAnswer("");
     // Echo what Whisper heard so the user trusts the pipeline. Shown
     // in the deciding state under the status label.
