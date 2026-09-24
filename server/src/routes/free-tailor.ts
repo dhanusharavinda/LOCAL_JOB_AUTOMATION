@@ -271,6 +271,30 @@ router.post("/", async (req: Request, res: Response) => {
   let promptTokens = 0;
   let completionTokens = 0;
 
+  /**
+   * Give the slot back.
+   *
+   * Deletes the row THIS request reserved, by id. The previous version
+   * deleted "the newest row for this user today", which with two tabs
+   * open could refund a different run than the one that failed: the
+   * other tab's successful tailor would lose its usage row while the
+   * failed one kept its slot.
+   *
+   * Every path that reserves and then gives up must call this, not just
+   * the catch block, because a 422 or a bad-JSON 500 costs the user a
+   * tailor just as surely as a thrown error does.
+   */
+  async function refundSlot(): Promise<void> {
+    if (!reservedLogId) return;
+    const id = reservedLogId;
+    reservedLogId = null;   // never refund the same row twice
+    try {
+      await sql`DELETE FROM free_tailor_log WHERE id = ${id}`;
+    } catch (err: any) {
+      console.error("[free-tailor] refund failed for row", id, err?.message || err);
+    }
+  }
+
   let used: number;
   if (userIsAdmin) {
     used = 0;
@@ -373,6 +397,7 @@ router.post("/", async (req: Request, res: Response) => {
 
     if (completion.choices[0].finish_reason === "length") {
       console.error("[free-tailor] output hit the token cap; resume too long for one pass");
+      await refundSlot();
       res.status(500).json({
         error: "Your resume is unusually long, so the tailored copy got cut off. Trim it a little and try again.",
       });
@@ -390,6 +415,7 @@ router.post("/", async (req: Request, res: Response) => {
     try {
       resumeData = JSON.parse(raw);
     } catch {
+      await refundSlot();
       res.status(500).json({ error: "AI returned invalid JSON. Please try again." });
       return;
     }
@@ -400,6 +426,7 @@ router.post("/", async (req: Request, res: Response) => {
     // field names the model happened to pick this run.
     const inner = normalizeResumeData(resumeData.resumeData || resumeData);
     if (!inner.personalInfo) {
+      await refundSlot();
       res.status(500).json({ error: "AI output is missing required resume fields." });
       return;
     }
@@ -435,6 +462,7 @@ router.post("/", async (req: Request, res: Response) => {
         // logging the user's full resume.
         resumePreview: resumeText.slice(0, 200),
       });
+      await refundSlot();
       res.status(422).json({
         error:
           "Our AI couldn't extract resume fields from this file - the content may not look like a CV. Make sure you uploaded YOUR resume (not a job description, company brochure, or other doc), then try again.",
@@ -616,21 +644,7 @@ Return the JSON now.`;
     // The slot was reserved before OpenAI was called; refund it on hard
     // failure so the user isn't charged for a tailor that didn't ship.
     // We delete the most recent row for this user in the 24h window.
-    try {
-      await sql`
-        DELETE FROM free_tailor_log
-         WHERE id = (
-           SELECT id FROM free_tailor_log
-            WHERE user_id = ${userId}
-              AND kind = 'tailor'
-              AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
-            ORDER BY created_at DESC
-            LIMIT 1
-         )
-      `;
-    } catch (refundErr: any) {
-      console.error("[POST /api/free-tailor] refund failed", refundErr?.message || refundErr);
-    }
+    await refundSlot();
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
@@ -675,6 +689,18 @@ router.post("/cover-letter", async (req: Request, res: Response) => {
   const clQuota = await limitFor(clUserId, req.user!.email);
   // Same pattern as the tailor route: reserve first, cost it afterwards.
   let clLogId: number | null = null;
+
+  /** Give back the cover-letter slot this request reserved, by id. */
+  async function refundCoverSlot(): Promise<void> {
+    if (!clLogId) return;
+    const id = clLogId;
+    clLogId = null;
+    try {
+      await sql`DELETE FROM free_tailor_log WHERE id = ${id}`;
+    } catch (err: any) {
+      console.error("[free-tailor] cover-letter refund failed for row", id, err?.message || err);
+    }
+  }
   if (!clIsAdmin) {
     let clUsed = 0;
     try {
@@ -760,6 +786,7 @@ Return the JSON now.`;
       : null;
 
     if (!coverLetter) {
+      await refundCoverSlot();
       res.status(502).json({ error: "AI returned an empty cover letter. Please try again." });
       return;
     }
@@ -775,23 +802,7 @@ Return the JSON now.`;
   } catch (err: any) {
     console.error("[POST /api/free-tailor/cover-letter]", err?.message || err);
     // Give the reserved slot back so a failed generation costs nothing.
-    if (!clIsAdmin) {
-      try {
-        await sql`
-          DELETE FROM free_tailor_log
-           WHERE id = (
-             SELECT id FROM free_tailor_log
-              WHERE user_id = ${clUserId}
-                AND kind = 'cover_letter'
-                AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
-              ORDER BY created_at DESC
-              LIMIT 1
-           )
-        `;
-      } catch (refundErr: any) {
-        console.error("[POST /api/free-tailor/cover-letter] refund failed", refundErr?.message || refundErr);
-      }
-    }
+    await refundCoverSlot();
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });

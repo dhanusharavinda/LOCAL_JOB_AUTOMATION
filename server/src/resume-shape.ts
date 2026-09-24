@@ -201,10 +201,28 @@ function normaliseAwards(list: any[]): any[] {
  * publication list because the model chose a different key would be the
  * same silent deletion the fixed sections used to suffer.
  */
-const KNOWN_KEYS = new Set([
-  "personalinfo", "summary", "objective", "skills", "education", "experience",
-  "projects", "certifications", "awards", "additionalsections", "resumedata",
-]);
+const CANONICAL_KEYS = [
+  "personalInfo", "summary", "objective", "skills", "education", "experience",
+  "projects", "certifications", "awards", "additionalSections", "resumeData",
+];
+
+/**
+ * Every alias the section normalisers already consume. These must be
+ * skipped here as well as deleted afterwards: the sweep for stray keys
+ * runs BEFORE the cleanup, so without this an alias the normaliser has
+ * already folded in (certificates -> certifications) came back a second
+ * time as a free-form section and printed twice.
+ */
+const ALIAS_KEYS = [
+  "workExperience", "work_experience", "employment", "employmentHistory", "work",
+  "personalProjects", "personal_projects", "sideProjects",
+  "educationHistory", "academics", "qualifications",
+  "certification", "certificates", "certs", "licenses", "licences", "credentials",
+  "honors", "honours", "accomplishments",
+  "additional_sections", "otherSections", "other_sections", "extraSections",
+];
+
+const KNOWN_KEYS = new Set([...CANONICAL_KEYS, ...ALIAS_KEYS].map((k) => k.toLowerCase()));
 
 function normaliseItems(list: any[]): any[] {
   return list
@@ -273,14 +291,7 @@ export function normalizeResumeData(input: any): any {
   data.additionalSections = normaliseAdditionalSections(data);
 
   // Drop the aliases so nothing downstream reads a stale duplicate.
-  for (const alias of [
-    "workExperience", "work_experience", "employment", "employmentHistory", "work",
-    "personalProjects", "personal_projects", "sideProjects",
-    "educationHistory", "academics", "qualifications",
-    "certification", "certificates", "certs", "licenses", "licences", "credentials",
-    "honors", "honours", "accomplishments",
-    "additional_sections", "otherSections", "other_sections", "extraSections",
-  ]) {
+  for (const alias of ALIAS_KEYS) {
     if (alias in data) delete data[alias];
   }
 
