@@ -1393,6 +1393,8 @@ export interface InterviewMetrics {
   hedging_count: number;
   self_correct_count: number;
   turn_count: number;
+  median_words_per_answer?: number;
+  per_answer_words?: number[];
 }
 
 export type InterviewDifficulty = "easy" | "medium" | "hard";

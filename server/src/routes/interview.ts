@@ -623,8 +623,14 @@ router.post("/score", async (req: Request, res: Response) => {
     const selfCorrectCount = (allText.match(selfCorrectRegex) || []).length;
     const wpm = totalSeconds > 0 ? Math.round((totalWords / totalSeconds) * 60) : 0;
 
+    const perAnswerWords = userTurns.map((t: any) => (String(t.text || "").match(/\b\w+\b/g) || []).length);
+    const sortedWords = [...perAnswerWords].sort((a, b) => a - b);
+    const medianWords = sortedWords.length ? sortedWords[Math.floor(sortedWords.length / 2)] : 0;
+
     const metrics = {
       total_words: totalWords,
+      median_words_per_answer: medianWords,
+      per_answer_words: perAnswerWords,
       total_seconds: Math.round(totalSeconds),
       wpm,
       filler_count: fillerCount,
@@ -646,20 +652,47 @@ router.post("/score", async (req: Request, res: Response) => {
       })
       .join("\n");
 
+    // The scorer is a hiring manager, not a cheerleader. A candidate who
+    // reads polite feedback and walks into a real interview unprepared
+    // has been failed by this screen. Everything below pushes the model
+    // toward specific, evidence-backed, calibrated judgement.
     const sys =
-      "You are an interview rubric scorer. Read the transcript and score 0-100 on each dimension. " +
-      "Return STRICT JSON: { overall_readiness: 0-100, dimensions: { clarity, structure, technical_accuracy, jd_relevance, communication }, " +
-      "by_question: [{ q_idx, score, strengths: [string], gaps: [string], pull_quote: string, model_answer: string }], " +
-      "weak_areas_to_prep: [string], stories_used: [string] }. " +
-      "Be strict on factual accuracy and structure (STAR for behavioral). Be generous on tone. " +
-      "model_answer: 2-3 first-person sentences showing what a STRONG answer to this question would have sounded like for THIS candidate, reusing their real experience from the transcript where possible. Concrete and speakable; no clichés, no bullet lists. " +
-      "weak_areas_to_prep is a 3-5 item action list, each starting with a verb. " +
-      "stories_used names any specific past experiences the candidate referenced.";
+      "You are a senior hiring manager scoring a MOCK interview so the candidate can fix what is wrong before the real one. " +
+      "Your job is to tell them the truth. Politeness that leaves them unprepared is a failure on your part. " +
+      "Speak to the candidate directly as 'you'. Be specific, be blunt, and back every claim with something from the transcript.\n\n" +
+      "SCALE (0-100, every dimension and overall_readiness):\n" +
+      "  0-25  would end the interview early: empty, one-line, off-topic, or 'I don't know' answers\n" +
+      "  26-45 weak: vague, no concrete examples, would not advance\n" +
+      "  46-65 borderline: some substance, needs a strong second round\n" +
+      "  66-84 solid hire signal: specific, structured, relevant\n" +
+      "  85-100 exceptional and rare\n" +
+      "Most first attempts land 30-65. Do not inflate. Answer LENGTH is evidence: a real interview answer runs 60-150 words; " +
+      "answers under 25 words cannot score above 30 on any dimension no matter how correct, because they give an interviewer nothing to assess. " +
+      "You will be given each answer's word count. Use it.\n\n" +
+      "Return STRICT JSON:\n" +
+      "{ overall_readiness: 0-100,\n" +
+      "  verdict: 'not_ready' | 'borderline' | 'ready'  (not_ready under 46, borderline 46-65, ready 66+),\n" +
+      "  headline: one blunt second-person sentence naming the single biggest problem, containing a number from this transcript (e.g. 'Your answers averaged 6 words; that is not an interview, that is a shrug.'),\n" +
+      "  dimensions: { clarity, structure, technical_accuracy, jd_relevance, communication },\n" +
+      "  by_question: [{ q_idx, score, strengths: [string], gaps: [string], pull_quote: string (VERBATIM from the candidate, or '' if they said nothing usable), model_answer: string }],\n" +
+      "  weak_areas_to_prep: [{ area: string, evidence: string, fix: string }]  (3-5 items),\n" +
+      "  stories_used: [string] }\n\n" +
+      "RULES:\n" +
+      "- evidence must be a fact from THIS transcript: a quote, a word count, a question they dodged. 'Your Q3 answer was 4 words' is evidence. 'Work on structure' is not.\n" +
+      "- fix starts with a verb and is something they can do this week.\n" +
+      "- If the median answer is under 25 words, the FIRST prep item is about answering at length, with the counts.\n" +
+      "- Never praise something that is not in the transcript. If strengths are genuinely absent, return an empty list.\n" +
+      "- Banned: 'enhance', 'develop a clear narrative', 'communicate complex ideas', 'leverage', 'showcase', and any sentence that could apply to every candidate on earth.\n" +
+      "- Be strict on factual accuracy and structure (STAR for behavioral). Tone is not a dimension; do not reward it.\n" +
+      "- model_answer: 2-3 first-person sentences showing what a STRONG answer would have sounded like for THIS candidate, reusing their real experience where any exists. Concrete and speakable, no bullet lists.\n" +
+      "- stories_used names specific past experiences the candidate actually referenced.";
 
     const usr =
       `Mode: ${row.mode}\n` +
       `Questions:\n${questions.map((q, i) => `${i + 1}. ${q.question}`).join("\n")}\n\n` +
-      `Transcript:\n${compact}\n\nScore now.`;
+      `Answer lengths: ${perAnswerWords.map((n, i) => `#${i + 1}=${n}w`).join(", ")} ` +
+      `(median ${medianWords} words; a real answer is 60-150)\n\n` +
+      `Transcript:\n${compact}\n\nScore now. Be honest.`;
 
     const completion = await openai.chat.completions.create({
       model: CHAT_MODEL,
@@ -672,6 +705,10 @@ router.post("/score", async (req: Request, res: Response) => {
     let rubric: any = {};
     try { rubric = JSON.parse(completion.choices[0]?.message?.content || "{}"); } catch { rubric = {}; }
     const readiness = Math.max(0, Math.min(100, parseInt(String(rubric.overall_readiness || 0), 10) || 0));
+    const allowedVerdicts = ["not_ready", "borderline", "ready"];
+    if (!allowedVerdicts.includes(rubric.verdict)) {
+      rubric.verdict = readiness < 46 ? "not_ready" : readiness < 66 ? "borderline" : "ready";
+    }
 
     await sql`
       UPDATE interview_sessions

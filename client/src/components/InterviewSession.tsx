@@ -1331,11 +1331,35 @@ export default function InterviewSession({
                 background: readinessColor(readiness),
                 color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 24, fontWeight: 800,
-              }}>{readiness ?? "-"}</div>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>Readiness score</div>
-                <div style={muted}>Based on {metrics.turn_count} answers, {Math.round(metrics.total_seconds)}s of speech, {metrics.wpm} wpm.</div>
+              }}>
+                <div style={{ lineHeight: 1 }}>{readiness ?? "-"}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.85, marginTop: 2 }}>/ 100</div>
               </div>
+              {(() => {
+                const v = verdictOf((rubric as any).verdict, readiness);
+                const headline = String((rubric as any).headline || "").trim();
+                const median = (metrics as any).median_words_per_answer;
+                return (
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 2, color: verdictColor(v) }}>
+                      {verdictLabel(v)}
+                    </div>
+                    <div style={muted}>
+                      {metrics.turn_count} answers, {metrics.total_words} words
+                      {typeof median === "number" ? ` (median ${median} per answer)` : ""}, {Math.round(metrics.total_seconds)}s answering.
+                    </div>
+                    {headline && (
+                      <div style={{ fontSize: 13.5, color: "#e8eaed", marginTop: 8, lineHeight: 1.45 }}>
+                        {headline}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            <div style={{ fontSize: 11, color: "#8b8fa3", marginBottom: 14, lineHeight: 1.5 }}>
+              Scale: 0-45 would not advance · 46-65 borderline · 66-84 hire signal · 85+ exceptional.
+              A real answer runs 60-150 words. Scores are meant to be honest, not kind.
             </div>
 
             <Section title="Dimensions">
@@ -1343,7 +1367,9 @@ export default function InterviewSession({
                 {Object.entries(rubric.dimensions || {}).map(([k, v]) => (
                   <div key={k} style={dimCell}>
                     <div style={{ fontSize: 11, color: "#8b8fa3", textTransform: "capitalize" }}>{k.replace(/_/g, " ")}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: scoreColor(Number(v)) }}>{v}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: scoreColor(Number(v)) }}>
+                      {v}<span style={{ fontSize: 11, fontWeight: 400, color: "#8b8fa3" }}> /100</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1355,16 +1381,35 @@ export default function InterviewSession({
                 <Metric label="Filler words" value={`${metrics.filler_count} (${metrics.filler_per_100w}/100w)`} />
                 <Metric label="Hedging phrases" value={metrics.hedging_count} />
                 <Metric label="Self-corrections" value={metrics.self_correct_count} />
-                <Metric label="Total speech" value={`${Math.round(metrics.total_seconds)}s`} />
+                <Metric label="Time answering" value={`${Math.round(metrics.total_seconds)}s`} />
                 <Metric label="Total words" value={metrics.total_words} />
               </div>
             </Section>
 
             {(rubric.weak_areas_to_prep && rubric.weak_areas_to_prep.length > 0) && (
               <Section title="What to prep before the real interview">
-                <ul style={{ marginTop: 4, paddingLeft: 18 }}>
-                  {rubric.weak_areas_to_prep.map((w, i) => <li key={i} style={{ marginBottom: 4, fontSize: 13 }}>{w}</li>)}
-                </ul>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                  {rubric.weak_areas_to_prep.map((w: any, i: number) => {
+                    if (typeof w === "string") {
+                      return <div key={i} style={{ fontSize: 13 }}>{w}</div>;
+                    }
+                    return (
+                      <div key={i} style={{ padding: "8px 10px", borderRadius: 8, background: "#12151c", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#e8eaed" }}>{w.area}</div>
+                        {w.evidence && (
+                          <div style={{ fontSize: 12, color: "#ef6b6b", marginTop: 3 }}>
+                            <span style={{ fontWeight: 600 }}>What happened: </span>{w.evidence}
+                          </div>
+                        )}
+                        {w.fix && (
+                          <div style={{ fontSize: 12, color: "#5cc46a", marginTop: 3 }}>
+                            <span style={{ fontWeight: 600 }}>Do this: </span>{w.fix}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </Section>
             )}
 
@@ -1381,7 +1426,7 @@ export default function InterviewSession({
                     <div key={q.q_idx} style={qCard}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                         <div style={{ fontSize: 12, fontWeight: 600 }}>Q{q.q_idx + 1}</div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor(q.score) }}>{q.score}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor(q.score) }}>{q.score}<span style={{ fontWeight: 400, color: "#8b8fa3" }}>/100</span></div>
                       </div>
                       <div style={{ fontSize: 12, color: "#8b8fa3" }}>{questions[q.q_idx]?.question || ""}</div>
                       {q.pull_quote && <div style={{ fontSize: 11, color: "#8b8fa3", marginTop: 4, fontStyle: "italic" }}>"{q.pull_quote}"</div>}
@@ -1609,6 +1654,19 @@ const orbKeyframes = `
   66%      { transform: translate(-3%, 4%); }
 }
 `;
+
+/** The verdict in plain words. Falls back to the score for old sessions. */
+function verdictOf(v: string | undefined, score: number | null): "not_ready" | "borderline" | "ready" {
+  if (v === "not_ready" || v === "borderline" || v === "ready") return v;
+  const n = score ?? 0;
+  return n < 46 ? "not_ready" : n < 66 ? "borderline" : "ready";
+}
+function verdictLabel(v: "not_ready" | "borderline" | "ready"): string {
+  return v === "ready" ? "Ready" : v === "borderline" ? "Borderline" : "Not ready";
+}
+function verdictColor(v: "not_ready" | "borderline" | "ready"): string {
+  return v === "ready" ? "#5cc46a" : v === "borderline" ? "#ff9800" : "#ef6b6b";
+}
 
 function statusLabel(sub: RunningSub, deciding: DecidingPhase | null): string {
   if (sub === "speaking") return "Interviewer is speaking";
